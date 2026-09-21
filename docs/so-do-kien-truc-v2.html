@@ -215,7 +215,7 @@
           <!-- NestJS -->
           <rect x="40" y="340" width="700" height="320" rx="10" class="zone-api"/>
           <text x="56" y="364" class="t">NestJS API · TypeScript</text>
-          <text x="724" y="364" text-anchor="end" class="xs">Docker · 1 container · vùng Singapore</text>
+          <text x="724" y="364" text-anchor="end" class="xs">Docker · 1 container · Render, Singapore</text>
 
           <text x="56" y="410" class="s">Mỗi request:</text>
           <rect x="140" y="392" width="84" height="28" rx="5" class="chip"/><text x="182" y="410" text-anchor="middle" class="xs">JWT</text>
@@ -305,7 +305,7 @@
           <!-- PostgreSQL -->
           <rect x="40" y="700" width="700" height="130" rx="10" class="zone"/>
           <text x="56" y="724" class="t">PostgreSQL · Supabase</text>
-          <text x="724" y="724" text-anchor="end" class="xs">RLS theo organization_id (lớp 2) · PostGIS bật sẵn</text>
+          <text x="724" y="724" text-anchor="end" class="xs">RLS theo phiên app.org_id (lớp 2) · PostGIS bật sẵn</text>
           <text x="56" y="750" class="lab">tổ chức</text>
           <text x="140" y="750" class="m">organizations · memberships · branches · subscriptions</text>
           <text x="56" y="770" class="lab">chuỗi</text>
@@ -318,8 +318,8 @@
           <!-- Backup -->
           <rect x="840" y="700" width="320" height="130" rx="10" class="box"/>
           <text x="856" y="724" class="t">Backup</text>
-          <text x="856" y="748" class="s">PITR của Supabase</text>
-          <text x="856" y="768" class="s">+ pg_dump hằng ngày ra kho riêng</text>
+          <text x="856" y="748" class="s">pg_dump hằng ngày ra kho riêng</text>
+          <text x="856" y="768" class="s">+ backup Supabase Pro khi nâng gói</text>
           <text x="856" y="788" class="s">Thử phục hồi 1 lần trước khi mở</text>
           <line x1="742" y1="765" x2="836" y2="765" class="wire" marker-end="url(#ar)"/>
           <text x="789" y="758" text-anchor="middle" class="lab">sao lưu</text>
@@ -479,8 +479,8 @@
           <tr>
             <td>Database nằm ở đâu</td>
             <td class="old">Vẽ trong khối NestJS</td>
-            <td><span class="tag keep">đã vẽ lại</span>Postgres của Supabase, nằm ngoài NestJS. NestJS nối qua Prisma bằng role <code>api_service</code>; RLS giữ làm lớp bảo vệ thứ hai.
-              <span class="why">Prisma bỏ qua RLS, nên lớp chính phải là Guard; RLS vẫn chặn ai chạm thẳng DB.</span></td>
+            <td><span class="tag keep">đã vẽ lại</span>Postgres của Supabase, nằm ngoài NestJS. NestJS nối qua Prisma bằng role <code>api_service</code>; RLS theo phiên là lớp bảo vệ thứ hai.
+              <span class="why">Guard là lớp chính. <code>api_service</code> <b>không</b> có <code>BYPASSRLS</code>: mỗi request đặt <code>app.org_id</code> trong transaction, nên repository lỡ quên lọc <code>orgId</code> vẫn không đọc được dữ liệu tổ chức khác.</span></td>
           </tr>
           <tr>
             <td>Đăng nhập, ảnh</td>
@@ -518,7 +518,7 @@
           <tr>
             <td>Audit log, backup</td>
             <td class="old">Một dòng mỗi thứ</td>
-            <td><span class="tag keep">mở rộng</span>Audit mọi thao tác nhạy cảm (xoá phiếu, huỷ lần trả, đổi quyền, kết nối). Backup hai lớp: PITR của Supabase và <code>pg_dump</code> hằng ngày ra kho riêng, thử phục hồi một lần.</td>
+            <td><span class="tag keep">mở rộng</span>Audit mọi thao tác nhạy cảm (xoá phiếu, huỷ lần trả, đổi quyền, kết nối). Backup: <code>pg_dump</code> hằng ngày ra kho riêng (bắt buộc trước người dùng thật — prod đang ở gói Free), thêm backup của Supabase Pro khi nâng gói, PITR sau khi có doanh thu; thử phục hồi một lần.</td>
           </tr>
           <tr>
             <td>Đo lường</td>

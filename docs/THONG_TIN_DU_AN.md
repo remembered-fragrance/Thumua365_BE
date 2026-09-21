@@ -1,7 +1,7 @@
 # THÔNG TIN DỰ ÁN — Mambo365 / THUMUA365
 
 > **Đọc file này đầu tiên.** Nó tổng hợp mọi thứ đã chốt và chưa chốt tính đến
-> **21/09/2026**: sản phẩm là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ
+> **21/09/2026** (cập nhật sau BE1): sản phẩm là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ
 > tự nào, và nhóm còn phải quyết gì. Chi tiết kỹ thuật nằm ở các file được dẫn tới.
 
 ---
@@ -16,7 +16,7 @@
 | Hướng mới (09/2026) | **Nền tảng ba vai trò** trên một chuỗi, backend **NestJS** theo sơ đồ kiến trúc |
 | Nông sản trọng tâm | Cao su · điều · cà phê · tiêu |
 | Nền tảng | Web (React + TS, PWA offline) · Android (lên CH Play) |
-| Tình trạng một câu | Code frontend + nghiệp vụ tính tiền **đã có và có test**, nhưng **chưa từng deploy, chưa có project Supabase, chưa có dữ liệu thật**. Backend NestJS **chưa bắt đầu** |
+| Tình trạng một câu | Frontend + nghiệp vụ tính tiền **đã có và có test**. Backend xong **BE0–BE1**: API staging chạy trên Render (`/v1/health`, `/v1/me` kiểm JWT thật), hai project Supabase (staging, prod) đã tạo. **Chưa có database nghiệp vụ, chưa có dữ liệu thật** — bước tiếp là BE2. Nhật ký: [MEMORY.md](../MEMORY.md) |
 
 ### Phân công
 
@@ -73,17 +73,17 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 | PWA (offline, cache) | Giữ nguyên | ✅ | — |
 | Android (Capacitor — deferred) | Bản đầu lên CH Play bằng **TWA** (bọc PWA); Capacitor khi cần API native | ❌ | sau BE9 |
 | Giao diện responsive | Giữ; 375px / 320px không cuộn ngang | ✅ | — |
-| HTTPS / REST API (JWT) | `https://api.<domain>/v1`, `Bearer` = token Supabase | ❌ | BE1 |
+| HTTPS / REST API (JWT) | `https://api.<domain>/v1`, `Bearer` = token Supabase. Tạm: `thumua365-api-staging.onrender.com` | ✅ staging | BE1 |
 
 ### 3.2 NestJS Backend — API Layer
 
 | Ô sơ đồ | Quyết định | Bước |
 |---|---|---|
-| REST Controllers | Theo module, tiền tố `/v1` | BE1 |
-| DTO Validation (class-validator) | ⚠️ **Dùng zod** thay class-validator — để một schema dùng chung cho web và API (`packages/contracts`). Vai trò giữ nguyên | BE1 |
-| Guards & Auth (JWT, Roles) | `SupabaseJwtGuard` → `OrgContextGuard` (header `X-Organization-Id`) → `PermissionGuard` (ma trận quyền là dữ liệu trong contracts) | BE1 |
-| Interceptors (Logging, Transform) | Logging: `requestId`, thời gian, `orgId`. Transform: đổi camelCase ↔ snake_case ở rìa, bỏ trường nội bộ khỏi phản hồi | BE1 |
-| Exception Filters | Một định dạng lỗi `{ error: { code, message, details } }`, `code` là enum trong contracts | BE1 |
+| REST Controllers | Theo module, tiền tố `/v1`; đường dẫn lấy từ `routes` của contracts qua `@Endpoint` | ✅ BE1 |
+| DTO Validation (class-validator) | ⚠️ **Dùng zod** thay class-validator — để một schema dùng chung cho web và API (`packages/contracts`). Vai trò giữ nguyên | ✅ BE1 |
+| Guards & Auth (JWT, Roles) | `ClientIpThrottlerGuard` → `JwtAuthGuard` (JWKS ES256) → `OrgContextGuard` (header `X-Organization-Id`) → `PermissionGuard` (ma trận quyền là dữ liệu trong contracts). Mặc định đóng: thiếu `@Endpoint` = cần đăng nhập | ✅ BE1 |
+| Interceptors (Logging, Transform) | Logging ở **middleware** (không phải interceptor) để ghi cả request bị 401/403/429: `requestId`, thời gian, `userId`, `orgId`. Transform = `ContractInterceptor`: kiểm phản hồi bằng schema hợp đồng, lọc trường thừa, sai hình dạng → 500. Đổi camelCase ↔ snake_case thuộc lớp dữ liệu (BE2) | ✅ BE1 |
+| Exception Filters | Một định dạng lỗi `{ error: { code, message, details, requestId } }`, `code` là enum trong contracts; lỗi 500 không lộ chi tiết | ✅ BE1 |
 
 ### 3.3 Business Services (Modules)
 
@@ -105,7 +105,7 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 | Data Access: Repository, Prisma/TypeORM, Query Builder, Transaction Mgmt | **Prisma**; repository bắt buộc tham số `orgId` theo kiểu; mỗi thao tác sync một transaction DB | ❌ | BE2 |
 | PostgreSQL | Supabase Postgres; Prisma Migrate sở hữu schema (baseline từ 10 migration cũ) | 🟡 chưa chạy | BE2 |
 | PostGIS (Geospatial) | Bật extension từ đầu; dùng khi làm tìm vựa gần / vùng trồng (`$queryRaw`) | ❌ | sau BE10 |
-| Supabase Auth | Giữ — NestJS chỉ kiểm JWT | 🟡 | BE1 |
+| Supabase Auth | Giữ — NestJS chỉ kiểm JWT bằng JWKS (ES256), không dùng JWT secret | ✅ kiểm JWT · OTP ❌ | BE1 · BE2 (OTP) |
 | Supabase Storage | Ảnh chứng từ qua signed URL, file không chảy qua NestJS | 🟡 | BE8 |
 | Supabase Realtime | Đẩy **trạng thái đơn và thông báo** tới máy (thay cho hỏi lại 60 giây/lần). Sổ offline vẫn kéo theo cursor | ❌ | BE5 (hỏi định kỳ) → nâng lên Realtime sau |
 | RLS | Lớp bảo vệ **thứ hai** theo `organization_id`; lớp chính là Guard | ✅ theo `user_id` | BE2 |
@@ -123,7 +123,7 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 
 | Ô sơ đồ | Quyết định | Bước |
 |---|---|---|
-| Supabase (API/SDK, Webhook) | Auth, Storage, DB. Webhook từ Supabase (ví dụ Auth hook khi có người đăng ký) chỉ dùng nếu cần | BE1 |
+| Supabase (API/SDK, Webhook) | Auth, Storage, DB. Webhook từ Supabase (ví dụ Auth hook khi có người đăng ký) chỉ dùng nếu cần. Data API (PostgREST) **tắt** | ✅ BE1 (Auth) |
 | Ngân hàng — webhook thanh toán | Casso / SePay → `POST /v1/webhooks/bank` (chống trùng, khớp số tiền, bí mật so sánh không đo thời gian) | BE6 |
 | Map / Location | Tìm kiếm địa lý, toạ độ vùng trồng — cùng lúc với PostGIS | sau BE10 |
 | Email / SMS | **OTP xác thực SĐT** (bắt buộc trước khi liên kết) · thông báo hệ thống | BE2 · BE5 |
@@ -133,12 +133,12 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 
 | Ô sơ đồ | Quyết định | Bước |
 |---|---|---|
-| Docker | Dockerfile nhiều tầng cho API; `docker-compose` cho dev (Postgres 16 + PostGIS) | BE1 |
-| CI/CD (GitHub Actions) | Lint · typecheck · test · build image · deploy staging khi merge `master`; prod bấm tay | BE0–BE1 |
+| Docker | Dockerfile nhiều tầng cho API ✅; `docker-compose` cho dev (Postgres 16 + PostGIS) — cần Docker Desktop trên máy dev | BE1 · BE2 |
+| CI/CD (GitHub Actions) | Lint · typecheck · test · build image + chạy thử container; Render deploy staging khi CI trên `master` xanh; prod bấm tay | ✅ BE0–BE1 |
 | Monitoring (Prometheus + Grafana) | `/metrics`; một dashboard 4 biểu đồ | BE9 |
-| Log (Winston / ELK) | **Winston**, log JSON có `requestId`, `orgId`. ELK chưa cần; đẩy log lên dịch vụ có sẵn của nơi chạy container | BE1 |
-| Backup (PostgreSQL + Supabase) | **Hai lớp**: backup/PITR của Supabase + `pg_dump` hằng ngày ra kho riêng. **Thử phục hồi một lần** trước khi mở | BE10 |
-| Security: HTTPS/SSL, RLS, Audit log | HTTPS, CORS chỉ domain app, rate limit, `helmet`. Audit log mở rộng từ `admin_access_log` sang mọi thao tác nhạy cảm: xoá phiếu, huỷ lần trả, đổi quyền, kết nối/huỷ kết nối | BE2 · BE10 |
+| Log (Winston / ELK) | **Winston**, log JSON có `requestId`, `orgId`. ELK chưa cần; log đọc ở Render | ✅ BE1 |
+| Backup (PostgreSQL + Supabase) | Prod đang ở gói **Free** (không có backup tự động) ⇒ `pg_dump` hằng ngày ra kho riêng là lớp **bắt buộc** trước người dùng thật; thêm backup của Supabase Pro khi nâng gói, PITR sau khi có doanh thu. **Thử phục hồi một lần** trước khi mở | BE10 |
+| Security: HTTPS/SSL, RLS, Audit log | HTTPS, CORS chỉ domain app, rate limit theo IP thật (`cf-connecting-ip` sau Cloudflare), `helmet` ✅. Audit log mở rộng từ `admin_access_log` sang mọi thao tác nhạy cảm: xoá phiếu, huỷ lần trả, đổi quyền, kết nối/huỷ kết nối | BE2 · BE10 |
 | Sentry | Theo dõi lỗi runtime (không có trên sơ đồ, đã có trong kế hoạch H) | BE9 |
 
 ---
@@ -191,8 +191,8 @@ safety khớp với R5, `assetlinks.json` cho TWA.
 
 | Bước | Backend | Frontend song song | Buổi |
 |---|---|---|---|
-| BE0 | Repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE): `packages/core`, `packages/contracts`, CI, release `.tgz` | Chốt quy ước; `@/core/` → `@mambo/core/` từ release | 1–2 |
-| BE1 | Khung NestJS, Guard, định dạng lỗi, `/v1/me`, Docker, staging | `/lien-he`, link pháp lý (R4); khung chọn vỏ | 2 |
+| BE0 ✅ | Repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE): `packages/core`, `packages/contracts`, CI, release `.tgz` | Chốt quy ước; `@/core/` → `@mambo/core/` từ release | 1–2 |
+| BE1 ✅ | Khung NestJS, Guard, định dạng lỗi, `/v1/me`, Docker, staging Render | `/lien-he`, link pháp lý (R4); khung chọn vỏ | 2 |
 | BE2 | Prisma + schema ba vai trò, tổ chức, chi nhánh, OTP, `/me/bootstrap` | Bước "Bác là ai?" khi đăng ký | 3 |
 | BE3 | Đồng bộ sổ qua API, giới hạn theo chi nhánh | `sync.ts`, `pullChanges.ts`, `cache.ts` | 3–4 |
 | BE4 | Kết nối tổ chức + phần xem của nông dân | Vỏ Nông dân (phần xem), nút "Mời kết nối" | 2–3 |
@@ -272,8 +272,8 @@ Chốt theo hướng đề xuất. Sơ đồ và bảng lý do: [so-do-kien-truc
 | 2 | Đồng bộ qua NestJS hay thẳng Supabase? | **Qua NestJS** — `/sync/push`, `/sync/pull`, cursor do server cấp | BE3 |
 | 3 | Kết nối nông dân ↔ vựa | **OTP SMS + bấm đồng ý**; chỉ thấy trường in trên biên nhận; huỷ có hiệu lực ngay | BE2, BE4 |
 | 4 | Nông dân gửi đơn cho ai | Bản đầu chỉ vựa **đã kết nối**; chợ mở cùng Map/PostGIS ở giai đoạn 2 | BE5 |
-| 5 | Nơi chạy container API | Vùng **Singapore**; chọn nhà cung cấp (Render / Fly.io / Railway / VPS) khi làm BE1 | BE1 |
-| 6 | Tên miền API, tên gói npm | `api.thumua365.vn` · `@mambo/*` | BE0, BE1 |
+| 5 | Nơi chạy container API | **Render**, vùng Singapore (staging gói free; production thêm ở BE10) | BE1 ✅ |
+| 6 | Tên miền API, tên gói npm | `api.thumua365.vn` (chờ quyền DNS; tạm `*.onrender.com`) · `@mambo/*` | BE0, BE1 |
 | 7 | Đo lường | **First-party** trong Postgres | BE9, trang pháp lý |
 | 8 | Android | **TWA** lên CH Play trước; Capacitor khi cần API native | sau BE9 |
 | 9 | Validation | **zod** trong `packages/contracts` | BE1 |
@@ -281,7 +281,8 @@ Chốt theo hướng đề xuất. Sơ đồ và bảng lý do: [so-do-kien-truc
 | 11 | Realtime | Bản đầu hỏi mỗi 60 giây; Realtime giai đoạn 2 | BE5 |
 
 **Còn mở** (cần người, không phải cần code): số tài khoản nhận tiền và người chịu trách
-nhiệm pháp lý trên trang chính sách — Nguyên, Linh. Ảnh hưởng R3, R4.
+nhiệm pháp lý trên trang chính sách — Nguyên, Linh. Ảnh hưởng R3, R4. Nhà cung cấp SMS
+cho OTP — chọn ở BE2. Quyền DNS `thumua365.vn`.
 
 ⚠️ **Cổng chặn 2 vẫn chưa vượt:** chưa có bằng chứng ≥3/10 chủ vựa nói "sẽ trả". Với ba vai
 trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, doanh nghiệp trả bao nhiêu.
@@ -296,7 +297,7 @@ trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, d
 | Mất khoản trả khi đồng bộ | Năm quy tắc §7.1 có test + bảy kịch bản chạy trên máy thật trước khi mở pilot |
 | Lộ sổ của vựa cho vựa khác / nông dân lạ | Repository bắt buộc `orgId`, RLS lớp hai, OTP + bấm đồng ý, chỉ chiếu trường biên nhận |
 | Phạm vi phình ra vì ba vai trò | Không làm mục "sau BE10" trước khi BE10 xong |
-| Chưa chạy thật lần nào | BE1 deploy staging ngay; mỗi bước nghiệm thu trên staging, không trên máy dev |
+| Chưa chạy thật lần nào | ✅ Staging chạy từ BE1 — và đã bắt được lỗi chỉ lộ trên hạ tầng thật (hạn mức theo IP sau Cloudflare). Mỗi bước nghiệm thu trên staging, không trên máy dev |
 | Đồng hồ 14 ngày của CH Play | Nộp bản thử nghiệm kín ngay khi BE5 xong |
 | Một người làm backend | Mỗi bước nhỏ, deploy được, lùi được; không Kubernetes, không Redis, không ELK |
 
@@ -307,10 +308,11 @@ trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, d
 | File | Nội dung |
 |---|---|
 | **THONG_TIN_DU_AN.md** (file này) | Tổng hợp — đọc đầu tiên |
-| [deploy_plan/so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) | **Sơ đồ kiến trúc v2** vẽ lại + luồng giá trị chính + hướng giải quyết từng điểm mở ([bản online](https://claude.ai/artifact/AWAQJgU1uptoWBe7vZy6AH)) |
-| [deploy_plan/BE-backend-nestjs.md](BE-backend-nestjs.md) | Kế hoạch backend chi tiết: schema, ma trận quyền, hợp đồng sync, từng bước |
+| [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) | **Sơ đồ kiến trúc v2** vẽ lại + luồng giá trị chính + hướng giải quyết từng điểm mở ([bản online](https://claude.ai/artifact/AWAQJgU1uptoWBe7vZy6AH)) |
+| [BE-backend-nestjs.md](BE-backend-nestjs.md) | Kế hoạch backend chi tiết: schema, ma trận quyền, hợp đồng sync, từng bước |
+| [MEMORY.md](../MEMORY.md) của repo này | Nhật ký backend BE0 →: đã làm gì, quyết gì, vì sao, còn treo gì |
 | [deploy_plan/I-huong-moi.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/deploy_plan/I-huong-moi.md) | Đối chiếu sơ đồ với repo, năm yêu cầu phát hành, CH Play |
-| [MEMORY.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/MEMORY.md) | Nhật ký giai đoạn A→G: đã làm gì, vì sao, lỗi thật đã bắt |
+| [MEMORY.md của repo frontend](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/MEMORY.md) | Nhật ký giai đoạn A→G: đã làm gì, vì sao, lỗi thật đã bắt |
 | [deploy_plan/README.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/deploy_plan/README.md) | Luật chung của repo (ranh giới tầng, kích thước file, luật cấm) |
 | [deploy_plan/NOTES.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/deploy_plan/NOTES.md) | Việc thấy nhưng chưa tới lượt, nợ kỹ thuật |
 | [supabase/VAN_HANH.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/supabase/VAN_HANH.md) | Bảng kiểm vận hành: Auth, kịch bản đồng bộ, luồng tiền |

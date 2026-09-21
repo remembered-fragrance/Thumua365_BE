@@ -1,6 +1,8 @@
 # KẾ HOẠCH BACKEND — NestJS, ba vai trò, triển khai từng bước, khớp chính xác với frontend
 
-Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt**
+Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
+Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
+Tiến độ: **BE0 ✅ · BE1 ✅** · tiếp theo BE2 — nhật ký ở [MEMORY.md](../MEMORY.md)
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
 Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
@@ -25,7 +27,7 @@ Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
 | 4 | Không có event bus | `@nestjs/event-emitter`: sự kiện miền → thông báo, đo lường, audit | Có trên kiến trúc v2 |
 | 5 | Audit chỉ cho quản trị viên | Bảng `audit_log` cho mọi thao tác nhạy cảm, ghi từ BE2 | Có trên kiến trúc v2 |
 | 6 | Backup: "thử phục hồi" | `pg_dump` hằng ngày ra kho riêng (bắt buộc trước pilot) + backup hằng ngày của Supabase Pro khi nâng gói; PITR sau khi có doanh thu | Có trên kiến trúc v2; prod tạm ở gói Free |
-| 7 | Log `pino`, không có interceptor | **Winston** (JSON) + `LoggingInterceptor` + `TransformInterceptor` | Theo ô API Layer của sơ đồ |
+| 7 | Log `pino`, không có interceptor | **Winston** (JSON), log truy cập ở **middleware** + `ContractInterceptor` (kiểm phản hồi theo hợp đồng) | Theo ô API Layer của sơ đồ; middleware để ghi cả request bị guard chặn (BE1) |
 | 8 | HTTPS, CORS, rate limit, `helmet` ở BE10 | Chuyển lên **BE1** | Staging có dữ liệu thử thật từ BE2 |
 | 9 | Chưa nói nông dân có bị chặn theo gói | Chặn gói **chỉ** ở ghi sổ của vựa/DN; đơn, kết nối **miễn phí cho mọi bên** | Chốt: nông dân miễn phí; mạng lưới kết nối là thứ giữ chân vựa |
 | 10 | DN "trả theo số chi nhánh" nhưng không có chỗ chặn | `subscriptions.branch_limit` + lỗi `BRANCH_LIMIT` | Để giá theo chi nhánh có nghĩa |
@@ -215,10 +217,10 @@ mambo365_deploymentphase (repo frontend hiện tại)                     [Front
 
 | Mục | Quy ước |
 |---|---|
-| Đường dẫn | `https://api.thumua365.vn/v1/...` (staging: `api-staging.thumua365.vn`) |
+| Đường dẫn | `https://api.thumua365.vn/v1/...` (staging: `api-staging.thumua365.vn`). Tới khi có quyền DNS: `https://thumua365-api-staging.onrender.com/v1` |
 | Xác thực | `Authorization: Bearer <access_token Supabase>`. NestJS kiểm bằng JWKS, không phát token |
 | Tổ chức | Header `X-Organization-Id` bắt buộc trên endpoint nghiệp vụ; server kiểm membership `active` |
-| Tên trường | camelCase, trùng `core/types.ts`. `TransformInterceptor` đổi sang/từ snake_case và lọc trường nội bộ |
+| Tên trường | camelCase, trùng `core/types.ts`. Lớp dữ liệu (mapper/repository, BE2) đổi sang/từ snake_case; `ContractInterceptor` lọc mọi trường không có trong schema phản hồi |
 | Id | UUID v4 do client sinh cho bản ghi sổ; do server sinh cho `orders`, `partner_links`, `memberships` |
 | Thời gian | ISO 8601 có múi giờ |
 | Tiền | `number`, số nguyên đồng |
@@ -245,6 +247,8 @@ mambo365_deploymentphase (repo frontend hiện tại)                     [Front
 | `VALIDATION_FAILED` | 422 | Không thử lại; `details` chỉ trường sai |
 | `PARENT_MISSING` | 409 | Thử lại theo lịch giãn cách |
 | `ORDER_STATE_CHANGED` | 409 | Tải lại đơn |
+| `NOT_FOUND` | 404 | Đường dẫn/bản ghi không có — không thử lại |
+| `PAYLOAD_TOO_LARGE` | 413 | Body > 1MB — chia nhỏ lô sync, không gửi lại nguyên lô |
 | `RATE_LIMITED` | 429 | Thử lại sau `Retry-After` |
 | `INTERNAL` | 5xx | Thử lại theo lịch giãn cách hiện có |
 
@@ -352,7 +356,7 @@ Thêm: staff hai chi nhánh không thấy phiếu của nhau; nông dân bị hu
 
 | Lớp | Cơ chế |
 |---|---|
-| **1 — NestJS** | `SupabaseJwtGuard` → `OrgContextGuard` → `PermissionGuard` → zod. Repository bắt buộc tham số `orgId` (theo kiểu) |
+| **1 — NestJS** | `JwtAuthGuard` → `OrgContextGuard` → `PermissionGuard` → zod. Repository bắt buộc tham số `orgId` (theo kiểu) |
 | **2 — Postgres RLS** | Mỗi request mở transaction và chạy `select set_config('app.org_id', $1, true)`. Policy: `organization_id = current_setting('app.org_id')::uuid`. Role `api_service` **không** có `BYPASSRLS` |
 | Đọc chéo tổ chức | `orders`: policy cho cả `seller_org_id` lẫn `buyer_org_id`. Phiếu của bên kia: chỉ qua hàm `security definer` `linked_receipts(org)` kiểm `partner_links.status = 'active'` và trả đúng các cột biên nhận |
 | Việc đặc quyền | Webhook ngân hàng, `AdminModule`, xoá tài khoản dùng role riêng `api_privileged` (có `BYPASSRLS`), chỉ ba module này được inject |
@@ -393,7 +397,7 @@ Thêm: staff hai chi nhánh không thấy phiếu của nhau; nông dân bị hu
 Mỗi bước: **Backend** · **Frontend** · **Xong khi**. Không sang bước sau khi "Xong khi"
 chưa đạt.
 
-### BE0 — Dựng repo backend, tách `core`, hợp đồng nền (1–2 buổi)
+### BE0 — Dựng repo backend, tách `core`, hợp đồng nền (1–2 buổi) · ✅ phần backend 21/09/2026
 
 - **Backend:** repo `Thumua365_BE` với npm workspaces; `src/core/` + `tests/core/` →
   `packages/core/` (build ESM + CJS + `.d.ts`, xuất từng file); `packages/contracts` với
@@ -407,7 +411,7 @@ chưa đạt.
   lần đầu trên GitHub; release `v0.1.0` có hai file `.tgz`; frontend build được với
   `@mambo/core` từ release và 43 test `data/`, `features/` còn lại vẫn xanh.
 
-### BE1 — Khung NestJS, bảo mật nền, hạ tầng (2–3 buổi) · ✅ code xong 21/09/2026
+### BE1 — Khung NestJS, bảo mật nền, hạ tầng (2–3 buổi) · ✅ đóng 21/09/2026 (staging Render, `smoke:me` đạt)
 
 - **Backend:**
   - **NestJS 11** (không phải 12 — v12 chỉ ESM, ra được 3 tuần), CommonJS, Express 5.
@@ -424,7 +428,8 @@ chưa đạt.
   - `@Endpoint(routes.x)`: đường dẫn, phương thức, loại xác thực, quyền, schema phản hồi đều
     lấy từ `@mambo/contracts` — controller không tự gõ đường dẫn.
   - **Bảo mật nền:** CORS chỉ domain trong `CORS_ORIGINS`, `helmet`, rate limit theo IP
-    (`trust proxy` cho Render), giới hạn body 1MB. HTTPS do Render lo.
+    thật — `ClientIpThrottlerGuard` đọc header trong `CLIENT_IP_HEADER` (`cf-connecting-ip`,
+    vì Render đứng sau Cloudflare), giới hạn body 1MB. HTTPS do Render lo.
   - `GET /v1/health`; `GET /v1/me` — thông tin người dùng lấy thật từ Supabase Auth
     (`/auth/v1/user` bằng token của chính họ, có `phone_confirmed_at`), `memberships: []`
     tới BE2, `pendingLinks: 0` tới BE4.
@@ -633,5 +638,6 @@ Nhịp: 15 phút đầu tuần chốt contract của tuần; đổi contract gi�
    không ELK, không Kubernetes ở giai đoạn này.
 7. **Duyệt PR** vào `packages/core`, `packages/contracts`: bắt buộc cả hai người.
 
-Còn chờ: frontend xác nhận quy ước §3 (buổi đầu BE0); nhà cung cấp SMS và nơi chạy
-container (BE1–BE2); số tài khoản nhận tiền và người chịu trách nhiệm pháp lý (Nguyên, Linh).
+Còn chờ: frontend xác nhận quy ước §3 (việc BE0 của frontend); nhà cung cấp SMS (BE2);
+Docker Desktop trên máy dev (BE2); quyền DNS `thumua365.vn`; số tài khoản nhận tiền và
+người chịu trách nhiệm pháp lý (Nguyên, Linh). Nơi chạy container: **Render**, Singapore (chốt ở BE1).
