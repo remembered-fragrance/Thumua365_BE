@@ -2,7 +2,7 @@
 
 Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
-Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 🟡** (code xong, chờ staging) · tiếp theo BE3 — nhật ký ở [MEMORY.md](../MEMORY.md)
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 🟡** (staging chạy, chờ nghiệm thu OTP) · tiếp theo BE3 — nhật ký ở [MEMORY.md](../MEMORY.md)
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
 Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
@@ -442,7 +442,7 @@ chưa đạt.
 - **Xong khi:** đăng nhập staging → `/v1/me` đúng; token sai → 401 đúng định dạng; gọi từ
   domain lạ bị CORS chặn; spam endpoint → 429.
 
-### BE2 — Database, ba vai trò, OTP, audit (3–4 buổi) · 🟡 code backend xong 22/09/2026, chờ staging
+### BE2 — Database, ba vai trò, OTP, audit (3–4 buổi) · 🟡 chạy trên staging 22/09/2026 (`v0.3.0`), chờ nghiệm thu OTP
 
 - **Backend:**
   - `docker-compose.yml` (**Postgres 17** + PostGIS — cùng bản với Supabase; bản trước ghi
@@ -467,8 +467,10 @@ chưa đạt.
     từ email đăng nhập nội bộ, không tin số client khai), `/auth/resolve-identifier` (luôn
     trả một email — không dò được ai có tài khoản), `/links/discover` (kiểm
     `phone_confirmed_at` ngay lúc gọi; chưa xác thực → `PHONE_NOT_VERIFIED`).
-  - Còn lại (cần dashboard / nhà cung cấp): bật **Phone provider** trên Supabase + số thử
-    OTP; nhà cung cấp SMS thật cho bước "OTP tới máy thật".
+  - Còn lại (cần dashboard / nhà cung cấp): **tắt "Confirm email"** (email nội bộ
+    `84…@id.thumua365.vn` không nhận thư — bật thì người chỉ có SĐT không đăng nhập được);
+    bật **Phone provider** + số thử OTP; nhà cung cấp SMS thật cho "OTP tới máy thật".
+    Nghiệm thu bằng `npm run login-test` (đủ luồng đăng ký → "Bác là ai?" → OTP → dò kết nối).
 - **Frontend:** bước **"Bác là ai?"** khi đăng ký (`sdk.meBootstrap`); đăng nhập gọi
   `sdk.resolveIdentifier` thay RPC; màn xác thực OTP (`supabase.auth.updateUser({ phone })` →
   `verifyOtp({ type: 'phone_change' })` → `sdk.discoverLinks()`); chọn vỏ theo

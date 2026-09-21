@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Thử đăng nhập — THUMUA365</title>
+  <title>Thử luồng tài khoản — THUMUA365</title>
   <link rel="stylesheet" href="/style.css">
   <!-- Gói lấy từ chính repo (bản đã build), đúng gói frontend sẽ cài. -->
   <script type="importmap">
@@ -11,6 +11,7 @@
       "imports": {
         "@mambo/sdk": "/pkg/sdk/index.js",
         "@mambo/contracts": "/pkg/contracts/index.js",
+        "@mambo/core/identifier": "/pkg/core/identifier.js",
         "zod": "/pkg/zod/index.js"
       }
     }
@@ -21,8 +22,9 @@
   <main>
     <header>
       <p class="eyebrow">Công cụ cho dev · không phải app thật</p>
-      <h1>Thử đăng nhập</h1>
-      <p class="lead">Đăng nhập bằng Supabase Auth, rồi gọi API qua <code>@mambo/sdk</code>.</p>
+      <h1>Thử luồng tài khoản</h1>
+      <p class="lead">Đăng ký → "Bác là ai?" → xác thực số → dò kết nối, trên API và Supabase thật,
+        qua <code>@mambo/sdk</code>. Cũng là ví dụ chạy được cho frontend.</p>
       <p id="health" class="pill">Đang hỏi API…</p>
     </header>
 
@@ -38,20 +40,76 @@
     </details>
 
     <section id="signed-out" hidden>
-      <h2>Đăng nhập</h2>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-login" aria-selected="true">Đăng nhập</button>
+        <button type="button" role="tab" id="tab-signup" aria-selected="false">Đăng ký</button>
+      </div>
+
       <form id="login">
-        <label>Email <input id="email" type="email" autocomplete="username" required></label>
+        <label>Tên tài khoản, số điện thoại hoặc email
+          <input id="identifier" autocomplete="username" required></label>
         <label>Mật khẩu <input id="password" type="password" autocomplete="current-password" required></label>
         <button type="submit" id="login-btn">Đăng nhập</button>
+        <p class="hint">Ô trên đi qua <code>POST /v1/auth/resolve-identifier</code> — sai gì cũng chỉ một câu chung.</p>
+      </form>
+
+      <form id="signup" hidden>
+        <label>Số điện thoại <input id="su-phone" inputmode="tel" autocomplete="tel" required></label>
+        <label>Mật khẩu (ít nhất 6 ký tự)
+          <input id="su-password" type="password" autocomplete="new-password" minlength="6" required></label>
+        <label>Email (không bắt buộc) <input id="su-email" type="email" autocomplete="email"></label>
+        <button type="submit" id="signup-btn">Tạo tài khoản</button>
+        <p class="hint">Không có email thì đăng nhập bằng email nội bộ <code>84…@id.thumua365.vn</code> — giống frontend.</p>
       </form>
     </section>
 
     <section id="signed-in" hidden>
       <h2>Đã đăng nhập</h2>
-      <p>Tài khoản: <strong id="who"></strong></p>
+      <p class="hint">Tài khoản: <strong id="who"></strong></p>
       <div class="row">
         <button type="button" id="me-btn">Gọi /v1/me</button>
         <button type="button" id="logout-btn" class="secondary">Đăng xuất</button>
+      </div>
+    </section>
+
+    <section id="bootstrap-box" hidden>
+      <h2>Bác là ai?</h2>
+      <form id="bootstrap">
+        <fieldset class="choices">
+          <legend>Loại tổ chức</legend>
+          <label class="choice"><input type="radio" name="orgType" value="farmer" required> Nông dân</label>
+          <label class="choice"><input type="radio" name="orgType" value="trader"> Thương lái / Vựa / Đại lý</label>
+          <label class="choice"><input type="radio" name="orgType" value="enterprise"> Doanh nghiệp</label>
+        </fieldset>
+        <label>Tên tổ chức <input id="orgName" placeholder="Vựa Tư Hùng · Hộ cô Mai" required></label>
+        <label>Tên của bác <input id="personName" required></label>
+        <label>Tên đăng nhập (không bắt buộc) <input id="username" placeholder="vuatuhung"></label>
+        <button type="submit" id="bootstrap-btn">Xong</button>
+        <p class="hint"><code>POST /v1/me/bootstrap</code> — gọi lại cũng không tạo tổ chức thứ hai.</p>
+      </form>
+    </section>
+
+    <section id="org-box" hidden>
+      <h2>Tổ chức đang làm việc</h2>
+      <label>Gửi kèm header <code>X-Organization-Id</code>
+        <select id="org-select"></select></label>
+      <p id="org-summary" class="hint"></p>
+    </section>
+
+    <section id="otp-box" hidden>
+      <h2>Xác thực số điện thoại (OTP)</h2>
+      <p class="hint">Bắt buộc trước khi dò kết nối. Supabase gửi mã qua SMS — trên staging dùng số thử
+        khai ở Authentication → Providers → Phone.</p>
+      <form id="otp-send">
+        <label>Số điện thoại <input id="otp-phone" inputmode="tel" required></label>
+        <button type="submit" id="otp-send-btn">Gửi mã</button>
+      </form>
+      <form id="otp-verify" hidden>
+        <label>Mã OTP <input id="otp-code" inputmode="numeric" autocomplete="one-time-code" required></label>
+        <button type="submit" id="otp-verify-btn">Xác thực</button>
+      </form>
+      <div class="row">
+        <button type="button" id="discover-btn" class="secondary">Dò kết nối</button>
       </div>
     </section>
 

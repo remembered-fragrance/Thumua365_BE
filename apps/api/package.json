@@ -1,6 +1,6 @@
 {
   "name": "@mambo/api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "NestJS API của THUMUA365",
   "scripts": {
@@ -18,8 +18,8 @@
     "db:role-password": "node scripts/db-role-password.mjs"
   },
   "dependencies": {
-    "@mambo/contracts": "0.2.0",
-    "@mambo/core": "0.2.0",
+    "@mambo/contracts": "0.3.0",
+    "@mambo/core": "0.3.0",
     "@nestjs/common": "^11.2.5",
     "@nestjs/core": "^11.2.5",
     "@nestjs/event-emitter": "^3.1.0",

@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE1 xong · BE2 code xong (chờ staging) · API staging trên Render · hai project Supabase đã tạo · **chưa có dữ liệu thật** |
+| Trạng thái sản phẩm | BE0–BE1 xong · BE2 chạy trên staging (chờ nghiệm thu OTP + đăng ký ba loại) · **chưa có dữ liệu thật** |
 
 ---
 
@@ -346,7 +346,7 @@ Soát lại `docs/` và sơ đồ v2 so với code đã chạy; sửa chỗ lệ
 
 Không đổi code, không đổi quyết định nào — chỉ cho tài liệu nói đúng điều đã chốt và đã làm.
 
-## BE2 — Database, ba vai trò · 22/09/2026 · 🟡 code xong, chờ staging
+## BE2 — Database, ba vai trò · `711ca04` · tag `v0.3.0` · 22/09/2026 · 🟡 chờ nghiệm thu trên dashboard
 
 **Kết quả:** schema đủ bốn nhóm bảng của kiến trúc v2, RLS theo phiên chứng minh bằng test
 trên Postgres thật, `/me/bootstrap`, `/auth/resolve-identifier`, `/links/discover`. Chưa
@@ -414,18 +414,44 @@ chạy migration lên staging.
 | `schema.prisma` ↔ migration | `prisma migrate diff` rỗng |
 | Image Docker chạy trên máy nối Postgres ở máy | `/v1/health` 200 · `resolve-identifier` qua Prisma 200 · log không lỗi |
 
-### 🔴 Chưa xong của BE2
+### Lên staging · PR #2 `711ca04` · 22/09/2026
 
-- [ ] Chạy migration lên **staging** + `npm run db:role-password` + kiểm Transaction pooler
-      nhận user `api_service.<ref>`.
-- [ ] Render: thêm `SUPABASE_SECRET_KEY`, `DATABASE_URL` (role api_service) — **trước khi
-      merge**, không thì bản mới không khởi động (Render giữ bản cũ).
-- [ ] Supabase staging: bật Phone provider + số thử OTP; nhà cung cấp SMS thật.
-- [ ] Đăng ký thật trên staging bằng cả ba loại tổ chức; OTP tới máy thật.
-- [ ] Phát hành `v0.3.0` sau khi staging chạy.
-- [ ] Cân nhắc: `resolve-identifier` trả email đăng nhập thật của tài khoản có tên đăng nhập
-      — tên đăng nhập công khai ⇒ lộ email/SĐT đăng nhập. Hướng sửa: API tự đăng nhập hộ
-      (`POST /v1/auth/login`) để email không bao giờ ra ngoài. Bản cũ (RPC) cũng như vậy.
+| Việc | Kết quả |
+|---|---|
+| CI trên PR | Lần đầu job `db` đỏ: **container Postgres tự tắt** — `10_postgis.sh` không có quyền thực thi trên Linux nên entrypoint `source` nó, và `exit 0` thoát luôn entrypoint. Windows mount file có quyền thực thi nên không lộ ra. Bỏ `exit`, đặt `100755` trong git. Lần hai: 3 job xanh, 47/47 test DB, `No difference detected` |
+| `prisma migrate deploy` lên staging | ✅ Trước khi chạy đã kiểm: đúng project `bldlrkmszjmhifubxjvl`, database trống |
+| Staging sau migration | 24 bảng, mọi bảng bật RLS, anon/authenticated 0 quyền, PostGIS + citext trong `extensions`, schema khớp. Hàm `rls_auto_enable` là của Supabase (tính năng tự bật RLS), không phải của ta |
+| `npm run db:role-password` | ✅ **Transaction pooler nhận user tuỳ chỉnh `api_service.<ref>`** — điểm chưa chắc nhất của thiết kế |
+| Prisma + RLS qua cổng 6543 | Ngữ cảnh đúng người trong transaction · không rò sang transaction sau · 20 transaction song song không lẫn ngữ cảnh |
+| Render | Thêm `SUPABASE_SECRET_KEY`, `DATABASE_URL` trước khi merge; deploy `711ca04` sau ~3 phút |
+| Thử trên staging | `/v1/me`, `/me/bootstrap`, `/links/discover` không token → 401 · `resolve-identifier` chạm DB, trả email cùng hình dạng · thân sai → 422 · preflight POST → 204 · hạn mức riêng 10/phút → 429 đúng lúc |
+
+### ⚠️ Phát hiện: staging đang bật "Confirm email"
+
+`/auth/v1/settings` trả `mailer_autoconfirm: false`. Người đăng ký chỉ bằng số điện thoại dùng
+email nội bộ `84…@id.thumua365.vn` — không nhận được thư ⇒ **không bao giờ xác nhận được,
+không đăng nhập được**. Phải tắt: Authentication → Sign In / Providers → Email → *Confirm
+email*. Danh tính thật xác minh bằng OTP số điện thoại, không bằng email. Production phải
+tắt giống vậy (ghi vào bảng kiểm BE10).
+
+### Công cụ nghiệm thu — `npm run login-test`
+
+Trang thử nâng thành đủ luồng tài khoản của frontend: đăng ký (email nội bộ từ số, như
+`data/auth.ts`) → "Bác là ai?" (`sdk.meBootstrap`) → chọn tổ chức (header
+`X-Organization-Id`) → OTP (`updateUser({ phone })` → `verifyOtp({ type: 'phone_change' })`)
+→ "Dò kết nối" (`sdk.discoverLinks`); đăng nhập một ô qua `sdk.resolveIdentifier`. Dùng
+`@mambo/core/identifier` qua import map. Máy chủ tĩnh vẫn chặn `../` tới `apps/api/.env`.
+
+### 🔴 Chưa xong của BE2 — cần người, trên dashboard Supabase staging
+
+- [ ] Tắt **Confirm email**.
+- [ ] Bật **Phone provider** + khai số thử kèm OTP cố định.
+- [ ] Nghiệm thu bằng `npm run login-test`: đăng ký ba tài khoản (nông dân · vựa · doanh
+      nghiệp) → "Bác là ai?" → `/me` đúng ma trận; một tài khoản xác thực OTP → "Dò kết nối".
+- [ ] Nhà cung cấp SMS thật cho "OTP tới máy thật" (Twilio/Vonage hoặc eSMS/SpeedSMS qua hook).
+- [ ] Cân nhắc: `resolve-identifier` trả email đăng nhập thật khi gõ đúng tên tài khoản —
+      tên công khai ⇒ lộ email/SĐT đăng nhập. Hướng sửa: API đăng nhập hộ
+      (`POST /v1/auth/login`). Bản cũ (RPC) cũng như vậy. Cần nhóm quyết.
 
 ---
 
