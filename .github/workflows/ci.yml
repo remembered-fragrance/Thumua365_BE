@@ -35,8 +35,36 @@ jobs:
       - name: Build API
         run: npm run build -w @mambo/api
 
-  # Máy dev không có Docker: đây là nơi duy nhất Dockerfile được build và chạy thử
-  # trước khi Render dùng nó.
+  # Postgres thật (cùng bản Supabase: 17 + PostGIS), dựng bằng đúng docker-compose.yml
+  # của máy dev: migration chạy từ database trống, schema không lệch, RLS và API trên DB.
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Bật Postgres (docker compose)
+        run: docker compose up -d --wait
+
+      - name: Build gói dùng chung
+        run: npm run build:packages
+
+      - name: Test tích hợp với Postgres (migration + RLS + API trên DB)
+        run: npm run test:db -w @mambo/api
+
+      - name: schema.prisma khớp migration
+        working-directory: apps/api
+        env:
+          DIRECT_URL: postgresql://postgres:postgres@localhost:54329/thumua365
+        run: |
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code \
+            || { echo "::error::schema.prisma đổi mà chưa có migration tương ứng"; exit 1; }
+
+  # Dockerfile được build và chạy thử ở đây trước khi Render dùng nó.
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -51,6 +79,8 @@ jobs:
             -e APP_ENV=development \
             -e SUPABASE_URL=https://bldlrkmszjmhifubxjvl.supabase.co \
             -e SUPABASE_PUBLISHABLE_KEY=ci-placeholder \
+            -e SUPABASE_SECRET_KEY=ci-placeholder \
+            -e DATABASE_URL=postgresql://unused:unused@127.0.0.1:1/unused \
             thumua365-api
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:3000/v1/health; then echo; exit 0; fi

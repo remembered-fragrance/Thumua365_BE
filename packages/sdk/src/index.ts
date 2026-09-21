@@ -9,7 +9,15 @@
  * Hàng đợi đồng bộ coi nó như lỗi 5xx — thử lại theo lịch giãn cách.
  */
 
-import { ErrorBody, routes, type ErrorCode, type RouteName, type RouteResponse } from '@mambo/contracts';
+import {
+  ErrorBody,
+  routes,
+  type ErrorCode,
+  type RouteBody,
+  type RouteName,
+  type RouteResponse,
+  type RouteWithBody,
+} from '@mambo/contracts';
 
 export class ApiError extends Error {
   readonly code: ErrorCode | 'CONTRACT_MISMATCH';
@@ -56,9 +64,10 @@ const readError = async (res: Response): Promise<ApiError> => {
 export const createClient = (options: ClientOptions) => {
   const doFetch = options.fetch ?? fetch;
 
-  const call = async <N extends RouteName>(name: N): Promise<RouteResponse<N>> => {
+  const call = async <N extends RouteName>(name: N, body?: unknown): Promise<RouteResponse<N>> => {
     const route = routes[name];
     const headers: Record<string, string> = { accept: 'application/json' };
+    if (body !== undefined) headers['content-type'] = 'application/json';
 
     if (route.auth !== 'public') {
       const token = await options.getAccessToken();
@@ -68,7 +77,11 @@ export const createClient = (options: ClientOptions) => {
     const orgId = options.getOrganizationId?.();
     if (orgId) headers['x-organization-id'] = orgId;
 
-    const res = await doFetch(`${options.baseUrl}${route.path}`, { method: route.method, headers });
+    const res = await doFetch(`${options.baseUrl}${route.path}`, {
+      method: route.method,
+      headers,
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
     if (!res.ok) throw await readError(res);
 
     const parsed = route.response.safeParse(await res.json());
@@ -83,9 +96,18 @@ export const createClient = (options: ClientOptions) => {
     return parsed.data as RouteResponse<N>;
   };
 
+  /** Route có thân request: kiểu của `body` lấy thẳng từ hợp đồng. */
+  const send = <N extends RouteWithBody>(name: N, body: RouteBody<N>) => call(name, body);
+
   return {
     health: () => call('health'),
     me: () => call('me'),
+    /** Ngay sau `supabase.auth.signUp` — bước "Bác là ai?". Gọi lại an toàn. */
+    meBootstrap: (input: RouteBody<'meBootstrap'>) => send('meBootstrap', input),
+    /** Trước `signInWithPassword`. Luôn trả một email — sai thì báo MỘT câu chung. */
+    resolveIdentifier: (input: RouteBody<'resolveIdentifier'>) => send('resolveIdentifier', input),
+    /** Sau khi xác thực OTP số điện thoại. Cần `getOrganizationId`. */
+    discoverLinks: () => call('linksDiscover'),
   };
 };
 

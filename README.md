@@ -21,6 +21,13 @@ npm install
 npm run verify
 ```
 
+Postgres ở máy (Docker Desktop — cùng bản Supabase: Postgres 17 + PostGIS, cổng 54329):
+
+```bash
+npm run db:reset      # xoá sạch, dựng lại, chạy mọi migration
+npm run test:db       # test tích hợp: RLS, quyền, API trên database thật
+```
+
 Chạy API trên máy (trỏ vào Supabase staging):
 
 ```bash
@@ -28,8 +35,9 @@ cp apps/api/.env.example apps/api/.env
 npm run dev
 ```
 
-Điền `SUPABASE_PUBLISHABLE_KEY` trong `apps/api/.env` (Supabase → Project Settings → API Keys;
-khoá *publishable* là công khai). API ở `http://localhost:3000/v1/health`.
+Điền `apps/api/.env` theo chú thích trong file (publishable key, secret key, `DIRECT_URL`;
+`DATABASE_URL` do `npm run db:role-password -w @mambo/api` ghi). API ở
+`http://localhost:3000/v1/health`.
 
 | Lệnh | Làm gì |
 |---|---|
@@ -38,6 +46,8 @@ khoá *publishable* là công khai). API ở `http://localhost:3000/v1/health`.
 | `npm run typecheck` | `strict` + `noUncheckedIndexedAccess` cho mọi gói |
 | `npm run boundaries` | `core` không import gì ngoài chính nó; gói dùng chung không kéo code API |
 | `npm run test` | Test mọi gói; `core` phải phủ ≥ 80% dòng; `openapi.json` phải khớp hợp đồng |
+| `npm run db:up` / `db:reset` | Postgres ở máy bằng `docker-compose.yml` (reset = xoá sạch + chạy migration) |
+| `npm run test:db` | Test tích hợp trên Postgres thật — RLS, quyền của `api_service`, API chạy trên DB |
 | `npm run openapi` | Sinh lại `packages/contracts/openapi.json` sau khi đổi `routes` |
 | `npm run mock` | Server giả từ `openapi.json` (Prism) cho frontend làm trước khi API xong |
 | `npm run dev` | API chạy lại khi sửa code |
@@ -48,20 +58,36 @@ khoá *publishable* là công khai). API ở `http://localhost:3000/v1/health`.
 
 ```
 apps/
-└── api/         NestJS 11 — guard JWT/tổ chức/quyền, định dạng lỗi, /v1/health, /v1/me, Dockerfile
+└── api/         NestJS 11 — guard JWT/tổ chức/quyền, định dạng lỗi, Dockerfile
+    ├── prisma/  schema.prisma + migrations (Prisma Migrate là nơi duy nhất sửa schema)
+    └── src/db/  cửa duy nhất vào Postgres: mỗi request một transaction có ngữ cảnh RLS
 packages/
 ├── core/        nghiệp vụ tính tiền thuần — 0 import ra ngoài; chạy ở trình duyệt và Node
 ├── contracts/   hợp đồng API bằng zod: mã lỗi, vai trò, ma trận quyền, danh bạ routes, openapi.json
 └── sdk/         client có kiểu cho frontend, gọi theo đúng routes của contracts
 docs/            kế hoạch, thông tin dự án, sơ đồ
+docker-compose.yml  Postgres cho máy dev và CI
 render.yaml      cấu hình Render (staging)
 ```
 
-Sắp có: `prisma/` (BE2).
+## Database
+
+- **Hai role:** migration chạy bằng `postgres` (`DIRECT_URL`); API chạy bằng `api_service`
+  (`DATABASE_URL`) — role này **không** bypass RLS, không có quyền `DELETE`, và chỉ sửa được
+  cột `deleted_at` của `payments`.
+- **Mọi truy vấn** đi qua `Database.scoped({ userId, orgId }, tx => …)`: một transaction,
+  `app.user_id`/`app.org_id` đặt bằng `set_config(…, true)`. Quên lọc `orgId` vẫn chỉ thấy
+  dữ liệu của tổ chức đó.
+- **Đổi schema:** sửa `schema.prisma` → sinh SQL bằng `prisma migrate diff` → thêm phần viết
+  tay (CHECK, RLS, quyền, trigger) vào cùng file migration → `npm run db:reset && npm run
+  test:db`. CI đỏ nếu `schema.prisma` và migration lệch nhau.
+- **Bảng mới** phải có trong cùng migration: `enable row level security`, policy, và `grant`
+  cho `api_service` — mặc định không ai đọc được.
 
 ## Thêm một endpoint
 
-1. Thêm một dòng vào `routes` trong `packages/contracts/src/routes.ts` (+ schema phản hồi).
+1. Thêm một dòng vào `routes` trong `packages/contracts/src/routes.ts` (+ schema thân request
+   nếu có, + schema phản hồi). Thân request được kiểm tự động trước khi vào handler.
 2. `npm run openapi` → commit `openapi.json` cùng PR.
 3. Controller: `@Endpoint(routes.tenMoi)` — không tự gõ đường dẫn.
 4. SDK: thêm một hàm gọi `call('tenMoi')`.

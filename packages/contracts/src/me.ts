@@ -63,3 +63,31 @@ export const Me = z.object({
   pendingLinks: z.number().int().nonnegative(),
 });
 export type Me = z.infer<typeof Me>;
+
+/**
+ * `POST /v1/me/bootstrap` — bước "Bác là ai?" ngay sau khi đăng ký (KH §6).
+ *
+ * Tạo hồ sơ + tổ chức + membership `owner` (+ gói dùng thử 30 ngày cho vựa và
+ * doanh nghiệp) trong MỘT transaction. Idempotent: người đã có tổ chức gọi lại
+ * nhận về `Me` hiện tại, không tạo tổ chức thứ hai.
+ */
+export const MeBootstrapInput = z.strictObject({
+  orgType: OrgType,
+  /** Tên hiển thị của tổ chức: "Vựa Tư Hùng", "Hộ cô Mai". */
+  orgName: z.string().trim().min(1).max(120),
+  /** Tên người đăng ký. */
+  name: z.string().trim().min(1).max(80),
+  /**
+   * Chỉ dùng khi đăng ký bằng email thật. Tài khoản đăng ký bằng số điện thoại
+   * (email nội bộ `84…@id.thumua365.vn`) lấy số từ chính tài khoản — trường này bị bỏ qua.
+   */
+  phone: z.string().trim().min(1).max(20).optional(),
+  /** Tên đăng nhập tuỳ chọn: 3–32 ký tự a-z, 0-9, `.`, `_`. Không phân biệt hoa thường. */
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9._]{3,32}$/)
+    .optional(),
+});
+export type MeBootstrapInput = z.input<typeof MeBootstrapInput>;

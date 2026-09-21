@@ -81,4 +81,19 @@ describe('@mambo/sdk', () => {
 
     await expect(client.me()).rejects.toMatchObject({ code: 'CONTRACT_MISMATCH' });
   });
+
+  it('route có thân request: gửi JSON đúng phương thức và đường dẫn', async () => {
+    const { calls, fetchFn } = recorder(json(200, { email: '84912345678@id.thumua365.vn' }));
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => null, fetch: fetchFn });
+
+    await expect(client.resolveIdentifier({ identifier: '0912 345 678' })).resolves.toEqual({
+      email: '84912345678@id.thumua365.vn',
+    });
+    expect(calls[0]?.url).toBe('https://api.test/v1/auth/resolve-identifier');
+    expect(calls[0]?.init?.method).toBe('POST');
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ identifier: '0912 345 678' }));
+    const headers = calls[0]?.init?.headers as Record<string, string>;
+    expect(headers['content-type']).toBe('application/json');
+  });
 });
+

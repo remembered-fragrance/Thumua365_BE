@@ -5,10 +5,12 @@ import * as Sentry from '@sentry/node';
 import { createRemoteJWKSet } from 'jose';
 import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
-import { NoMembershipsYet } from './auth/membership';
+import { PrismaMemberships } from './auth/prisma-memberships';
+import { SupabaseAdminHttp } from './auth/supabase-admin';
 import { SupabaseUsersHttp } from './auth/supabase-users';
 import { configureApp } from './bootstrap';
 import { loadEnv } from './config/env';
+import { Database } from './db/database';
 import { buildLogger } from './logger';
 
 const main = async (): Promise<void> => {
@@ -21,11 +23,17 @@ const main = async (): Promise<void> => {
     Sentry.init({ dsn: env.SENTRY_DSN, environment: env.APP_ENV, release: env.RENDER_GIT_COMMIT });
   }
 
+  // Kết nối lười: chưa chạm Postgres cho tới truy vấn đầu tiên — /v1/health không cần DB.
+  const db = new Database(env.DATABASE_URL);
+
   const app = await NestFactory.create(
     AppModule.forRoot(env, {
       jwks: createRemoteJWKSet(new URL(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`)),
       supabaseUsers: new SupabaseUsersHttp(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY),
-      memberships: new NoMembershipsYet(),
+      supabaseAdmin: new SupabaseAdminHttp(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY),
+      memberships: new PrismaMemberships(db),
+      db,
+      logger,
     }),
     { bodyParser: false, logger: WinstonModule.createLogger({ instance: logger }) },
   );
