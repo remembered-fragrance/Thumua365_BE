@@ -8,8 +8,11 @@
  */
 
 import type { z } from 'zod';
+import { ResolveIdentifierInput, ResolveIdentifierResult } from './auth.js';
+import type { ErrorCode } from './errors.js';
 import { Health } from './health.js';
-import { Me } from './me.js';
+import { LinksDiscoverResult } from './links.js';
+import { Me, MeBootstrapInput } from './me.js';
 import type { Permission } from './permissions.js';
 
 /**
@@ -27,7 +30,13 @@ export interface RouteDef {
   readonly auth: RouteAuth;
   /** Chỉ có nghĩa khi `auth: 'org'`. */
   readonly permission?: Permission;
+  /** Thân request (JSON). Server kiểm trước khi vào handler; sai → 422 `VALIDATION_FAILED`. */
+  readonly body?: z.ZodType;
   readonly response: z.ZodType;
+  /** Hạn mức riêng mỗi phút mỗi IP, chặt hơn mức chung — cho route dễ bị dò. */
+  readonly rateLimitPerMinute?: number;
+  /** Mã lỗi riêng của route này (ngoài các mã chung theo loại xác thực) — để frontend biết trước. */
+  readonly errors?: readonly ErrorCode[];
 }
 
 export const routes = {
@@ -45,7 +54,43 @@ export const routes = {
     auth: 'user',
     response: Me,
   },
+  meBootstrap: {
+    method: 'POST',
+    path: '/v1/me/bootstrap',
+    summary: 'Sau khi đăng ký: tạo hồ sơ, tổ chức, vai trò chủ và gói dùng thử. Gọi lại không tạo thêm',
+    auth: 'user',
+    body: MeBootstrapInput,
+    response: Me,
+  },
+  resolveIdentifier: {
+    method: 'POST',
+    path: '/v1/auth/resolve-identifier',
+    summary: 'Tên tài khoản / SĐT / email → email để đăng nhập. Luôn trả một email',
+    auth: 'public',
+    body: ResolveIdentifierInput,
+    response: ResolveIdentifierResult,
+    rateLimitPerMinute: 10,
+  },
+  linksDiscover: {
+    method: 'POST',
+    path: '/v1/links/discover',
+    summary: 'Dò các sổ có đối tác mang số điện thoại đã xác thực của người gọi, tạo lời mời chờ đồng ý',
+    auth: 'org',
+    permission: 'linked:read',
+    response: LinksDiscoverResult,
+    errors: ['PHONE_NOT_VERIFIED'],
+  },
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteName = keyof typeof routes;
 export type RouteResponse<N extends RouteName> = z.infer<(typeof routes)[N]['response']>;
+
+/** Tên các route có thân request. */
+export type RouteWithBody = {
+  [N in RouteName]: (typeof routes)[N] extends { body: z.ZodType } ? N : never;
+}[RouteName];
+
+/** Thân request mà client gửi (trước khi server chuẩn hoá: trim, chữ thường…). */
+export type RouteBody<N extends RouteWithBody> = (typeof routes)[N] extends { body: infer B extends z.ZodType }
+  ? z.input<B>
+  : never;
