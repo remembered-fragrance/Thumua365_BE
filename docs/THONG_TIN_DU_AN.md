@@ -249,7 +249,7 @@ Realtime · báo cáo nặng phía server · Capacitor.
 
 | # | Trên sơ đồ | Xử lý |
 |---|---|---|
-| 1 | Email/SMS — **"Xác thực tài khoản"** | Đưa vào BE2: **OTP SMS bắt buộc trước khi liên kết** nông dân ↔ vựa theo số điện thoại. Không có nó, ai cũng đăng ký bằng số người khác để xem công nợ của họ |
+| 1 | Email/SMS — **"Xác thực tài khoản"** | Đưa vào BE4 (dời từ BE2, 22/09/2026): **OTP SMS bắt buộc trước khi liên kết** nông dân ↔ vựa theo số điện thoại. Không có nó, ai cũng đăng ký bằng số người khác để xem công nợ của họ |
 | 2 | Client Data — **"Đồng bộ với Supabase"**, trong khi mũi tên Sync đi từ khối NestJS | ✅ Đã chốt **đồng bộ qua NestJS**: để kiểm quyền từng thao tác (nhân viên không xoá phiếu, chỉ ghi chi nhánh mình) và để chuyển đơn sang hoàn thành trong cùng transaction |
 | 3 | Supabase **Realtime** | Bản đầu hỏi thông báo mỗi 60 giây; Realtime cho trạng thái đơn và thông báo vào giai đoạn 2 |
 | 4 | Notification — **"Sự kiện hệ thống"** | Event bus nội bộ (`@nestjs/event-emitter`): `order.fulfilled` → thông báo + đo lường + audit, module không gọi chéo nhau |
@@ -270,7 +270,7 @@ Chốt theo hướng đề xuất. Sơ đồ và bảng lý do: [so-do-kien-truc
 |---|---|---|---|
 | 1 | Ai trả tiền? | Nông dân **miễn phí** · vựa 149.000đ/tháng (1.490.000đ/năm) · doanh nghiệp theo số chi nhánh, bán trực tiếp. "10 người trả phí" đếm theo **tổ chức** vựa/DN | R3, `subscriptions.organization_id` |
 | 2 | Đồng bộ qua NestJS hay thẳng Supabase? | **Qua NestJS** — `/sync/push`, `/sync/pull`, cursor do server cấp | BE3 |
-| 3 | Kết nối nông dân ↔ vựa | **OTP SMS + bấm đồng ý**; chỉ thấy trường in trên biên nhận; huỷ có hiệu lực ngay | BE2, BE4 |
+| 3 | Kết nối nông dân ↔ vựa | **OTP SMS + bấm đồng ý**; chỉ thấy trường in trên biên nhận; huỷ có hiệu lực ngay | BE4 |
 | 4 | Nông dân gửi đơn cho ai | Bản đầu chỉ vựa **đã kết nối**; chợ mở cùng Map/PostGIS ở giai đoạn 2 | BE5 |
 | 5 | Nơi chạy container API | **Render**, vùng Singapore (staging gói free; production thêm ở BE10) | BE1 ✅ |
 | 6 | Tên miền API, tên gói npm | `api.thumua365.vn` (chờ quyền DNS; tạm `*.onrender.com`) · `@mambo/*` | BE0, BE1 |
@@ -282,7 +282,7 @@ Chốt theo hướng đề xuất. Sơ đồ và bảng lý do: [so-do-kien-truc
 
 **Còn mở** (cần người, không phải cần code): số tài khoản nhận tiền và người chịu trách
 nhiệm pháp lý trên trang chính sách — Nguyên, Linh. Ảnh hưởng R3, R4. Nhà cung cấp SMS
-cho OTP — chọn ở BE2. Quyền DNS `thumua365.vn`.
+cho OTP — chọn ở BE4. Quyền DNS `thumua365.vn`.
 
 ⚠️ **Cổng chặn 2 vẫn chưa vượt:** chưa có bằng chứng ≥3/10 chủ vựa nói "sẽ trả". Với ba vai
 trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, doanh nghiệp trả bao nhiêu.
