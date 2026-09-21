@@ -102,13 +102,13 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 
 | Ô sơ đồ | Quyết định | Hiện trạng | Bước |
 |---|---|---|---|
-| Data Access: Repository, Prisma/TypeORM, Query Builder, Transaction Mgmt | **Prisma**; repository bắt buộc tham số `orgId` theo kiểu; mỗi thao tác sync một transaction DB | ❌ | BE2 |
-| PostgreSQL | Supabase Postgres; Prisma Migrate sở hữu schema (baseline từ 10 migration cũ) | 🟡 chưa chạy | BE2 |
+| Data Access: Repository, Prisma/TypeORM, Query Builder, Transaction Mgmt | **Prisma 7**; mọi truy vấn qua `Database.scoped({ userId, orgId })` — một transaction có ngữ cảnh RLS; mỗi thao tác sync một transaction DB | ✅ khung | BE2 |
+| PostgreSQL | Supabase Postgres **17**; Prisma Migrate sở hữu schema (baseline từ 10 migration cũ); máy dev và CI chạy cùng bản trong Docker | ✅ ở máy + CI · 🟡 staging | BE2 |
 | PostGIS (Geospatial) | Bật extension từ đầu; dùng khi làm tìm vựa gần / vùng trồng (`$queryRaw`) | ❌ | sau BE10 |
 | Supabase Auth | Giữ — NestJS chỉ kiểm JWT bằng JWKS (ES256), không dùng JWT secret | ✅ kiểm JWT · OTP ❌ | BE1 · BE2 (OTP) |
 | Supabase Storage | Ảnh chứng từ qua signed URL, file không chảy qua NestJS | 🟡 | BE8 |
 | Supabase Realtime | Đẩy **trạng thái đơn và thông báo** tới máy (thay cho hỏi lại 60 giây/lần). Sổ offline vẫn kéo theo cursor | ❌ | BE5 (hỏi định kỳ) → nâng lên Realtime sau |
-| RLS | Lớp bảo vệ **thứ hai** theo `organization_id`; lớp chính là Guard | ✅ theo `user_id` | BE2 |
+| RLS | Lớp bảo vệ **thứ hai** theo `organization_id` (RLS theo phiên, role `api_service` không bypass); lớp chính là Guard | ✅ có test | BE2 |
 
 ### 3.5 Client Data & Offline
 
@@ -193,7 +193,7 @@ safety khớp với R5, `assetlinks.json` cho TWA.
 |---|---|---|---|
 | BE0 ✅ | Repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE): `packages/core`, `packages/contracts`, CI, release `.tgz` | Chốt quy ước; `@/core/` → `@mambo/core/` từ release | 1–2 |
 | BE1 ✅ | Khung NestJS, Guard, định dạng lỗi, `/v1/me`, Docker, staging Render | `/lien-he`, link pháp lý (R4); khung chọn vỏ | 2 |
-| BE2 | Prisma + schema ba vai trò, tổ chức, chi nhánh, OTP, `/me/bootstrap` | Bước "Bác là ai?" khi đăng ký | 3 |
+| BE2 🟡 | Prisma + schema ba vai trò, tổ chức, chi nhánh, OTP, `/me/bootstrap` — code xong, chờ staging | Bước "Bác là ai?" khi đăng ký | 3 |
 | BE3 | Đồng bộ sổ qua API, giới hạn theo chi nhánh | `sync.ts`, `pullChanges.ts`, `cache.ts` | 3–4 |
 | BE4 | Kết nối tổ chức + phần xem của nông dân | Vỏ Nông dân (phần xem), nút "Mời kết nối" | 2–3 |
 | BE5 | Đơn hàng, đặt lịch, thông báo trong app | Đơn bán, danh sách đơn, hẹn lịch, ô "Theo đơn" | 3 |

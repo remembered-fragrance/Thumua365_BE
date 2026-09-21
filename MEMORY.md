@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE1 xong · API staging trên Render · hai project Supabase đã tạo · **chưa có database nghiệp vụ, chưa có dữ liệu thật** · tiếp theo: BE2 |
+| Trạng thái sản phẩm | BE0–BE1 xong · BE2 code xong (chờ staging) · API staging trên Render · hai project Supabase đã tạo · **chưa có dữ liệu thật** |
 
 ---
 
@@ -346,6 +346,87 @@ Soát lại `docs/` và sơ đồ v2 so với code đã chạy; sửa chỗ lệ
 
 Không đổi code, không đổi quyết định nào — chỉ cho tài liệu nói đúng điều đã chốt và đã làm.
 
+## BE2 — Database, ba vai trò · 22/09/2026 · 🟡 code xong, chờ staging
+
+**Kết quả:** schema đủ bốn nhóm bảng của kiến trúc v2, RLS theo phiên chứng minh bằng test
+trên Postgres thật, `/me/bootstrap`, `/auth/resolve-identifier`, `/links/discover`. Chưa
+chạy migration lên staging.
+
+### Làm gì
+
+- Máy dev: cài WSL2 + Docker Desktop. `docker-compose.yml`: Postgres **17** + PostGIS (cùng
+  bản Supabase — đã kiểm staging chạy 17.6; kế hoạch cũ ghi 16).
+- `apps/api/prisma/`: Prisma **7.10** (bản ổn định; tag `latest` trên npm đang là 8.0-rc,
+  không dùng). Một migration `20260922000000_ba_vai_tro`: phần A viết tay (extension,
+  role, hàm) → phần B Prisma sinh (24 bảng) → phần C viết tay (CHECK, index một phần,
+  trigger, quyền, RLS, hai hàm security definer).
+- `src/db/database.ts`: `Database.scoped({ userId, orgId }, tx => …)` — cửa duy nhất vào
+  Postgres. `PrismaMemberships` thay `NoMembershipsYet`: `/v1/me` và `OrgContextGuard` đọc
+  membership thật.
+- `ContractInterceptor` kiểm cả thân request (`route.body`), `@Endpoint` áp hạn mức riêng
+  (`rateLimitPerMinute`). `recordAudit(tx, …)`, `DomainEvents` (có kiểu).
+- Contracts 0.3.0 (chưa phát hành): ba route mới, `RouteDef.body/errors/rateLimitPerMinute`.
+  SDK: `meBootstrap`, `resolveIdentifier`, `discoverLinks`.
+- CI: job `db` (docker compose → `test:db` → kiểm `schema.prisma` khớp migration).
+- `npm run db:role-password`: đặt mật khẩu `api_service`, ghi `DATABASE_URL` vào `.env`.
+
+### Quyết định
+
+1. **Không khoá ngoại sang `auth.users`.** Postgres ở máy/CI không có schema `auth`; nối vào
+   thì migration chỉ chạy được trên Supabase. Việc cần Auth đi qua Auth API. Hệ quả: xoá
+   user trên dashboard Supabase không kéo theo dữ liệu — xoá tài khoản làm qua `DELETE
+   /v1/me` (BE6) theo thứ tự đã chốt.
+2. **API kết nối thẳng bằng role `api_service`**, không phải `postgres` + `SET ROLE`: quên
+   đặt role thì vẫn không bypass được RLS.
+3. **Chưa có ngữ cảnh = không thấy gì.** `app_org_id()` NULL ⇒ mọi policy ra NULL.
+4. **Việc xuyên tổ chức là hàm security definer hẹp**, chỉ `api_service` gọi được:
+   `find_login_user` trả đúng một id; `discover_links` đòi `app.org_id` và số dạng `+84…`,
+   không tạo lại liên kết mà chủ sổ đã huỷ.
+5. **Tiền là `BigInt`**, khối lượng/%/đơn giá là `Float`.
+6. **`/me/bootstrap` lấy số điện thoại từ email đăng nhập nội bộ** (`84…@id.thumua365.vn`,
+   Supabase đã đảm bảo duy nhất), bỏ qua số client khai — không thì ai cũng khai được số
+   người khác rồi chiếm việc đăng nhập bằng số đó.
+7. **`/auth/resolve-identifier` luôn trả một email cùng hình dạng**: SĐT không có → email
+   nội bộ của chính số đó; tên tài khoản không có → `849…` rút từ HMAC(khoá secret).
+8. **Mật khẩu role gửi dạng băm SCRAM-SHA-256** — log DDL của Supabase (nếu bật) không thấy
+   mật khẩu.
+9. Image Docker: tầng `deps` cài mới `--omit=dev --omit=optional` thay `npm prune` — prune
+   giữ Prisma CLI/TypeScript/Studio (peer tuỳ chọn của `@prisma/client`). 828MB → **469MB**.
+
+### Lỗi bắt được trong lúc làm
+
+- **Hàm trigger security definer mở cho PUBLIC** (`set_referral_code`) — test "anon không
+  gọi được hàm security definer" bắt; thu hồi.
+- **`pg_advisory_xact_lock` trả `void`**, `$queryRaw` của Prisma không đọc được → 500 ở
+  bootstrap; đổi sang `$executeRaw`.
+- **`citext = text` so như `text`** (phân biệt hoa thường) trong `find_login_user` — ép
+  `::citext`, thêm test hồ sơ lưu chữ hoa.
+- Healthcheck Docker bằng socket báo "sẵn sàng" giữa lúc chạy script khởi tạo → đổi sang TCP.
+
+### Chạy thật đã kiểm
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 31 · core 315 · sdk 7 · api 40; ranh giới 0 vi phạm (98 module) |
+| `npm run test:db` (Postgres 17 thật) | **47/47**: 29 RLS/quyền/hàm SQL + 18 API trên DB |
+| RLS | Quên lọc `orgId` → chỉ thấy tổ chức mình · không ngữ cảnh → 0 hàng · ghi/chuyển sang tổ chức khác → bị chặn · `DELETE` → permission denied · sửa số tiền lần trả → bị chặn, huỷ được và `updated_at` đổi |
+| Supabase mặc định | anon/authenticated: 0 quyền trên bảng, không gọi được hàm security definer; mọi bảng bật RLS |
+| `schema.prisma` ↔ migration | `prisma migrate diff` rỗng |
+| Image Docker chạy trên máy nối Postgres ở máy | `/v1/health` 200 · `resolve-identifier` qua Prisma 200 · log không lỗi |
+
+### 🔴 Chưa xong của BE2
+
+- [ ] Chạy migration lên **staging** + `npm run db:role-password` + kiểm Transaction pooler
+      nhận user `api_service.<ref>`.
+- [ ] Render: thêm `SUPABASE_SECRET_KEY`, `DATABASE_URL` (role api_service) — **trước khi
+      merge**, không thì bản mới không khởi động (Render giữ bản cũ).
+- [ ] Supabase staging: bật Phone provider + số thử OTP; nhà cung cấp SMS thật.
+- [ ] Đăng ký thật trên staging bằng cả ba loại tổ chức; OTP tới máy thật.
+- [ ] Phát hành `v0.3.0` sau khi staging chạy.
+- [ ] Cân nhắc: `resolve-identifier` trả email đăng nhập thật của tài khoản có tên đăng nhập
+      — tên đăng nhập công khai ⇒ lộ email/SĐT đăng nhập. Hướng sửa: API tự đăng nhập hộ
+      (`POST /v1/auth/login`) để email không bao giờ ra ngoài. Bản cũ (RPC) cũng như vậy.
+
 ---
 
 ## Bốn số phải giữ trong tầm
@@ -364,7 +445,7 @@ Không đổi code, không đổi quyết định nào — chỉ cho tài liệu
 | Việc | Cần gì | Chặn bước |
 |---|---|---|
 | Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | Không chặn — tạm dùng `*.onrender.com` |
-| Docker Desktop trên máy dev (cần WSL2, quyền quản trị) | Tài tự cài | BE2 |
+| ~~Docker Desktop trên máy dev~~ | ✅ đã cài 22/09/2026 (Docker 29.8, WSL2) | — |
 | Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | BE2 |
 | Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh | BE6 |
 
@@ -372,8 +453,9 @@ Không đổi code, không đổi quyết định nào — chỉ cho tài liệu
 
 ## Ghi chú vận hành
 
-- Máy làm việc: **Windows 11, Node 24, npm 11, `gh` 2.101 (đăng nhập `remembered-fragrance`).
-  Không có Docker, không có WSL.** CI chạy Node 22 (`engines: >=22`).
+- Máy làm việc: **Windows 11, Node 24, npm 11, `gh` 2.101 (đăng nhập `remembered-fragrance`),
+  Docker Desktop 29.8 trên WSL2.** CI chạy Node 22 (`engines: >=22`). Trong Git Bash cần
+  thêm `/c/Program Files/Docker/Docker/resources/bin` vào PATH mới gọi được `docker`.
 - Git đang bật `core.autocrlf=true` ⇒ cảnh báo "LF will be replaced by CRLF" khi commit là
   bình thường; trong repo vẫn lưu LF.
 - Phát hành phiên bản mới: nâng `version` của **mọi** gói cùng lúc → ghi

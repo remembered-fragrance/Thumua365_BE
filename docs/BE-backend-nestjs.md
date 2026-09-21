@@ -2,7 +2,7 @@
 
 Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
-Tiến độ: **BE0 ✅ · BE1 ✅** · tiếp theo BE2 — nhật ký ở [MEMORY.md](../MEMORY.md)
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 🟡** (code xong, chờ staging) · tiếp theo BE3 — nhật ký ở [MEMORY.md](../MEMORY.md)
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
 Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
@@ -188,12 +188,11 @@ ngoài (email) đi qua hàng đợi job **pg-boss** để thử lại được.
 
 ```
 Thumua365_BE  (github.com/remembered-fragrance/Thumua365_BE)          [Backend]
-├── apps/api/           ← NestJS (từ BE1)
+├── apps/api/           ← NestJS (từ BE1); apps/api/prisma/ — schema + migration + RLS (từ BE2)
 ├── packages/
 │   ├── core/           ← src/core/ + tests/core/ của repo frontend     [PR 2 người duyệt]
 │   ├── contracts/      ← zod: lỗi, vai trò, ma trận quyền, request/response [Backend viết, Frontend duyệt]
 │   └── sdk/            ← client có kiểu, sinh từ contracts (từ BE1)
-├── prisma/             ← schema + migration + SQL RLS (từ BE2)
 └── docs/               ← kế hoạch này, THONG_TIN_DU_AN.md, sơ đồ v2
 
 mambo365_deploymentphase (repo frontend hiện tại)                     [Frontend]
@@ -443,23 +442,40 @@ chưa đạt.
 - **Xong khi:** đăng nhập staging → `/v1/me` đúng; token sai → 401 đúng định dạng; gọi từ
   domain lạ bị CORS chặn; spam endpoint → 429.
 
-### BE2 — Database, ba vai trò, OTP, audit (3–4 buổi)
+### BE2 — Database, ba vai trò, OTP, audit (3–4 buổi) · 🟡 code backend xong 22/09/2026, chờ staging
 
 - **Backend:**
-  - `docker-compose` dev (Postgres 16 + PostGIS) — cần Docker Desktop trên máy dev.
-  - Prisma baseline từ 10 migration cũ + **toàn bộ §1.3** + `postgis`. Từ đây Prisma
-    Migrate sở hữu schema; `supabase/migrations/` đóng băng.
-  - Hai role `api_service` / `api_privileged`, RLS theo phiên, thu hồi quyền của
-    `anon`/`authenticated` trên bảng nghiệp vụ (§5). Prisma client extension tự bọc mỗi
-    request trong transaction có `app.org_id`. `DATABASE_URL` (pooler) + `DIRECT_URL`.
-  - Repository bắt buộc `orgId`; test chéo hai tổ chức cho mọi repository.
-  - `AuditService` + `audit_log`; `EventEmitterModule` (§1.8).
-  - Auth phone provider + OTP (§1.4); `/me/bootstrap`, `/auth/resolve-identifier`,
-    `/links/discover` (mới chỉ dò, chưa đọc chéo).
-- **Frontend:** bước **"Bác là ai?"** khi đăng ký; màn xác thực OTP; chọn vỏ theo
-  `organization.type`; `auth.ts` gọi API.
+  - `docker-compose.yml` (**Postgres 17** + PostGIS — cùng bản với Supabase; bản trước ghi
+    16). Script dựng lại những gì Supabase có sẵn (schema `extensions`, role `anon`/
+    `authenticated`, quyền mặc định) để migration chạy ở máy y như staging.
+  - Prisma 7 ở `apps/api/prisma/`: baseline từ 10 migration cũ + **toàn bộ §1.3** +
+    `postgis`, một migration `20260922000000_ba_vai_tro`. Từ đây Prisma Migrate sở hữu
+    schema; `supabase/migrations/` của repo frontend đóng băng. CI đỏ nếu `schema.prisma` và
+    migration lệch nhau.
+  - **Không khoá ngoại sang `auth.users`**: database không phụ thuộc schema của Supabase
+    Auth. Việc cần Auth (email đăng nhập, `phone_confirmed_at`) đi qua Auth API.
+  - Hai role `api_service` (không `BYPASSRLS`, không `DELETE`, `payments` chỉ sửa được
+    `deleted_at`, `audit_log`/`order_events` chỉ ghi thêm) / `api_privileged`. RLS theo phiên:
+    `Database.scoped({ userId, orgId })` mở transaction, `set_config('app.user_id'|'app.org_id',
+    …, true)`. Thu hồi mọi quyền của `anon`/`authenticated`. Mật khẩu role đặt bằng
+    `npm run db:role-password` (gửi chuỗi băm SCRAM, không gửi mật khẩu).
+  - Việc cần nhìn xuyên tổ chức là **hàm security definer** hẹp, chỉ `api_service` gọi được:
+    `find_login_user(text)` (đăng nhập một ô), `discover_links(phone)` (dò kết nối).
+  - `audit_log` ghi trong cùng transaction; event bus `@nestjs/event-emitter` có danh mục sự
+    kiện có kiểu (§1.8).
+  - `/me/bootstrap` (idempotent, khoá advisory theo người dùng; số điện thoại của hồ sơ lấy
+    từ email đăng nhập nội bộ, không tin số client khai), `/auth/resolve-identifier` (luôn
+    trả một email — không dò được ai có tài khoản), `/links/discover` (kiểm
+    `phone_confirmed_at` ngay lúc gọi; chưa xác thực → `PHONE_NOT_VERIFIED`).
+  - Còn lại (cần dashboard / nhà cung cấp): bật **Phone provider** trên Supabase + số thử
+    OTP; nhà cung cấp SMS thật cho bước "OTP tới máy thật".
+- **Frontend:** bước **"Bác là ai?"** khi đăng ký (`sdk.meBootstrap`); đăng nhập gọi
+  `sdk.resolveIdentifier` thay RPC; màn xác thực OTP (`supabase.auth.updateUser({ phone })` →
+  `verifyOtp({ type: 'phone_change' })` → `sdk.discoverLinks()`); chọn vỏ theo
+  `organization.type`.
 - **Xong khi:** đăng ký thật trên staging bằng cả ba loại; OTP tới máy thật; `/me` đúng ma
-  trận; **test RLS xanh** (repository bỏ lọc `orgId` vẫn không thấy dữ liệu tổ chức khác).
+  trận; **test RLS xanh** (repository bỏ lọc `orgId` vẫn không thấy dữ liệu tổ chức khác) —
+  ✅ 29 test RLS + 18 test API trên Postgres thật, chạy trong CI.
 
 ### BE3 — Đồng bộ sổ qua API (3–4 buổi) · quan trọng nhất về tiền
 
