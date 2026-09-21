@@ -24,7 +24,7 @@ Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
 | 3 | Chỉ nói "dò liên kết theo SĐT" | **Luồng OTP cụ thể** qua Supabase Auth (§1.4, BE2) | Chốt: OTP bắt buộc trước khi kết nối |
 | 4 | Không có event bus | `@nestjs/event-emitter`: sự kiện miền → thông báo, đo lường, audit | Có trên kiến trúc v2 |
 | 5 | Audit chỉ cho quản trị viên | Bảng `audit_log` cho mọi thao tác nhạy cảm, ghi từ BE2 | Có trên kiến trúc v2 |
-| 6 | Backup: "thử phục hồi" | **Hai lớp**: PITR Supabase + `pg_dump` hằng ngày ra kho riêng | Có trên kiến trúc v2 |
+| 6 | Backup: "thử phục hồi" | `pg_dump` hằng ngày ra kho riêng (bắt buộc trước pilot) + backup hằng ngày của Supabase Pro khi nâng gói; PITR sau khi có doanh thu | Có trên kiến trúc v2; prod tạm ở gói Free |
 | 7 | Log `pino`, không có interceptor | **Winston** (JSON) + `LoggingInterceptor` + `TransformInterceptor` | Theo ô API Layer của sơ đồ |
 | 8 | HTTPS, CORS, rate limit, `helmet` ở BE10 | Chuyển lên **BE1** | Staging có dữ liệu thử thật từ BE2 |
 | 9 | Chưa nói nông dân có bị chặn theo gói | Chặn gói **chỉ** ở ghi sổ của vựa/DN; đơn, kết nối **miễn phí cho mọi bên** | Chốt: nông dân miễn phí; mạng lưới kết nối là thứ giữ chân vựa |
