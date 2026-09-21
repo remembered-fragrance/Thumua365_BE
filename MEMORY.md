@@ -310,9 +310,23 @@ Không phải lỗ hổng — muốn có biến thể thì phải đang cầm to
 Kèm theo: script in **nguyên thân phản hồi** khi báo lỗi — lộ email của tài khoản thử ra
 màn hình. Sửa: chỉ in mã HTTP và mã lỗi; thông tin người dùng chỉ in "có/null".
 
-### Còn lại của BE1
+### ✅ BE1 đóng — `npm run smoke:me` lần hai: cả 4 bước đạt
 
-- [ ] Chạy lại `npm run smoke:me` sau bản sửa — cả 4 bước phải đạt.
+Đăng nhập thật → `/v1/me` 200 đúng hợp đồng → token sửa giữa chữ ký / giữa payload → 401
+→ đăng xuất rồi dùng token cũ còn hạn → 401.
+
+### Trang thử đăng nhập — `npm run login-test`
+
+`tools/login-test/` (http://localhost:5174 — cổng nằm trong `CORS_ORIGINS` của staging).
+Đăng nhập bằng `supabase-js` (CDN, bản ghim 2.116.0) rồi gọi API bằng **chính `@mambo/sdk`
+đã build trong repo** qua import map — nên nó vừa là công cụ thử, vừa là ví dụ chạy được
+cho frontend. Không phải frontend sản phẩm.
+
+- Máy chủ tĩnh tự viết, **chỉ** phục vụ `tools/login-test`, `packages/{sdk,contracts}/dist`,
+  `node_modules/zod`, và chỉ file `.html/.js/.css/.map`. Đã thử `../`, `%2F`… để đọc
+  `apps/api/.env` → đều 404.
+- Đã chạy trong trình duyệt: gọi `/v1/health` staging qua CORS thành công; khoá giả →
+  báo "Publishable key sai…"; mật khẩu bị xoá khỏi ô sau mỗi lần bấm.
 
 ---
 

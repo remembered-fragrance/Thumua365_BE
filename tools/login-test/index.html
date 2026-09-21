@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thử đăng nhập — THUMUA365</title>
+  <link rel="stylesheet" href="/style.css">
+  <!-- Gói lấy từ chính repo (bản đã build), đúng gói frontend sẽ cài. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@mambo/sdk": "/pkg/sdk/index.js",
+        "@mambo/contracts": "/pkg/contracts/index.js",
+        "zod": "/pkg/zod/index.js"
+      }
+    }
+  </script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Công cụ cho dev · không phải app thật</p>
+      <h1>Thử đăng nhập</h1>
+      <p class="lead">Đăng nhập bằng Supabase Auth, rồi gọi API qua <code>@mambo/sdk</code>.</p>
+      <p id="health" class="pill">Đang hỏi API…</p>
+    </header>
+
+    <details id="config-box">
+      <summary>Cấu hình</summary>
+      <form id="config">
+        <label>API <input id="apiUrl" required></label>
+        <label>Supabase URL <input id="supabaseUrl" required></label>
+        <label>Publishable key <input id="publishableKey" placeholder="sb_publishable_…" required></label>
+        <button type="submit">Lưu cấu hình</button>
+        <p class="hint">Chỉ lưu trong trình duyệt này. Publishable key là khoá công khai; đừng dán khoá secret / service_role.</p>
+      </form>
+    </details>
+
+    <section id="signed-out" hidden>
+      <h2>Đăng nhập</h2>
+      <form id="login">
+        <label>Email <input id="email" type="email" autocomplete="username" required></label>
+        <label>Mật khẩu <input id="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" id="login-btn">Đăng nhập</button>
+      </form>
+    </section>
+
+    <section id="signed-in" hidden>
+      <h2>Đã đăng nhập</h2>
+      <p>Tài khoản: <strong id="who"></strong></p>
+      <div class="row">
+        <button type="button" id="me-btn">Gọi /v1/me</button>
+        <button type="button" id="logout-btn" class="secondary">Đăng xuất</button>
+      </div>
+    </section>
+
+    <p id="message" role="status"></p>
+
+    <section id="result-box" hidden>
+      <h2 id="result-title">Kết quả</h2>
+      <pre id="result"></pre>
+    </section>
+  </main>
+</body>
+</html>

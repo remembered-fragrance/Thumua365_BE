@@ -42,6 +42,7 @@ khoá *publishable* là công khai). API ở `http://localhost:3000/v1/health`.
 | `npm run mock` | Server giả từ `openapi.json` (Prism) cho frontend làm trước khi API xong |
 | `npm run dev` | API chạy lại khi sửa code |
 | `npm run smoke:me` | Kiểm `/v1/me` trên staging bằng một tài khoản thật — bạn tự gõ email/mật khẩu, không in ra đâu cả |
+| `npm run login-test` | Trang thử đăng nhập ở http://localhost:5174 — đăng nhập Supabase rồi gọi API qua `@mambo/sdk` (cần `build:packages` trước) |
 
 ## Cấu trúc
 

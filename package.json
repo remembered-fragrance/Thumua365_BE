@@ -21,7 +21,8 @@
     "openapi": "npm run openapi -w @mambo/contracts",
     "mock": "npx -y @stoplight/prism-cli@5 mock packages/contracts/openapi.json",
     "verify": "npm run lint && npm run build:packages && npm run typecheck && npm run boundaries && npm run test && npm run build -w @mambo/api",
-    "smoke:me": "node scripts/smoke-me.mjs"
+    "smoke:me": "node scripts/smoke-me.mjs",
+    "login-test": "node tools/login-test/serve.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
