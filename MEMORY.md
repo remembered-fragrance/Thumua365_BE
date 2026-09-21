@@ -131,6 +131,54 @@ từ GitHub Release.
 
 ---
 
+## Hạ tầng Supabase · 21/09/2026
+
+**Kết quả:** hai project Supabase chạy ở Singapore, cả hai ký JWT bằng khoá bất đối xứng.
+
+| | Staging | Production |
+|---|---|---|
+| Project | `thumua365-staging` | `thumua365-prod` |
+| URL | `https://bldlrkmszjmhifubxjvl.supabase.co` | `https://grrzveprprjukvosdtra.supabase.co` |
+| Ref | `bldlrkmszjmhifubxjvl` | `grrzveprprjukvosdtra` |
+| Vùng | Southeast Asia (Singapore) | Southeast Asia (Singapore) |
+| Gói | Free | **Free (tạm)** — xem quyết định 3 |
+
+Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác nhau):
+
+- **Không** nối GitHub — Prisma Migrate là nơi duy nhất sửa schema.
+- **Tắt Data API** (PostgREST) và "tự mở bảng mới" — app không đọc DB trực tiếp (KH §5).
+  Auth và Storage của `supabase-js` vẫn chạy. Hệ quả: app frontend hiện tại **không** đăng
+  ký được với hai project này cho tới BE2 (`/me/bootstrap`, `/auth/resolve-identifier`).
+- **Bật RLS tự động** cho mọi bảng mới trong `public`.
+
+### Kiểm tra thật
+
+| Việc | Kết quả |
+|---|---|
+| `GET /auth/v1/.well-known/jwks.json` | Cả hai: một khoá **ES256 (EC)** ⇒ NestJS kiểm JWT bằng JWKS công khai như KH §3, không cần JWT secret |
+| `/rest/v1/` | 401 — Data API đã tắt / cần khoá |
+| Production ngay sau khi tạo | 521 khoảng 1–2 phút trong lúc khởi tạo, rồi chạy |
+
+### Quyết định
+
+1. **Kiểm JWT bằng JWKS (ES256)**, không dùng JWT secret dùng chung. Bí mật không phải nằm
+   trong API; đổi khoá ở Supabase thì API tự lấy khoá mới.
+2. **Mật khẩu database và khoá không bao giờ đi qua chat hay commit.** Chỉ nằm trong `.env`
+   máy dev (đã `.gitignore`) và biến môi trường của nơi chạy container.
+3. **Production tạm ở gói Free.** Hệ quả và cách chặn:
+   - Không có backup tự động ⇒ job `pg_dump` hằng ngày ra kho riêng là **lớp backup duy
+     nhất**, chuyển từ "BE10" thành **điều kiện bắt buộc trước khi có người dùng thật**,
+     kèm một lần thử phục hồi.
+   - Tạm dừng sau ~1 tuần không truy cập — chấp nhận trước pilot; không dựng cron gọi vào
+     để lách.
+   - **Nâng lên Pro (org riêng, để staging vẫn free) khi gặp mốc đầu tiên:** có khách trả
+     tiền đầu tiên · database > ~400MB · Storage > ~800MB · production bị tạm dừng lúc đang
+     có người dùng.
+   - PITR để sau khi có doanh thu; hai lớp backup của pilot = backup hằng ngày của Pro +
+     `pg_dump` riêng.
+
+---
+
 ## Bốn số phải giữ trong tầm
 
 | Chỉ số | Ngưỡng | Cuối BE0 |
@@ -147,7 +195,6 @@ từ GitHub Release.
 | Việc | Cần gì | Chặn bước |
 |---|---|---|
 | Chọn nơi chạy container API | Quyết định + đăng ký tài khoản | BE1 |
-| 2 project Supabase (staging, prod) vùng Singapore | Tài khoản Supabase | BE1 |
 | Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | BE1 |
 | Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | BE2 |
 | Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh | BE6 |

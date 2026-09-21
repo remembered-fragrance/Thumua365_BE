@@ -416,8 +416,9 @@ chưa đạt.
   - **Bảo mật nền:** HTTPS, CORS chỉ domain app, `helmet`, rate limit (`@nestjs/throttler`),
     giới hạn kích thước body.
   - `GET /v1/health`, `GET /v1/me` (§3.2, dữ liệu giả tới BE2).
-  - Dockerfile nhiều tầng; `docker-compose` dev (Postgres 16 + PostGIS). 2 project Supabase
-    (staging, prod) vùng Singapore; container API cùng vùng — chọn nhà cung cấp ở bước này.
+  - Dockerfile nhiều tầng; `docker-compose` dev (Postgres 16 + PostGIS). Container API vùng
+    Singapore (đề xuất Render). Supabase đã có: staging `bldlrkmszjmhifubxjvl`, prod
+    `grrzveprprjukvosdtra`, cả hai ký JWT bằng ES256 ⇒ kiểm qua JWKS.
   - OpenAPI sinh từ contracts, `openapi.json` commit; `npm run mock` (Prism).
   - CI: lint · typecheck · test · build image → deploy **staging** khi merge; **prod bấm tay**.
   - Sentry cho API (bắt lỗi từ ngày đầu, trước khi có người dùng).
@@ -509,8 +510,11 @@ chưa đạt.
 
 ### BE10 — Lên production (1–2 buổi)
 
-- **Backup hai lớp:** bật PITR Supabase + job `pg_dump` hằng ngày ra kho riêng (khác nhà
-  cung cấp), giữ 30 ngày. **Thử phục hồi một lần** từ mỗi lớp.
+- **Backup:** job `pg_dump` hằng ngày ra kho riêng (khác nhà cung cấp), giữ 30 ngày,
+  **thử phục hồi một lần**. Production đang ở gói Free (không có backup tự động) nên job này
+  là **điều kiện bắt buộc trước khi có người dùng thật**. Nâng Pro (org riêng) khi có khách
+  trả tiền đầu tiên, database > ~400MB, Storage > ~800MB hoặc production bị tạm dừng lúc có
+  người dùng — khi đó thêm lớp backup hằng ngày của Pro. PITR sau khi có doanh thu.
 - Rà bảo mật: `git grep` không lộ khoá; `service_role` chỉ có trong env API; `/metrics`
   không mở công khai; CORS chỉ domain prod.
 - Migrate prod, deploy image đã chạy ở staging, bật `features` cho nhóm pilot.
