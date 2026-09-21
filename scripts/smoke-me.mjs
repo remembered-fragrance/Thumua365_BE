@@ -11,7 +11,7 @@
  * Bốn bước:
  *   1. Đăng nhập Supabase Auth → lấy access_token
  *   2. GET /v1/me với token đó → phải 200 và đúng hợp đồng `Me`
- *   3. GET /v1/me với token bị sửa một ký tự → phải 401
+ *   3. GET /v1/me với token bị sửa (giữa chữ ký, giữa payload) → phải 401
  *   4. Đăng xuất phiên này ở Supabase, gọi lại /v1/me bằng token CŨ (chưa hết hạn)
  *      → phải 401: API phát hiện phiên đã bị thu hồi
  *
@@ -147,7 +147,8 @@ const main = async () => {
   console.warn('\n2. GET /v1/me với token thật');
   const me = await callMe(token);
   if (me.status !== 200) {
-    fail(`HTTP ${me.status}`, JSON.stringify(me.body));
+    // Chỉ in mã lỗi — không in thân phản hồi (có thể chứa email, số điện thoại).
+    fail(`HTTP ${me.status}`, me.body?.error?.code ?? 'không có mã lỗi');
   } else {
     pass('HTTP 200', `requestId ${me.requestId}`);
     const schema = await loadMeSchema();
@@ -162,17 +163,29 @@ const main = async () => {
     if (u.id === session.user?.id) pass('user.id khớp tài khoản vừa đăng nhập');
     else fail('user.id không khớp tài khoản vừa đăng nhập');
     console.warn(
-      `     name=${JSON.stringify(u.name)} · email=${u.email ? 'có' : 'null'} · phone=${u.phone ? 'có' : 'null'}` +
+      `     name=${u.name ? 'có' : 'null'} · email=${u.email ? 'có' : 'null'} · phone=${u.phone ? 'có' : 'null'}` +
         ` · phoneVerified=${u.phoneVerified} · memberships=${me.body?.memberships?.length} · pendingLinks=${me.body?.pendingLinks}`,
     );
   }
 
   // 3. Token bị sửa
-  console.warn('\n3. GET /v1/me với token bị sửa một ký tự');
-  const last = token.at(-1) === 'A' ? 'B' : 'A';
-  const tampered = await callMe(`${token.slice(0, -1)}${last}`);
-  if (tampered.status === 401 && tampered.body?.error?.code === 'UNAUTHENTICATED') pass('401 UNAUTHENTICATED');
-  else fail(`Mong 401, nhận ${tampered.status}`, JSON.stringify(tampered.body));
+  //
+  // KHÔNG sửa ký tự cuối: chữ ký ES256 (64 byte) mã base64url thành 86 ký tự = 516 bit,
+  // 4 bit cuối là bit đệm. Đổi chúng thì giải mã ra ĐÚNG chữ ký cũ và token vẫn hợp lệ —
+  // lần chạy đầu 21/09/2026 đã "trượt" vì thế. Sửa ký tự giữa chữ ký và giữa payload,
+  // nơi mọi bit đều là dữ liệu.
+  console.warn('\n3. GET /v1/me với token bị sửa');
+  const [head, payload, sig] = token.split('.');
+  const swap = (s, i) => `${s.slice(0, i)}${s[i] === 'A' ? 'B' : 'A'}${s.slice(i + 1)}`;
+  const variants = [
+    ['sửa một ký tự giữa chữ ký', `${head}.${payload}.${swap(sig, Math.floor(sig.length / 2))}`],
+    ['sửa một ký tự giữa payload', `${head}.${swap(payload, Math.floor(payload.length / 2))}.${sig}`],
+  ];
+  for (const [label, forged] of variants) {
+    const res = await callMe(forged);
+    if (res.status === 401 && res.body?.error?.code === 'UNAUTHENTICATED') pass(`${label} → 401 UNAUTHENTICATED`);
+    else fail(`${label} → mong 401, nhận ${res.status}`);
+  }
 
   // 4. Phiên bị thu hồi
   console.warn('\n4. Đăng xuất phiên này rồi gọi lại bằng token cũ (chưa hết hạn)');

@@ -63,6 +63,16 @@ describe('GET /v1/me', () => {
     ['đã hết hạn', async () => signer.sign({}, { expiresIn: '-1m' })],
     ['ký bằng khoá lạ', async () => signer.sign({}, { key: await signer.otherKey() })],
     ['khoá anon (role không phải authenticated)', async () => signer.sign({ role: 'anon' })],
+    ['token hợp lệ bị sửa một ký tự giữa chữ ký', async () => {
+      const [h, p, sig = ''] = (await signer.sign()).split('.');
+      const i = Math.floor(sig.length / 2);
+      return `${h}.${p}.${sig.slice(0, i)}${sig[i] === 'A' ? 'B' : 'A'}${sig.slice(i + 1)}`;
+    }],
+    ['token hợp lệ bị sửa payload (đổi sub)', async () => {
+      const [h, , sig] = (await signer.sign()).split('.');
+      const forged = Buffer.from(JSON.stringify({ sub: 'nguoi-khac', role: 'authenticated' })).toString('base64url');
+      return `${h}.${forged}.${sig}`;
+    }],
   ])('%s → 401', async (_, makeToken) => {
     const res = await request(app.getHttpServer())
       .get('/v1/me')

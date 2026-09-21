@@ -294,9 +294,25 @@ test tại chỗ không có proxy nên không bao giờ bắt được loại l�
 | Client tự gửi `cf-connecting-ip` | Cloudflare chặn (403) — không giả được |
 | Deploy tự động | Push → CI xanh → Render deploy trong vài phút; đổi `render.yaml` được Blueprint tự áp |
 
+### `/v1/me` với tài khoản thật — lần chạy đầu (`npm run smoke:me`)
+
+Bước 1, 2, 4 đạt: đăng nhập thật, `/v1/me` 200 đúng hợp đồng `Me`, `user.id` khớp; đăng
+xuất rồi dùng lại token cũ còn hạn → **401** (API phát hiện phiên bị thu hồi).
+
+Bước 3 "token bị sửa một ký tự → 401" **trượt — lỗi của script, không phải của API.**
+Script đổi ký tự CUỐI của chữ ký. Chữ ký ES256 64 byte = 86 ký tự base64url = 516 bit, nên
+4 bit cuối là bit đệm; khi ký tự gốc nằm trong `A`–`P`, đổi sang `A`/`B` chỉ đổi bit đệm và
+giải mã ra **đúng chữ ký cũ**. Đã kiểm: lật bit đệm → 20/20 lần bytes chữ ký giống hệt.
+Không phải lỗ hổng — muốn có biến thể thì phải đang cầm token hợp lệ, và biến thể mang
+đúng nội dung của nó. Sửa script: sửa ký tự **giữa** chữ ký và **giữa** payload; thêm hai ca
+đó vào test API (37 test).
+
+Kèm theo: script in **nguyên thân phản hồi** khi báo lỗi — lộ email của tài khoản thử ra
+màn hình. Sửa: chỉ in mã HTTP và mã lỗi; thông tin người dùng chỉ in "có/null".
+
 ### Còn lại của BE1
 
-- [ ] `/v1/me` với **token của một tài khoản thật** trên staging.
+- [ ] Chạy lại `npm run smoke:me` sau bản sửa — cả 4 bước phải đạt.
 
 ---
 
