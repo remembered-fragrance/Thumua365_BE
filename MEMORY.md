@@ -179,7 +179,7 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 
 ---
 
-## BE1 — Khung NestJS, bảo mật nền · 21/09/2026
+## BE1 — Khung NestJS, bảo mật nền · `00ce552` · tag `v0.2.0` · 21/09/2026
 
 **Kết quả:** API chạy được, kiểm JWT thật của Supabase staging qua JWKS; frontend có
 `@mambo/sdk` để gọi. Chưa deploy — chờ tài khoản Render.
@@ -241,13 +241,16 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 | `GET /v1/me` không token | 401 `UNAUTHENTICATED`, `requestId` khớp header |
 | Token giả mang `kid` lạ | API đi lấy **JWKS thật** của staging → 401 |
 | Đường dẫn lạ | 404 `NOT_FOUND` |
+| [CI](https://github.com/remembered-fragrance/Thumua365_BE/actions/runs/35568565561) job `verify` | ✅ |
+| CI job `docker` — lần đầu Dockerfile được build ở bất cứ đâu | ✅ build image · container lên · `/v1/health` 200 · `/v1/me` 401 đúng định dạng |
+| [Release `v0.2.0`](https://github.com/remembered-fragrance/Thumua365_BE/releases/tag/v0.2.0) | ✅ core (133KB) · contracts (12KB) · sdk (4KB) |
+| Cài ba gói từ URL release vào project nháp, dùng `createClient` + `ApiError` | Kiểm kiểu và chạy đều được |
 | Test e2e (supertest, đúng `configureApp` của production) | Token rác / sai issuer / hết hạn / khoá lạ / khoá anon → 401 · phiên bị thu hồi → 401 · Supabase lỗi → 500 không lộ chi tiết · JSON hỏng → 422 · body 1,1MB → 413 · CORS domain lạ không có header · quá hạn mức → 429 có `Retry-After`, `/v1/health` không bị tính · staff vựa xoá phiếu → 403 · chủ vựa → 200 · nông dân owner → 403 · trường thừa bị lọc · sai hợp đồng → 500 |
 
 ### 🔴 Chưa kiểm được
 
 - **Token thật của một người dùng thật** chưa đi qua `/v1/me` — cần publishable key của
   staging và một tài khoản thử. Tất cả nhánh đã có test với token ES256 tự ký.
-- **Dockerfile chưa build lần nào trên máy** (không có Docker) — CI job `docker` là lần đầu.
 - **Deploy staging** — chờ tài khoản Render (áp `render.yaml` qua Blueprint).
 
 ---
