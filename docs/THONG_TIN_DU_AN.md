@@ -89,7 +89,7 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 
 | Module | Nội dung | Hiện trạng | Bước |
 |---|---|---|---|
-| Auth & User | Đăng ký/đăng nhập (Supabase Auth), phiên + refresh token (supabase-js tự làm), hồ sơ, vai trò, tổ chức, **xác thực SĐT bằng OTP** | 🟡 | BE2 |
+| Auth & User | Đăng ký/đăng nhập (Supabase Auth), phiên + refresh token (supabase-js tự làm), hồ sơ, vai trò, tổ chức, **xác thực SĐT bằng OTP** | ✅ trừ OTP | BE2 · BE4 (OTP) |
 | Organization | Tổ chức, chi nhánh, nhân viên, membership, phân quyền | ❌ | BE2 (schema) · BE7 (màn) |
 | Transaction | Phiếu mua/bán, phiếu cân ✅ · **đơn mua/đơn bán, đặt lịch, trạng thái** ❌ · giao hàng ❌ | 🟡 | BE3 · BE5 · sau BE10 |
 | Inventory | Tồn kho (suy từ phiếu) ✅ · nhập/xuất kho tường minh, lô hàng ❌ | 🟡 | sau BE10 |
@@ -103,9 +103,9 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 | Ô sơ đồ | Quyết định | Hiện trạng | Bước |
 |---|---|---|---|
 | Data Access: Repository, Prisma/TypeORM, Query Builder, Transaction Mgmt | **Prisma 7**; mọi truy vấn qua `Database.scoped({ userId, orgId })` — một transaction có ngữ cảnh RLS; mỗi thao tác sync một transaction DB | ✅ khung | BE2 |
-| PostgreSQL | Supabase Postgres **17**; Prisma Migrate sở hữu schema (baseline từ 10 migration cũ); máy dev và CI chạy cùng bản trong Docker | ✅ ở máy + CI · 🟡 staging | BE2 |
+| PostgreSQL | Supabase Postgres **17**; Prisma Migrate sở hữu schema (baseline từ 10 migration cũ); máy dev và CI chạy cùng bản trong Docker | ✅ máy dev, CI, staging | BE2 |
 | PostGIS (Geospatial) | Bật extension từ đầu; dùng khi làm tìm vựa gần / vùng trồng (`$queryRaw`) | ❌ | sau BE10 |
-| Supabase Auth | Giữ — NestJS chỉ kiểm JWT bằng JWKS (ES256), không dùng JWT secret | ✅ kiểm JWT · OTP ❌ | BE1 · BE2 (OTP) |
+| Supabase Auth | Giữ — NestJS chỉ kiểm JWT bằng JWKS (ES256), không dùng JWT secret | ✅ kiểm JWT · OTP ❌ | BE1 · BE4 (OTP) |
 | Supabase Storage | Ảnh chứng từ qua signed URL, file không chảy qua NestJS | 🟡 | BE8 |
 | Supabase Realtime | Đẩy **trạng thái đơn và thông báo** tới máy (thay cho hỏi lại 60 giây/lần). Sổ offline vẫn kéo theo cursor | ❌ | BE5 (hỏi định kỳ) → nâng lên Realtime sau |
 | RLS | Lớp bảo vệ **thứ hai** theo `organization_id` (RLS theo phiên, role `api_service` không bypass); lớp chính là Guard | ✅ có test | BE2 |
@@ -126,7 +126,7 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 | Supabase (API/SDK, Webhook) | Auth, Storage, DB. Webhook từ Supabase (ví dụ Auth hook khi có người đăng ký) chỉ dùng nếu cần. Data API (PostgREST) **tắt** | ✅ BE1 (Auth) |
 | Ngân hàng — webhook thanh toán | Casso / SePay → `POST /v1/webhooks/bank` (chống trùng, khớp số tiền, bí mật so sánh không đo thời gian) | BE6 |
 | Map / Location | Tìm kiếm địa lý, toạ độ vùng trồng — cùng lúc với PostGIS | sau BE10 |
-| Email / SMS | **OTP xác thực SĐT** (bắt buộc trước khi liên kết) · thông báo hệ thống | BE2 · BE5 |
+| Email / SMS | **OTP xác thực SĐT** (bắt buộc trước khi liên kết) · thông báo hệ thống | BE4 · BE5 |
 | Export Excel/PDF | Giữ, chạy trên máy người dùng | ✅ |
 
 ### 3.7 Hạ tầng & vận hành
@@ -193,9 +193,9 @@ safety khớp với R5, `assetlinks.json` cho TWA.
 |---|---|---|---|
 | BE0 ✅ | Repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE): `packages/core`, `packages/contracts`, CI, release `.tgz` | Chốt quy ước; `@/core/` → `@mambo/core/` từ release | 1–2 |
 | BE1 ✅ | Khung NestJS, Guard, định dạng lỗi, `/v1/me`, Docker, staging Render | `/lien-he`, link pháp lý (R4); khung chọn vỏ | 2 |
-| BE2 🟡 | Prisma + schema ba vai trò, tổ chức, chi nhánh, OTP, `/me/bootstrap` — code xong, chờ staging | Bước "Bác là ai?" khi đăng ký | 3 |
+| BE2 ✅ | Prisma + schema ba vai trò, tổ chức, chi nhánh, `/me/bootstrap` (OTP dời sang BE4) | Bước "Bác là ai?" khi đăng ký | 3 |
 | BE3 | Đồng bộ sổ qua API, giới hạn theo chi nhánh | `sync.ts`, `pullChanges.ts`, `cache.ts` | 3–4 |
-| BE4 | Kết nối tổ chức + phần xem của nông dân | Vỏ Nông dân (phần xem), nút "Mời kết nối" | 2–3 |
+| BE4 | Kết nối tổ chức + phần xem của nông dân + **OTP xác thực SĐT** (dời từ BE2) | Vỏ Nông dân (phần xem), nút "Mời kết nối", màn OTP | 2–3 |
 | BE5 | Đơn hàng, đặt lịch, thông báo trong app | Đơn bán, danh sách đơn, hẹn lịch, ô "Theo đơn" | 3 |
 | BE6 | Tài khoản, gói, webhook ngân hàng, quản trị | `billing.ts`, `account.ts` | 2–3 |
 | BE7 | Nhân viên, chi nhánh, báo cáo tổng | Vỏ Doanh nghiệp | 2–3 |

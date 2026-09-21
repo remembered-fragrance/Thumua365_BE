@@ -2,7 +2,7 @@
 
 Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
-Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 🟡** (staging chạy, chờ nghiệm thu OTP) · tiếp theo BE3 — nhật ký ở [MEMORY.md](../MEMORY.md)
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · tiếp theo BE3 — nhật ký ở [MEMORY.md](../MEMORY.md)
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
 Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
@@ -442,7 +442,7 @@ chưa đạt.
 - **Xong khi:** đăng nhập staging → `/v1/me` đúng; token sai → 401 đúng định dạng; gọi từ
   domain lạ bị CORS chặn; spam endpoint → 429.
 
-### BE2 — Database, ba vai trò, OTP, audit (3–4 buổi) · 🟡 chạy trên staging 22/09/2026 (`v0.3.0`), chờ nghiệm thu OTP
+### BE2 — Database, ba vai trò, OTP, audit (3–4 buổi) · ✅ đóng 22/09/2026 (`v0.3.0`) — OTP dời sang BE4
 
 - **Backend:**
   - `docker-compose.yml` (**Postgres 17** + PostGIS — cùng bản với Supabase; bản trước ghi
@@ -475,9 +475,10 @@ chưa đạt.
   `sdk.resolveIdentifier` thay RPC; màn xác thực OTP (`supabase.auth.updateUser({ phone })` →
   `verifyOtp({ type: 'phone_change' })` → `sdk.discoverLinks()`); chọn vỏ theo
   `organization.type`.
-- **Xong khi:** đăng ký thật trên staging bằng cả ba loại; OTP tới máy thật; `/me` đúng ma
-  trận; **test RLS xanh** (repository bỏ lọc `orgId` vẫn không thấy dữ liệu tổ chức khác) —
-  ✅ 29 test RLS + 18 test API trên Postgres thật, chạy trong CI.
+- **Xong khi:** đăng ký thật trên staging bằng cả ba loại ✅; `/me` đúng ma trận ✅; **test
+  RLS xanh** ✅ (29 test RLS + 18 test API trên Postgres thật, chạy trong CI). ~~OTP tới máy
+  thật~~ → **dời sang BE4** (22/09/2026): BE4 là bước đầu tiên cần số đã xác thực; code API
+  đã sẵn (`PHONE_NOT_VERIFIED`).
 
 ### BE3 — Đồng bộ sổ qua API (3–4 buổi) · quan trọng nhất về tiền
 
@@ -490,7 +491,9 @@ chưa đạt.
 ### BE4 — Kết nối + Nông dân (2–3 buổi)
 
 - **Backend:** `/links/*`, `/linked/*`, hàm `linked_receipts()`; schema `LinkedReceipt`
-  riêng trong contracts; sự kiện `link.*`.
+  riêng trong contracts; sự kiện `link.*`. **Nhận từ BE2:** bật Phone provider trên
+  Supabase, chọn nhà cung cấp SMS, OTP tới máy thật (`/links/discover` đã kiểm
+  `phone_confirmed_at`).
 - **Frontend:** vỏ Nông dân (phần xem); nút "Mời kết nối" trên trang nông hộ.
 - **Xong khi:** vựa ghi phiếu có nợ → nông dân đăng ký, **xác thực OTP**, đồng ý → thấy
   đúng phiếu, đúng số nợ; chưa OTP → `PHONE_NOT_VERIFIED`; huỷ kết nối → mất quyền ngay.
