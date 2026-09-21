@@ -1,0 +1,553 @@
+<title>Mambo365 Kiến trúc v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f4f6f1;
+    --surface: #ffffff;
+    --surface-2: #eef2ea;
+    --ink: #1b2820;
+    --ink-2: #4c5c52;
+    --ink-3: #7a887f;
+    --line: #c9d3c8;
+    --accent: #2c7a4b;
+    --accent-soft: #e2f0e6;
+    --sans: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101612;
+      --surface: #18201b;
+      --surface-2: #1f2a23;
+      --ink: #e2eae4;
+      --ink-2: #aab8ae;
+      --ink-3: #7f8f84;
+      --line: #34443a;
+      --accent: #62c38a;
+      --accent-soft: #1d3326;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101612;
+    --surface: #18201b;
+    --surface-2: #1f2a23;
+    --ink: #e2eae4;
+    --ink-2: #aab8ae;
+    --ink-3: #7f8f84;
+    --line: #34443a;
+    --accent: #62c38a;
+    --accent-soft: #1d3326;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    padding-inline: 16px;
+    padding-block: 32px 64px;
+  }
+  .page { max-width: 1160px; margin: 0 auto; display: grid; gap: 56px; }
+
+  header { display: grid; gap: 10px; max-width: 760px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .04em;
+    color: var(--ink-3); text-transform: uppercase;
+  }
+  h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; margin: 0; font-weight: 700; text-wrap: balance; }
+  h1 span { color: var(--accent); }
+  .lead { margin: 0; color: var(--ink-2); font-size: 17px; max-width: 68ch; }
+  .status {
+    justify-self: start; font-size: 13px; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+
+  section { display: grid; gap: 16px; }
+  h2 { font-size: 22px; margin: 0; font-weight: 700; text-wrap: balance; }
+  section > p { margin: 0; color: var(--ink-2); max-width: 72ch; }
+
+  figure { margin: 0; display: grid; gap: 12px; }
+  .scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .scroll svg { display: block; width: 100%; min-width: 960px; height: auto; }
+  figcaption { color: var(--ink-2); font-size: 14px; max-width: 80ch; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .sw { width: 22px; height: 14px; border-radius: 3px; display: inline-block; }
+  .sw.new { background: var(--accent-soft); border: 1.5px solid var(--accent); }
+  .sw.old { background: var(--surface); border: 1px solid var(--line); }
+
+  /* SVG */
+  svg text { font-family: var(--sans); fill: var(--ink); }
+  svg .t { font-size: 13.5px; font-weight: 600; }
+  svg .tb { font-size: 12.5px; font-weight: 600; }
+  svg .s { font-size: 11.5px; fill: var(--ink-2); }
+  svg .xs { font-size: 10.5px; fill: var(--ink-2); }
+  svg .m { font-family: var(--mono); font-size: 11px; fill: var(--ink-2); }
+  svg .lab { font-size: 11px; fill: var(--ink-2); font-weight: 600; }
+  svg .acc { fill: var(--accent); }
+  svg .zone { fill: var(--surface-2); stroke: var(--line); stroke-width: 1; }
+  svg .zone-api { fill: var(--accent-soft); fill-opacity: .45; stroke: var(--accent); stroke-width: 1.5; }
+  svg .box { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+  svg .role { fill: var(--surface); stroke: var(--ink-3); stroke-width: 1.2; }
+  svg .new { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  svg .bar { fill: var(--surface); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; }
+  svg .wire { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+  svg .wire-acc { stroke: var(--accent); stroke-width: 2; fill: none; }
+  svg .life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 5; }
+  svg .mk { fill: var(--ink-2); }
+  svg .mk-acc { fill: var(--accent); }
+  svg .chip { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
+  svg .state { fill: var(--accent); }
+  svg .state-t { font-family: var(--mono); font-size: 10.5px; fill: var(--surface); font-weight: 500; }
+
+  /* Bảng */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; background: var(--surface-2); }
+  td:first-child { font-weight: 600; width: 18%; }
+  td.old { color: var(--ink-2); width: 22%; }
+  td .why { display: block; color: var(--ink-3); font-size: 13px; margin-top: 4px; }
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+  .tag { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-right: 6px; }
+  .tag.keep { background: var(--accent-soft); color: var(--accent); }
+
+  .axes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .axis { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: grid; gap: 6px; }
+  .axis h3 { margin: 0; font-size: 15px; }
+  .axis p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .axis .vals { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+
+  ol.decide { margin: 0; padding-left: 22px; display: grid; gap: 8px; max-width: 80ch; }
+  ol.decide li { padding-left: 4px; }
+  ol.decide b { font-weight: 600; }
+</style>
+
+<div class="page">
+  <header>
+    <div class="eyebrow">Mambo365 / THUMUA365 · 21/09/2026</div>
+    <h1>Kiến trúc <span>v2</span></h1>
+    <p class="lead">Sơ đồ gốc được vẽ lại để khớp với cách hệ thống thực sự chạy: ba vai trò trên một chuỗi, sổ offline đồng bộ qua NestJS, và những gì đi thẳng tới Supabase mà không qua API.</p>
+    <span class="status">Đã chốt · 21/09/2026</span>
+  </header>
+
+  <!-- ── Sơ đồ kiến trúc ── -->
+  <section>
+    <h2>Sơ đồ kiến trúc</h2>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1200 960" role="img" aria-label="Kiến trúc v2: ba vai trò dùng một app web; app đăng nhập qua Supabase Auth, gọi NestJS API bằng JWT cho REST và đồng bộ sổ, tải ảnh thẳng lên Supabase Storage bằng signed URL; NestJS dùng Prisma ghi vào PostgreSQL của Supabase; ngân hàng gửi webhook vào NestJS.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="mk"/>
+            </marker>
+            <marker id="ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="mk-acc"/>
+            </marker>
+          </defs>
+
+          <!-- Vai trò -->
+          <rect x="40" y="20" width="220" height="76" rx="8" class="role"/>
+          <text x="150" y="45" text-anchor="middle" class="t">Nông dân</text>
+          <text x="150" y="64" text-anchor="middle" class="s">bán · theo dõi đơn, công nợ</text>
+          <text x="150" y="83" text-anchor="middle" class="xs acc">miễn phí</text>
+
+          <rect x="280" y="20" width="220" height="76" rx="8" class="role"/>
+          <text x="390" y="45" text-anchor="middle" class="t">Thương lái · Vựa · Đại lý</text>
+          <text x="390" y="64" text-anchor="middle" class="s">mua bán · kho · công nợ · lịch</text>
+          <text x="390" y="83" text-anchor="middle" class="xs acc">149.000đ / tháng</text>
+
+          <rect x="520" y="20" width="220" height="76" rx="8" class="role"/>
+          <text x="630" y="45" text-anchor="middle" class="t">Doanh nghiệp</text>
+          <text x="630" y="64" text-anchor="middle" class="s">nhân viên · chi nhánh · báo cáo</text>
+          <text x="630" y="83" text-anchor="middle" class="xs acc">theo số chi nhánh</text>
+
+          <line x1="150" y1="96" x2="150" y2="136" class="wire" marker-end="url(#ar)"/>
+          <line x1="390" y1="96" x2="390" y2="136" class="wire" marker-end="url(#ar)"/>
+          <line x1="630" y1="96" x2="630" y2="136" class="wire" marker-end="url(#ar)"/>
+          <text x="400" y="121" class="lab">mở đúng vỏ theo loại tổ chức</text>
+
+          <!-- Client -->
+          <rect x="40" y="140" width="700" height="150" rx="10" class="zone"/>
+          <text x="56" y="164" class="t">Client — một app web, ba vỏ</text>
+          <rect x="56" y="178" width="210" height="62" rx="6" class="box"/>
+          <text x="161" y="203" text-anchor="middle" class="tb">Giao diện React + TS</text>
+          <text x="161" y="222" text-anchor="middle" class="xs">vỏ Nông dân · Vựa · Doanh nghiệp</text>
+          <rect x="282" y="178" width="210" height="62" rx="6" class="box"/>
+          <text x="387" y="203" text-anchor="middle" class="tb">IndexedDB</text>
+          <text x="387" y="222" text-anchor="middle" class="xs">sổ offline của vựa, doanh nghiệp</text>
+          <rect x="508" y="178" width="216" height="62" rx="6" class="box"/>
+          <text x="616" y="203" text-anchor="middle" class="tb">Hàng đợi thao tác</text>
+          <text x="616" y="222" text-anchor="middle" class="xs">seq · thử lại · chống trùng</text>
+          <text x="56" y="262" class="s">Ghi cục bộ trước, đẩy lên sau — tắt app lúc mất mạng không mất thao tác</text>
+          <text x="56" y="280" class="xs">Web (PWA) · Android: TWA → CH Play · responsive từ 320px</text>
+
+          <!-- Supabase Auth -->
+          <rect x="840" y="140" width="320" height="150" rx="10" class="box"/>
+          <text x="856" y="164" class="t">Supabase Auth</text>
+          <text x="856" y="188" class="s">Đăng ký · đăng nhập</text>
+          <text x="856" y="206" class="s">OTP SMS xác thực số điện thoại</text>
+          <text x="856" y="224" class="s">Phiên + refresh token</text>
+          <text x="856" y="242" class="s">Phát JWT · khoá công khai (JWKS)</text>
+          <text x="856" y="270" class="xs">NestJS chỉ kiểm JWT, không phát token riêng</text>
+
+          <line x1="742" y1="196" x2="836" y2="196" class="wire" marker-end="url(#ar)"/>
+          <text x="789" y="189" text-anchor="middle" class="lab">đăng nhập, OTP</text>
+          <line x1="838" y1="230" x2="744" y2="230" class="wire" marker-end="url(#ar)"/>
+          <text x="791" y="223" text-anchor="middle" class="lab">JWT</text>
+
+          <!-- Client → Storage trực tiếp -->
+          <polyline points="740,272 800,272 800,314 1000,314 1000,336" class="wire" marker-end="url(#ar)"/>
+          <text x="900" y="307" text-anchor="middle" class="lab">PUT / GET ảnh trực tiếp</text>
+
+          <!-- Client ↔ API -->
+          <line x1="390" y1="294" x2="390" y2="336" class="wire-acc" marker-start="url(#ara)" marker-end="url(#ara)"/>
+          <text x="404" y="310" class="lab">HTTPS /v1 · Bearer JWT · X-Organization-Id</text>
+          <text x="404" y="327" class="m">REST + /sync/push · /sync/pull</text>
+
+          <!-- NestJS -->
+          <rect x="40" y="340" width="700" height="320" rx="10" class="zone-api"/>
+          <text x="56" y="364" class="t">NestJS API · TypeScript</text>
+          <text x="724" y="364" text-anchor="end" class="xs">Docker · 1 container · vùng Singapore</text>
+
+          <text x="56" y="410" class="s">Mỗi request:</text>
+          <rect x="140" y="392" width="84" height="28" rx="5" class="chip"/><text x="182" y="410" text-anchor="middle" class="xs">JWT</text>
+          <rect x="240" y="392" width="84" height="28" rx="5" class="chip"/><text x="282" y="410" text-anchor="middle" class="xs">Tổ chức</text>
+          <rect x="340" y="392" width="84" height="28" rx="5" class="chip"/><text x="382" y="410" text-anchor="middle" class="xs">Quyền</text>
+          <rect x="440" y="392" width="84" height="28" rx="5" class="chip"/><text x="482" y="410" text-anchor="middle" class="xs">zod DTO</text>
+          <rect x="540" y="392" width="84" height="28" rx="5" class="chip"/><text x="582" y="410" text-anchor="middle" class="xs">Interceptor</text>
+          <rect x="640" y="392" width="84" height="28" rx="5" class="chip"/><text x="682" y="410" text-anchor="middle" class="xs">Lỗi chuẩn</text>
+          <line x1="224" y1="406" x2="238" y2="406" class="wire" marker-end="url(#ar)"/>
+          <line x1="324" y1="406" x2="338" y2="406" class="wire" marker-end="url(#ar)"/>
+          <line x1="424" y1="406" x2="438" y2="406" class="wire" marker-end="url(#ar)"/>
+          <line x1="524" y1="406" x2="538" y2="406" class="wire" marker-end="url(#ar)"/>
+          <line x1="624" y1="406" x2="638" y2="406" class="wire" marker-end="url(#ar)"/>
+
+          <!-- Module: hàng 1 -->
+          <rect x="56" y="432" width="162" height="42" rx="6" class="box"/>
+          <text x="137" y="450" text-anchor="middle" class="tb">Auth &amp; Hồ sơ</text>
+          <text x="137" y="466" text-anchor="middle" class="xs">OTP · vai trò · /me</text>
+          <rect x="224" y="432" width="162" height="42" rx="6" class="new"/>
+          <text x="305" y="450" text-anchor="middle" class="tb">Tổ chức · Chi nhánh</text>
+          <text x="305" y="466" text-anchor="middle" class="xs">nhân viên · quyền</text>
+          <rect x="392" y="432" width="162" height="42" rx="6" class="new"/>
+          <text x="473" y="450" text-anchor="middle" class="tb">Đối tác · Kết nối</text>
+          <text x="473" y="466" text-anchor="middle" class="xs">danh bạ ↔ tài khoản thật</text>
+          <rect x="560" y="432" width="162" height="42" rx="6" class="new"/>
+          <text x="641" y="450" text-anchor="middle" class="tb">Đồng bộ sổ</text>
+          <text x="641" y="466" text-anchor="middle" class="xs">push · pull · cursor</text>
+          <!-- hàng 2 -->
+          <rect x="56" y="482" width="162" height="42" rx="6" class="new"/>
+          <text x="137" y="500" text-anchor="middle" class="tb">Đơn · Đặt lịch</text>
+          <text x="137" y="516" text-anchor="middle" class="xs">trạng thái · version</text>
+          <rect x="224" y="482" width="162" height="42" rx="6" class="box"/>
+          <text x="305" y="500" text-anchor="middle" class="tb">Phiếu · Công nợ</text>
+          <text x="305" y="516" text-anchor="middle" class="xs">payments chỉ ghi thêm</text>
+          <rect x="392" y="482" width="162" height="42" rx="6" class="box"/>
+          <text x="473" y="500" text-anchor="middle" class="tb">Kho</text>
+          <text x="473" y="516" text-anchor="middle" class="xs">tồn suy từ phiếu</text>
+          <rect x="560" y="482" width="162" height="42" rx="6" class="box"/>
+          <text x="641" y="500" text-anchor="middle" class="tb">Báo cáo</text>
+          <text x="641" y="516" text-anchor="middle" class="xs">tổng hợp nhiều chi nhánh</text>
+          <!-- hàng 3 -->
+          <rect x="56" y="532" width="162" height="42" rx="6" class="new"/>
+          <text x="137" y="550" text-anchor="middle" class="tb">Thông báo</text>
+          <text x="137" y="566" text-anchor="middle" class="xs">trong app → email</text>
+          <rect x="224" y="532" width="162" height="42" rx="6" class="box"/>
+          <text x="305" y="550" text-anchor="middle" class="tb">Gói · Thanh toán</text>
+          <text x="305" y="566" text-anchor="middle" class="xs">VietQR · webhook</text>
+          <rect x="392" y="532" width="162" height="42" rx="6" class="box"/>
+          <text x="473" y="550" text-anchor="middle" class="tb">Quản trị · Audit</text>
+          <text x="473" y="566" text-anchor="middle" class="xs">người duyệt + nhật ký</text>
+          <rect x="560" y="532" width="162" height="42" rx="6" class="new"/>
+          <text x="641" y="550" text-anchor="middle" class="tb">Đo lường</text>
+          <text x="641" y="566" text-anchor="middle" class="xs">sự kiện first-party</text>
+
+          <rect x="56" y="584" width="666" height="26" rx="5" class="bar"/>
+          <text x="389" y="601" text-anchor="middle" class="s">Event bus nội bộ · <tspan class="m">order.fulfilled</tspan> → Thông báo, Đo lường, Audit</text>
+          <rect x="56" y="618" width="666" height="28" rx="5" class="box"/>
+          <text x="389" y="636" text-anchor="middle" class="s">Prisma · repository bắt buộc <tspan class="m">orgId</tspan> · mỗi thao tác sync = 1 transaction DB</text>
+
+          <!-- Storage -->
+          <rect x="840" y="340" width="320" height="86" rx="10" class="box"/>
+          <text x="856" y="364" class="t">Supabase Storage</text>
+          <text x="856" y="384" class="s">Ảnh chứng từ · ảnh đơn hàng</text>
+          <text x="856" y="402" class="m">orgId/ảnhId · signed URL</text>
+          <line x1="742" y1="404" x2="836" y2="404" class="wire" marker-end="url(#ar)"/>
+          <text x="789" y="397" text-anchor="middle" class="lab">cấp URL</text>
+
+          <!-- Realtime -->
+          <rect x="840" y="446" width="320" height="64" rx="10" class="box"/>
+          <text x="856" y="470" class="t">Supabase Realtime · giai đoạn 2</text>
+          <text x="856" y="492" class="s">Bản đầu: hỏi thông báo mỗi 60 giây</text>
+
+          <!-- Dịch vụ ngoài -->
+          <rect x="840" y="530" width="320" height="96" rx="10" class="zone"/>
+          <text x="856" y="552" class="t">Dịch vụ ngoài</text>
+          <text x="856" y="576" class="s">Ngân hàng · Casso / SePay</text>
+          <line x1="838" y1="572" x2="744" y2="572" class="wire" marker-end="url(#ar)"/>
+          <text x="791" y="565" text-anchor="middle" class="lab">webhook</text>
+          <text x="856" y="606" class="s">Email · SMS</text>
+          <line x1="742" y1="602" x2="836" y2="602" class="wire" marker-end="url(#ar)"/>
+          <text x="789" y="595" text-anchor="middle" class="lab">gửi</text>
+
+          <!-- API ↔ DB -->
+          <line x1="390" y1="662" x2="390" y2="696" class="wire-acc" marker-start="url(#ara)" marker-end="url(#ara)"/>
+          <text x="404" y="684" class="lab">Prisma · role api_service</text>
+
+          <!-- PostgreSQL -->
+          <rect x="40" y="700" width="700" height="130" rx="10" class="zone"/>
+          <text x="56" y="724" class="t">PostgreSQL · Supabase</text>
+          <text x="724" y="724" text-anchor="end" class="xs">RLS theo organization_id (lớp 2) · PostGIS bật sẵn</text>
+          <text x="56" y="750" class="lab">tổ chức</text>
+          <text x="140" y="750" class="m">organizations · memberships · branches · subscriptions</text>
+          <text x="56" y="770" class="lab">chuỗi</text>
+          <text x="140" y="770" class="m">partner_links · orders · order_events</text>
+          <text x="56" y="790" class="lab">sổ</text>
+          <text x="140" y="790" class="m">transactions · payments (chỉ ghi thêm) · drafts · suppliers · buyers · products</text>
+          <text x="56" y="810" class="lab">hệ thống</text>
+          <text x="140" y="810" class="m">sync_ops · notifications · analytics_events · audit_log · bank_transactions</text>
+
+          <!-- Backup -->
+          <rect x="840" y="700" width="320" height="130" rx="10" class="box"/>
+          <text x="856" y="724" class="t">Backup</text>
+          <text x="856" y="748" class="s">PITR của Supabase</text>
+          <text x="856" y="768" class="s">+ pg_dump hằng ngày ra kho riêng</text>
+          <text x="856" y="788" class="s">Thử phục hồi 1 lần trước khi mở</text>
+          <line x1="742" y1="765" x2="836" y2="765" class="wire" marker-end="url(#ar)"/>
+          <text x="789" y="758" text-anchor="middle" class="lab">sao lưu</text>
+
+          <!-- Vận hành -->
+          <rect x="40" y="856" width="1120" height="88" rx="10" class="zone"/>
+          <text x="56" y="878" class="t">Vận hành</text>
+          <rect x="56" y="890" width="205" height="42" rx="6" class="box"/>
+          <text x="158" y="907" text-anchor="middle" class="tb">GitHub Actions</text>
+          <text x="158" y="923" text-anchor="middle" class="xs">test → image → staging · prod bấm tay</text>
+          <rect x="276" y="890" width="205" height="42" rx="6" class="box"/>
+          <text x="378" y="907" text-anchor="middle" class="tb">Prometheus + Grafana</text>
+          <text x="378" y="923" text-anchor="middle" class="xs">/metrics · 1 dashboard</text>
+          <rect x="496" y="890" width="205" height="42" rx="6" class="box"/>
+          <text x="598" y="907" text-anchor="middle" class="tb">Sentry</text>
+          <text x="598" y="923" text-anchor="middle" class="xs">lỗi runtime web + API</text>
+          <rect x="716" y="890" width="205" height="42" rx="6" class="box"/>
+          <text x="818" y="907" text-anchor="middle" class="tb">Log JSON</text>
+          <text x="818" y="923" text-anchor="middle" class="xs">requestId · orgId</text>
+          <rect x="936" y="890" width="205" height="42" rx="6" class="box"/>
+          <text x="1038" y="907" text-anchor="middle" class="tb">Bảo mật</text>
+          <text x="1038" y="923" text-anchor="middle" class="xs">HTTPS · CORS · rate limit · helmet</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="sw new"></i>Module mới so với app hiện tại</span>
+        <span><i class="sw old"></i>Đã có, chuyển sang NestJS</span>
+      </div>
+      <figcaption>Ba chỗ khác sơ đồ gốc. Database nằm <b>ngoài</b> khối NestJS vì đó là Postgres của Supabase, không phải thứ NestJS tự chạy. App gọi <b>thẳng</b> Supabase Auth để đăng nhập và Storage để tải ảnh; NestJS chỉ kiểm JWT và cấp URL. Đồng bộ sổ offline đi <b>qua NestJS</b>, để server kiểm quyền từng thao tác.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ── Luồng giá trị ── -->
+  <section>
+    <h2>Luồng giá trị chính qua ba vai trò</h2>
+    <p>Đây cũng là kịch bản nghiệm thu yêu cầu “hoàn thành luồng tạo giá trị chính từ đầu đến cuối”. Bước 5 cố ý diễn ra lúc mất mạng: đó là tình huống thật ở sân cân.</p>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1200 680" role="img" aria-label="Trình tự: nông dân tạo đơn bán, vựa nhận và hẹn lịch, vựa cân và lập phiếu lúc mất mạng, khi có mạng hàng đợi đẩy lên, server ghi phiếu và chuyển đơn sang hoàn thành trong một transaction, nông dân thấy phiếu và số còn nợ.">
+          <defs>
+            <marker id="br" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" class="mk"/>
+            </marker>
+            <marker id="bra" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" class="mk-acc"/>
+            </marker>
+          </defs>
+
+          <rect x="50" y="16" width="240" height="46" rx="8" class="role"/>
+          <text x="170" y="44" text-anchor="middle" class="t">App Nông dân</text>
+          <rect x="480" y="16" width="240" height="46" rx="8" class="zone-api"/>
+          <text x="600" y="44" text-anchor="middle" class="t">NestJS + PostgreSQL</text>
+          <rect x="910" y="16" width="240" height="46" rx="8" class="role"/>
+          <text x="1030" y="44" text-anchor="middle" class="t">App Vựa</text>
+
+          <line x1="170" y1="62" x2="170" y2="664" class="life"/>
+          <line x1="600" y1="62" x2="600" y2="664" class="life"/>
+          <line x1="1030" y1="62" x2="1030" y2="664" class="life"/>
+
+          <!-- 1 -->
+          <line x1="172" y1="110" x2="596" y2="110" class="wire" marker-end="url(#br)"/>
+          <text x="385" y="102" text-anchor="middle" class="tb">① tạo đơn bán</text>
+          <text x="385" y="126" text-anchor="middle" class="m">POST /v1/orders</text>
+          <rect x="610" y="118" width="80" height="20" rx="10" class="state"/>
+          <text x="650" y="132" text-anchor="middle" class="state-t">submitted</text>
+
+          <!-- 2 -->
+          <line x1="602" y1="180" x2="1026" y2="180" class="wire" marker-end="url(#br)"/>
+          <text x="815" y="172" text-anchor="middle" class="tb">② báo có đơn mới</text>
+          <text x="815" y="196" text-anchor="middle" class="m">GET /v1/notifications</text>
+
+          <!-- 3 -->
+          <line x1="1028" y1="250" x2="604" y2="250" class="wire" marker-end="url(#br)"/>
+          <text x="815" y="242" text-anchor="middle" class="tb">③ nhận đơn, hẹn lịch</text>
+          <text x="815" y="266" text-anchor="middle" class="m">POST /v1/orders/:id/schedule {version}</text>
+          <rect x="510" y="258" width="80" height="20" rx="10" class="state"/>
+          <text x="550" y="272" text-anchor="middle" class="state-t">scheduled</text>
+
+          <!-- 4 -->
+          <line x1="598" y1="320" x2="174" y2="320" class="wire" marker-end="url(#br)"/>
+          <text x="385" y="312" text-anchor="middle" class="tb">④ báo lịch hẹn</text>
+          <text x="385" y="336" text-anchor="middle" class="s">giờ lấy hàng · địa điểm</text>
+
+          <!-- 5 -->
+          <rect x="880" y="364" width="300" height="62" rx="8" class="box"/>
+          <text x="1030" y="388" text-anchor="middle" class="tb">⑤ mất mạng: cân, lập phiếu theo đơn</text>
+          <text x="1030" y="408" text-anchor="middle" class="s">trả một phần → vào hàng đợi IndexedDB</text>
+
+          <!-- 6 -->
+          <line x1="1028" y1="470" x2="604" y2="470" class="wire-acc" marker-end="url(#bra)"/>
+          <text x="815" y="462" text-anchor="middle" class="tb acc">⑥ có mạng lại: đẩy hàng đợi</text>
+          <text x="815" y="486" text-anchor="middle" class="m">POST /v1/sync/push [phiếu, lần trả]</text>
+
+          <!-- 7 -->
+          <rect x="440" y="508" width="320" height="72" rx="8" class="new"/>
+          <text x="600" y="530" text-anchor="middle" class="tb">⑦ một transaction DB</text>
+          <text x="600" y="549" text-anchor="middle" class="s">ghi phiếu + lần trả, tính lại tổng bằng core</text>
+          <text x="600" y="567" text-anchor="middle" class="s">đơn → fulfilled · ghi order_events</text>
+          <rect x="770" y="534" width="80" height="20" rx="10" class="state"/>
+          <text x="810" y="548" text-anchor="middle" class="state-t">fulfilled</text>
+
+          <!-- 8 -->
+          <line x1="598" y1="620" x2="174" y2="620" class="wire" marker-end="url(#br)"/>
+          <text x="385" y="612" text-anchor="middle" class="tb">⑧ thấy phiếu và số còn nợ</text>
+          <text x="385" y="636" text-anchor="middle" class="m">GET /v1/linked/receipts</text>
+        </svg>
+      </div>
+      <figcaption>Không ai bấm “hoàn thành đơn”: server tự chuyển trạng thái khi phiếu mang <code>orderId</code> đồng bộ lên, dù trễ bao lâu. Hai bên cùng đổi một đơn thì <code>version</code> chặn, một bên nhận lỗi <code>409</code> và tải lại.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ── Hai trục ── -->
+  <section>
+    <h2>Ba vai trò, hai trục</h2>
+    <p>“Nông dân / vựa / doanh nghiệp” và “chủ / nhân viên” là hai câu hỏi khác nhau. Gộp vào một cột <code>role</code> thì doanh nghiệp không có nhân viên được, và vựa thuê người cân cũng không.</p>
+    <div class="axes">
+      <div class="axis">
+        <h3>Loại tổ chức</h3>
+        <p>Bên này là ai trong chuỗi — quyết định vỏ giao diện và gói trả tiền.</p>
+        <div class="vals">organizations.type = farmer | trader | enterprise</div>
+      </div>
+      <div class="axis">
+        <h3>Quyền trong tổ chức</h3>
+        <p>Người này được làm gì trong bên đó — quyết định từng thao tác được phép.</p>
+        <div class="vals">memberships.role = owner | manager | staff</div>
+      </div>
+      <div class="axis">
+        <h3>Kết nối giữa tổ chức</h3>
+        <p>Dòng danh bạ trong sổ vựa trỏ tới tài khoản thật của nông dân, sau OTP và khi hai bên đồng ý.</p>
+        <div class="vals">partner_links.status = pending | active | revoked</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Hướng giải quyết ── -->
+  <section>
+    <h2>Hướng giải quyết</h2>
+    <p>Mỗi dòng là một chỗ sơ đồ gốc còn mở, mâu thuẫn, hoặc sẽ gây lỗi nếu làm đúng như vẽ — nay đã chốt theo hướng đề xuất.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vấn đề</th><th>Sơ đồ gốc</th><th>Đã chốt</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ai trả tiền</td>
+            <td class="old">Không nói</td>
+            <td><span class="tag keep">đã chốt</span>Nông dân miễn phí · vựa 149.000đ/tháng (1.490.000đ/năm) · doanh nghiệp theo số chi nhánh, bán trực tiếp. “10 người trả phí” đếm theo <b>tổ chức</b> vựa và doanh nghiệp.
+              <span class="why">Nông dân kết nối càng nhiều thì vựa càng khó bỏ app — họ là lý do vựa trả tiền, không phải người trả.</span></td>
+          </tr>
+          <tr>
+            <td>Đồng bộ offline đi đâu</td>
+            <td class="old">Dòng chữ ghi “đồng bộ với Supabase”, mũi tên lại đi từ NestJS</td>
+            <td><span class="tag keep">đã chốt</span>Qua NestJS: <code>/sync/push</code> và <code>/sync/pull</code>, cursor do server cấp.
+              <span class="why">Chỉ server kiểm được nhân viên có được xoá phiếu không, có ghi đúng chi nhánh không, và chuyển đơn sang hoàn thành trong cùng transaction.</span></td>
+          </tr>
+          <tr>
+            <td>Database nằm ở đâu</td>
+            <td class="old">Vẽ trong khối NestJS</td>
+            <td><span class="tag keep">đã vẽ lại</span>Postgres của Supabase, nằm ngoài NestJS. NestJS nối qua Prisma bằng role <code>api_service</code>; RLS giữ làm lớp bảo vệ thứ hai.
+              <span class="why">Prisma bỏ qua RLS, nên lớp chính phải là Guard; RLS vẫn chặn ai chạm thẳng DB.</span></td>
+          </tr>
+          <tr>
+            <td>Đăng nhập, ảnh</td>
+            <td class="old">Client chỉ nói chuyện với NestJS</td>
+            <td><span class="tag keep">đã vẽ lại</span>App gọi thẳng Supabase Auth (đăng nhập, OTP, refresh token) và Storage (tải ảnh bằng signed URL do API cấp).
+              <span class="why">Ảnh chạy qua một container nhỏ là tốn băng thông vô ích; tự làm auth là thêm việc mà Supabase đã làm.</span></td>
+          </tr>
+          <tr>
+            <td>Xác thực tài khoản</td>
+            <td class="old">Có trong ô Email/SMS, không nối vào đâu</td>
+            <td><span class="tag keep">bắt buộc</span>OTP SMS trước khi dò kết nối theo số điện thoại. Kết nối cần bấm đồng ý; nông dân chỉ thấy trường in trên biên nhận; huỷ kết nối có hiệu lực ngay.
+              <span class="why">Không có OTP, ai cũng đăng ký bằng số người khác để xem công nợ của họ.</span></td>
+          </tr>
+          <tr>
+            <td>Đơn hàng</td>
+            <td class="old">“Đơn mua / đơn bán · đặt lịch, trạng thái”</td>
+            <td><span class="tag keep">thêm</span>Đơn là thực thể chung giữa hai tổ chức, server giữ, có state machine và <code>version</code>. Bản đầu nông dân chỉ gửi đơn cho vựa <b>đã kết nối</b>; chợ mở để sau cùng Map/PostGIS.</td>
+          </tr>
+          <tr>
+            <td>Realtime</td>
+            <td class="old">Ô Supabase Realtime</td>
+            <td><span class="tag keep">giai đoạn 2</span>Bản đầu hỏi thông báo mỗi 60 giây; Realtime cho trạng thái đơn và thông báo vào giai đoạn 2.</td>
+          </tr>
+          <tr>
+            <td>Validation</td>
+            <td class="old">class-validator</td>
+            <td><span class="tag keep">đã đổi</span>zod trong <code>packages/contracts</code>, dùng chung cho web và API.
+              <span class="why">Backend và frontend do hai người làm; một schema cho cả hai là cách duy nhất để không hiểu khác nhau về một trường.</span></td>
+          </tr>
+          <tr>
+            <td>Sự kiện hệ thống</td>
+            <td class="old">Dòng trong Notification</td>
+            <td><span class="tag keep">thêm</span>Event bus nội bộ: <code>order.fulfilled</code> kích hoạt thông báo, đo lường, audit — các module không gọi chéo nhau.</td>
+          </tr>
+          <tr>
+            <td>Audit log, backup</td>
+            <td class="old">Một dòng mỗi thứ</td>
+            <td><span class="tag keep">mở rộng</span>Audit mọi thao tác nhạy cảm (xoá phiếu, huỷ lần trả, đổi quyền, kết nối). Backup hai lớp: PITR của Supabase và <code>pg_dump</code> hằng ngày ra kho riêng, thử phục hồi một lần.</td>
+          </tr>
+          <tr>
+            <td>Đo lường</td>
+            <td class="old">Không có</td>
+            <td><span class="tag keep">thêm</span>Sự kiện first-party lưu trong chính Postgres, danh mục có kiểu trong contracts, không gửi tên, số điện thoại hay số tiền. Trang Quyền riêng tư sửa cùng lúc.</td>
+          </tr>
+          <tr>
+            <td>Android</td>
+            <td class="old">Capacitor (deferred)</td>
+            <td><span class="tag keep">đã đổi</span>TWA bọc PWA để lên CH Play trước; Capacitor khi cần API native.</td>
+          </tr>
+          <tr>
+            <td>Hạ tầng</td>
+            <td class="old">Docker, Prometheus/Grafana, Winston/ELK</td>
+            <td><span class="tag keep">giữ, thu nhỏ</span>Một container ở vùng Singapore, một dashboard Grafana, log JSON. Chưa cần ELK, Redis hay Kubernetes ở quy mô pilot.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Đã chốt ngày 21/09/2026</h2>
+    <ol class="decide">
+      <li><b>Mô hình trả tiền</b> — nông dân miễn phí, vựa 149.000đ/tháng, doanh nghiệp theo số chi nhánh.</li>
+      <li><b>Đồng bộ sổ qua NestJS</b> — <code>/sync/push</code>, <code>/sync/pull</code>, cursor do server cấp.</li>
+      <li><b>OTP + đồng ý</b> trước khi kết nối nông dân với vựa.</li>
+      <li><b>Bản đầu chỉ gửi đơn cho vựa đã kết nối</b>; chợ mở cùng Map/PostGIS ở giai đoạn 2.</li>
+      <li><b>zod</b> trong <code>packages/contracts</code> thay class-validator; <b>TWA</b> lên CH Play trước.</li>
+    </ol>
+  </section>
+</div>

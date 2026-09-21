@@ -1,0 +1,29 @@
+{
+  "name": "thumua365-be",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build -w @mambo/core -w @mambo/contracts",
+    "lint": "oxlint",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces",
+    "boundaries": "depcruise packages --config .dependency-cruiser.cjs",
+    "verify": "npm run lint && npm run typecheck && npm run boundaries && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "dependency-cruiser": "^17.0.1",
+    "oxlint": "^1.69.0",
+    "tsup": "^8.5.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.10"
+  }
+}
