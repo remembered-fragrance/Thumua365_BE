@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE1 xong · BE2 chạy trên staging (chờ nghiệm thu OTP + đăng ký ba loại) · **chưa có dữ liệu thật** |
+| Trạng thái sản phẩm | BE0–BE2 xong, chạy trên staging (Render + Supabase) · OTP dời sang BE4 · chỉ có tài khoản thử, **chưa có dữ liệu thật** · tiếp theo: BE3 |
 
 ---
 
@@ -346,7 +346,7 @@ Soát lại `docs/` và sơ đồ v2 so với code đã chạy; sửa chỗ lệ
 
 Không đổi code, không đổi quyết định nào — chỉ cho tài liệu nói đúng điều đã chốt và đã làm.
 
-## BE2 — Database, ba vai trò · `711ca04` · tag `v0.3.0` · 22/09/2026 · 🟡 chờ nghiệm thu trên dashboard
+## BE2 — Database, ba vai trò · `d605626` · tag `v0.3.0` · 22/09/2026 · ✅ đóng (OTP dời sang BE4)
 
 **Kết quả:** schema đủ bốn nhóm bảng của kiến trúc v2, RLS theo phiên chứng minh bằng test
 trên Postgres thật, `/me/bootstrap`, `/auth/resolve-identifier`, `/links/discover`. Chưa
@@ -442,16 +442,40 @@ Trang thử nâng thành đủ luồng tài khoản của frontend: đăng ký (
 → "Dò kết nối" (`sdk.discoverLinks`); đăng nhập một ô qua `sdk.resolveIdentifier`. Dùng
 `@mambo/core/identifier` qua import map. Máy chủ tĩnh vẫn chặn `../` tới `apps/api/.env`.
 
-### 🔴 Chưa xong của BE2 — cần người, trên dashboard Supabase staging
+### ✅ Nghiệm thu trên staging — 22/09/2026
 
-- [ ] Tắt **Confirm email**.
-- [ ] Bật **Phone provider** + khai số thử kèm OTP cố định.
-- [ ] Nghiệm thu bằng `npm run login-test`: đăng ký ba tài khoản (nông dân · vựa · doanh
-      nghiệp) → "Bác là ai?" → `/me` đúng ma trận; một tài khoản xác thực OTP → "Dò kết nối".
-- [ ] Nhà cung cấp SMS thật cho "OTP tới máy thật" (Twilio/Vonage hoặc eSMS/SpeedSMS qua hook).
-- [ ] Cân nhắc: `resolve-identifier` trả email đăng nhập thật khi gõ đúng tên tài khoản —
-      tên công khai ⇒ lộ email/SĐT đăng nhập. Hướng sửa: API đăng nhập hộ
-      (`POST /v1/auth/login`). Bản cũ (RPC) cũng như vậy. Cần nhóm quyết.
+Tắt "Confirm email" trên staging. Đăng ký thật bằng `npm run login-test` rồi đối chiếu
+database (chỉ đọc):
+
+| Loại | Kết quả |
+|---|---|
+| Nông dân | `owner`, **không có gói**, có SĐT + mã giới thiệu, `audit_log` `organization.bootstrapped` |
+| Vựa | `owner`, gói `trialing` đúng **30 ngày**, audit |
+| Doanh nghiệp (×2) | `owner`, gói `trialing` 30 ngày, `branch_limit` trống, audit |
+
+Mỗi tài khoản đúng một tổ chức; mọi dòng audit khớp người tạo và có `request_id`.
+
+**Lỗi bắt được khi nghiệm thu — ở trang thử, không ở API:** lần đầu ra hai doanh nghiệp,
+không có vựa. Audit ghi `"type": "enterprise"` ⇒ API lưu đúng cái được gửi. Nguyên nhân: form
+"Bác là ai?" giữ lựa chọn cũ sau khi đăng xuất — tài khoản sau "thừa hưởng" loại tổ chức của
+người trước. Sửa: xoá form khi đăng xuất và sau khi tạo xong; thông báo ghi rõ loại vừa tạo.
+**Frontend thật cần làm y như vậy.**
+
+### Quyết định khi đóng BE2
+
+**OTP (xác thực số điện thoại) dời sang BE4.** BE4 là bước đầu tiên thật sự cần số đã xác
+thực (nông dân xem phiếu, công nợ trong sổ vựa). Code phía API đã sẵn và có test:
+`/links/discover` trả `PHONE_NOT_VERIFIED` khi số chưa xác thực. Dời không hở gì — trước BE4
+không có đường nào đọc chéo dữ liệu. Đăng nhập vẫn bằng mật khẩu.
+
+### Còn treo, chuyển tiếp
+
+- **BE4:** bật Phone provider trên Supabase, chọn nhà cung cấp SMS, OTP tới máy thật.
+- **BE10:** production cũng phải tắt "Confirm email" — thêm vào bảng kiểm.
+- **Cần nhóm quyết:** `resolve-identifier` trả email đăng nhập thật khi gõ đúng tên tài khoản
+  — tên công khai ⇒ lộ email/SĐT đăng nhập. Hướng sửa: API đăng nhập hộ
+  (`POST /v1/auth/login`), đổi hợp đồng. Bản cũ (RPC) cũng như vậy.
+- Hai doanh nghiệp thử (`adfadas`, `shibaaa`) giữ lại — dùng cho BE7.
 
 ---
 
@@ -472,7 +496,7 @@ Trang thử nâng thành đủ luồng tài khoản của frontend: đăng ký (
 |---|---|---|
 | Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | Không chặn — tạm dùng `*.onrender.com` |
 | ~~Docker Desktop trên máy dev~~ | ✅ đã cài 22/09/2026 (Docker 29.8, WSL2) | — |
-| Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | BE2 |
+| Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | BE4 (dời từ BE2) |
 | Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh | BE6 |
 
 ---

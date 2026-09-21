@@ -137,6 +137,10 @@ const render = (session) => {
   $('who').textContent = session?.user.email ?? session?.user.phone ?? '';
   if (!session) {
     for (const id of ['bootstrap-box', 'org-box', 'otp-box']) $(id).hidden = true;
+    // Xoá sạch lựa chọn của người trước — không thì tài khoản sau "thừa hưởng" loại tổ
+    // chức cũ và bấm "Xong" là tạo nhầm loại (đã gặp khi nghiệm thu BE2).
+    for (const id of ['bootstrap', 'signup', 'otp-send', 'otp-verify']) $(id).reset();
+    $('otp-verify').hidden = true;
     lastMe = null;
     currentOrgId = null;
   }
@@ -279,8 +283,10 @@ $('bootstrap').addEventListener('submit', async (e) => {
       ...(phone ? { phone } : {}),
     });
     show('POST /v1/me/bootstrap — 200', me);
+    $('bootstrap').reset();
     renderMe(me);
-    say(`Xong. Bác thuộc ${me.memberships.length} tổ chức.`, 'ok');
+    const org = me.memberships[0]?.organization;
+    say(`Xong: ${org?.name} · loại ${org?.type}. Bác thuộc ${me.memberships.length} tổ chức.`, 'ok');
   });
 });
 
