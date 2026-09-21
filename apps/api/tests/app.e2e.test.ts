@@ -174,4 +174,33 @@ describe('giới hạn tần suất', () => {
       await limited.close();
     }
   });
+
+  it('sau Cloudflare: đếm theo IP thật trong CLIENT_IP_HEADER, mỗi người một hạn mức', async () => {
+    const env = testEnv({ RATE_LIMIT_PER_MINUTE: '2', CLIENT_IP_HEADER: 'CF-Connecting-IP' });
+    const behindProxy = await buildTestApp({ jwks: signer.jwks, env });
+    try {
+      const server = behindProxy.getHttpServer();
+      const as = (ip: string) => request(server).get('/v1/me').set('cf-connecting-ip', ip);
+
+      await as('203.0.113.7').expect(401);
+      await as('203.0.113.7').expect(401);
+      await as('203.0.113.7').expect(429);
+      // Người khác, cùng lúc, không bị vạ lây.
+      await as('198.51.100.9').expect(401);
+    } finally {
+      await behindProxy.close();
+    }
+  });
+
+  it('không khai báo CLIENT_IP_HEADER thì đổi header cũng không lách được hạn mức', async () => {
+    const direct = await buildTestApp({ jwks: signer.jwks, env: testEnv({ RATE_LIMIT_PER_MINUTE: '2' }) });
+    try {
+      const server = direct.getHttpServer();
+      await request(server).get('/v1/me').set('cf-connecting-ip', '10.0.0.1').expect(401);
+      await request(server).get('/v1/me').set('cf-connecting-ip', '10.0.0.2').expect(401);
+      await request(server).get('/v1/me').set('cf-connecting-ip', '10.0.0.3').expect(429);
+    } finally {
+      await direct.close();
+    }
+  });
 });

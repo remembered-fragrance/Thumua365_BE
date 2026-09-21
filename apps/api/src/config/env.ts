@@ -34,6 +34,15 @@ const EnvSchema = z
       .optional()
       .transform((v) => (v ? v : undefined))
       .pipe(z.url().optional()),
+    /**
+     * Header mang IP thật của người gọi, do proxy phía trước GHI ĐÈ (không để client tự
+     * đặt). Render đứng sau Cloudflare ⇒ `cf-connecting-ip`. Để trống ở máy dev/CI: khi
+     * đó header bị bỏ qua, không ai giả header để lách hạn mức được.
+     */
+    CLIENT_IP_HEADER: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v.trim().toLowerCase() : undefined)),
     /** Render tự đặt biến này cho mỗi lần deploy. */
     RENDER_GIT_COMMIT: z.string().optional(),
   })

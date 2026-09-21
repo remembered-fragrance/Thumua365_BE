@@ -43,12 +43,12 @@ const bodyErrorHandler = (err: unknown, req: Request, res: Response, next: NextF
 export const configureApp = (app: INestApplication, env: Env, logger: Logger): void => {
   const http = app as NestExpressApplication;
 
-  // Render đứng trước một tầng proxy; không tin header này thì mọi người dùng
-  // chung một IP và hạn mức theo IP vô nghĩa.
+  // IP của người gọi cho hạn mức lấy từ CLIENT_IP_HEADER (xem env.ts). `trust proxy`
+  // chỉ để req.ip / req.protocol không trỏ vào proxy của Render.
   http.set('trust proxy', 1);
   http.disable('x-powered-by');
 
-  http.use(requestContext(logger));
+  http.use(requestContext(logger, env.CLIENT_IP_HEADER));
   http.use(helmet());
   http.enableCors({
     origin: (origin, cb) => cb(null, !origin || env.CORS_ORIGINS.includes(origin)),

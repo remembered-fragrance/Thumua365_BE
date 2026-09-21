@@ -29,3 +29,7 @@ services:
         value: info
       - key: SENTRY_DSN
         sync: false
+      # Render đứng sau Cloudflare: IP thật của người gọi nằm ở header này (Cloudflare
+      # ghi đè, client không giả được). Thiếu nó thì hạn mức theo IP không có tác dụng.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip

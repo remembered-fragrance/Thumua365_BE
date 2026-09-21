@@ -7,6 +7,8 @@ import type { MembershipContext } from '../auth/membership';
 /** Những gì các guard gắn vào request trên đường đi. */
 export interface ApiRequest extends Request {
   requestId: string;
+  /** IP dùng để tính hạn mức — xem `CLIENT_IP_HEADER`. Không ghi vào log. */
+  clientIp: string;
   user?: AuthUser;
   membership?: MembershipContext;
 }
@@ -22,9 +24,11 @@ const INCOMING_ID = /^[A-Za-z0-9_-]{8,64}$/;
  * request cần xem nhất khi có sự cố. Không bao giờ ghi header Authorization.
  */
 export const requestContext =
-  (logger: Logger) =>
+  (logger: Logger, clientIpHeader: string | undefined) =>
   (req: Request, res: Response, next: NextFunction): void => {
     const request = req as ApiRequest;
+    const fromProxy = clientIpHeader ? req.header(clientIpHeader)?.split(',')[0]?.trim() : undefined;
+    request.clientIp = fromProxy || req.ip || 'unknown';
     const incoming = req.header('x-request-id');
     request.requestId = incoming && INCOMING_ID.test(incoming) ? incoming : randomUUID();
     res.setHeader('x-request-id', request.requestId);

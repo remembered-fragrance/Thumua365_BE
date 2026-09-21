@@ -1,7 +1,8 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { type Jwks, JWKS } from './auth/auth-user';
+import { ClientIpThrottlerGuard } from './auth/client-ip-throttler.guard';
 import { JwtAuthGuard, OrgContextGuard, PermissionGuard } from './auth/guards';
 import { MEMBERSHIP_LOOKUP, type MembershipLookup } from './auth/membership';
 import { SUPABASE_USERS, type SupabaseUsers } from './auth/supabase-users';
@@ -30,7 +31,7 @@ export class AppModule {
         { provide: SUPABASE_USERS, useValue: deps.supabaseUsers },
         { provide: MEMBERSHIP_LOOKUP, useValue: deps.memberships },
         // Thứ tự đăng ký = thứ tự chạy.
-        { provide: APP_GUARD, useClass: ThrottlerGuard },
+        { provide: APP_GUARD, useClass: ClientIpThrottlerGuard },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: OrgContextGuard },
         { provide: APP_GUARD, useClass: PermissionGuard },
