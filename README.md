@@ -41,6 +41,7 @@ khoá *publishable* là công khai). API ở `http://localhost:3000/v1/health`.
 | `npm run openapi` | Sinh lại `packages/contracts/openapi.json` sau khi đổi `routes` |
 | `npm run mock` | Server giả từ `openapi.json` (Prism) cho frontend làm trước khi API xong |
 | `npm run dev` | API chạy lại khi sửa code |
+| `npm run smoke:me` | Kiểm `/v1/me` trên staging bằng một tài khoản thật — bạn tự gõ email/mật khẩu, không in ra đâu cả |
 
 ## Cấu trúc
 
