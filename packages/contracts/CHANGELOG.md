@@ -3,7 +3,7 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
-## 0.3.0 — chưa phát hành (BE2)
+## 0.3.0 — 22/09/2026 (BE2)
 
 - `routes.meBootstrap` — `POST /v1/me/bootstrap`, thân `MeBootstrapInput`
   (`orgType`, `orgName`, `name`, `phone?`, `username?`), trả `Me`. Idempotent.

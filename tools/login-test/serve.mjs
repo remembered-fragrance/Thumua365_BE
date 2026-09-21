@@ -5,7 +5,7 @@
  *   npm run login-test            → http://localhost:5174
  *
  * Cổng 5174 vì nó nằm trong CORS_ORIGINS của API staging. Trang tải @mambo/sdk,
- * @mambo/contracts và zod từ chính repo này (bản đã build) qua import map — tức là
+ * @mambo/contracts, @mambo/core và zod từ chính repo này (bản đã build) qua import map — tức là
  * thử đúng gói mà frontend sẽ cài.
  *
  * CHỈ phục vụ các thư mục trong ALLOWED dưới đây. Không phục vụ gốc repo: ở đó có
@@ -24,6 +24,7 @@ const PORT = Number(process.argv[2] ?? 5174);
 const ALLOWED = {
   '/pkg/sdk/': join(ROOT, 'packages/sdk/dist'),
   '/pkg/contracts/': join(ROOT, 'packages/contracts/dist'),
+  '/pkg/core/': join(ROOT, 'packages/core/dist'),
   '/pkg/zod/': join(ROOT, 'node_modules/zod'),
   '/': join(ROOT, 'tools/login-test'),
 };

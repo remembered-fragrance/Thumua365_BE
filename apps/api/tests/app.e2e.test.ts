@@ -1,6 +1,7 @@
 import { ErrorBody, Health, Me } from '@mambo/contracts';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import pkg from '../package.json' with { type: 'json' };
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiException } from '../src/common/api-exception';
 import {
@@ -32,7 +33,7 @@ const expectError = (body: unknown, code: string) => {
 describe('GET /v1/health', () => {
   it('trả trạng thái đúng hợp đồng, không cần đăng nhập', async () => {
     const res = await request(app.getHttpServer()).get('/v1/health').expect(200);
-    expect(Health.parse(res.body)).toEqual({ status: 'ok', version: '0.2.0', commit: 'abcdef1', env: 'staging' });
+    expect(Health.parse(res.body)).toEqual({ status: 'ok', version: pkg.version, commit: 'abcdef1', env: 'staging' });
   });
 
   it('mỗi phản hồi có x-request-id; nhận lại mã hợp lệ client gửi lên', async () => {

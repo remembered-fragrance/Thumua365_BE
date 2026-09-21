@@ -1,10 +1,12 @@
 {
   "name": "@mambo/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Nghiệp vụ tính tiền thuần của THUMUA365 — dùng chung cho frontend và NestJS",
   "type": "module",
   "sideEffects": false,
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     "./*": {
       "types": "./dist/*.d.ts",

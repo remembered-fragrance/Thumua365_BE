@@ -1,6 +1,6 @@
 {
   "name": "@mambo/contracts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Hợp đồng API THUMUA365 — schema zod dùng chung cho NestJS và frontend",
   "type": "module",
   "sideEffects": false,
@@ -27,6 +27,6 @@
   },
   "devDependencies": {
     "zod": "^4.1.0",
-    "@mambo/core": "0.2.0"
+    "@mambo/core": "0.3.0"
   }
 }
