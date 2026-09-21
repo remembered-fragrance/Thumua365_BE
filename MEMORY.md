@@ -251,7 +251,52 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 
 - **Token thật của một người dùng thật** chưa đi qua `/v1/me` — cần publishable key của
   staging và một tài khoản thử. Tất cả nhánh đã có test với token ES256 tự ký.
-- **Deploy staging** — chờ tài khoản Render (áp `render.yaml` qua Blueprint).
+- ~~Deploy staging~~ — xong, xem mục "Staging lên Render".
+
+---
+
+## Staging lên Render · `e1c589d` · 21/09/2026
+
+**Kết quả:** API staging chạy ở `https://thumua365-api-staging.onrender.com`, deploy tự động
+sau khi CI xanh.
+
+| | |
+|---|---|
+| Service | `thumua365-api-staging` · Docker · vùng Singapore · gói free (ngủ sau ~15 phút) |
+| Tạo bằng | Blueprint `thumua365` từ `render.yaml`, nhánh `master` |
+| Biến điền tay | `SUPABASE_PUBLISHABLE_KEY` (staging) · `CORS_ORIGINS=http://localhost:5173,http://localhost:5174` · `SENTRY_DSN` trống |
+| Đường đi | người dùng → **Cloudflare** → proxy Render → container |
+
+### 🔴 Lỗi thật chỉ lộ ra trên staging — hạn mức theo IP không có tác dụng
+
+Test tại chỗ xanh, nhưng trên staging **125 request trong ~40 giây không request nào bị
+429**. Render đứng sau Cloudflare (`Server: cloudflare`, `CF-RAY`), nên với `trust proxy 1`
+thì `req.ip` là IP **máy Cloudflare** — mỗi request một máy khác, không ai chạm hạn mức.
+
+Sửa: `ClientIpThrottlerGuard` đếm theo IP trong header khai báo ở `CLIENT_IP_HEADER`
+(`cf-connecting-ip` — Cloudflare ghi đè giá trị này). Không khai báo biến thì header bị bỏ
+qua, để không ai giả header mà lách được. Có test cho cả hai phía.
+
+**Bài học:** mọi thứ phụ thuộc vào IP người gọi phải thử trên đúng hạ tầng thật —
+test tại chỗ không có proxy nên không bao giờ bắt được loại lỗi này.
+
+### Chạy thật đã kiểm trên staging
+
+| Việc | Kết quả |
+|---|---|
+| `GET /v1/health` (lúc đang ngủ / đã thức) | 200 · 0,6s / 0,3s · `commit` đúng bản vừa deploy |
+| `GET /v1/me` không token | 401 `UNAUTHENTICATED`; có `strict-transport-security`, `x-content-type-options` |
+| Token giả mang `kid` lạ | 401 — API lấy JWKS thật của Supabase staging |
+| Đường dẫn lạ | 404 `NOT_FOUND` |
+| CORS `http://localhost:5174` / domain lạ | Có header / không có header |
+| Preflight với `authorization,x-organization-id` | 204, cho phép cả hai header |
+| 125 request `/v1/me` sau khi sửa | 120 × 401 rồi **đúng request 121 → 429**, `Retry-After: 58`; `/v1/health` vẫn 200 |
+| Client tự gửi `cf-connecting-ip` | Cloudflare chặn (403) — không giả được |
+| Deploy tự động | Push → CI xanh → Render deploy trong vài phút; đổi `render.yaml` được Blueprint tự áp |
+
+### Còn lại của BE1
+
+- [ ] `/v1/me` với **token của một tài khoản thật** trên staging.
 
 ---
 
@@ -262,7 +307,7 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 | Phủ test `core` | ≥ 80% dòng | **97,7%** |
 | Vi phạm ranh giới | 0 | **0** |
 | File dài nhất trong `packages/*/src` | ≤ 300 dòng | 285 (`sheetImport.ts`, bê từ frontend) |
-| Thời gian phản hồi p95 API | ≤ 300ms ở staging | chưa deploy (tại chỗ `/v1/health` ~5ms) |
+| Thời gian phản hồi p95 API | ≤ 300ms ở staging | `/v1/health` ~300ms từ máy dev (gồm mạng VN → Singapore); đo p95 thật từ BE9 |
 
 ---
 
@@ -270,7 +315,6 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 
 | Việc | Cần gì | Chặn bước |
 |---|---|---|
-| Tài khoản Render nối GitHub, áp `render.yaml`, điền `SUPABASE_PUBLISHABLE_KEY` + `CORS_ORIGINS` | Tài | Deploy BE1 |
 | Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | Không chặn — tạm dùng `*.onrender.com` |
 | Docker Desktop trên máy dev (cần WSL2, quyền quản trị) | Tài tự cài | BE2 |
 | Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | BE2 |
