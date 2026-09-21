@@ -1,10 +1,14 @@
 {
   "name": "@mambo/contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Hợp đồng API THUMUA365 — schema zod dùng chung cho NestJS và frontend",
   "type": "module",
   "sideEffects": false,
-  "files": ["dist", "CHANGELOG.md"],
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "openapi.json"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,12 +19,14 @@
   "scripts": {
     "build": "tsup && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "openapi": "tsx scripts/openapi.ts"
   },
   "peerDependencies": {
     "zod": "^4.1.0"
   },
   "devDependencies": {
-    "zod": "^4.1.0"
+    "zod": "^4.1.0",
+    "@mambo/core": "0.2.0"
   }
 }

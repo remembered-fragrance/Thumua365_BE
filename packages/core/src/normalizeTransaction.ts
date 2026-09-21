@@ -7,8 +7,8 @@
  * Ghi đè vô điều kiện = mất lịch sử trả nợ ngay sau lần tải lại đầu tiên.
  */
 
-import { freezeLineTotals } from './calc';
-import { newId } from './id';
+import { freezeLineTotals } from './calc.js';
+import { newId } from './id.js';
 import type {
   CreditTerm,
   CropType,
@@ -18,8 +18,8 @@ import type {
   Transaction,
   TransactionKind,
   TransactionLine,
-} from './types';
-import { productNameFromCrop } from './catalog';
+} from './types.js';
+import { productNameFromCrop } from './catalog.js';
 
 export const GUEST_SUPPLIER_ID = 'guest';
 export const GUEST_BUYER_ID = 'guest-buyer';

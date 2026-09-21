@@ -10,9 +10,9 @@
  * Phiếu không hẹn ngày thì không bao giờ quá hạn — không tự bịa ra hạn.
  */
 
-import { transactionTotals } from './calc';
-import { debtsByBuyer, debtsBySupplier } from './selectors';
-import type { AppData, Transaction } from './types';
+import { transactionTotals } from './calc.js';
+import { debtsByBuyer, debtsBySupplier } from './selectors.js';
+import type { AppData, Transaction } from './types.js';
 
 export type DebtSide = 'payable' | 'receivable';
 

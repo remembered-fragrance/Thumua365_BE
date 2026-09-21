@@ -1,6 +1,6 @@
-import { lineTotals, transactionTotals } from './calc';
-import { formatDateTime, formatQuantity, formatVnd } from './format';
-import type { Transaction } from './types';
+import { lineTotals, transactionTotals } from './calc.js';
+import { formatDateTime, formatQuantity, formatVnd } from './format.js';
+import type { Transaction } from './types.js';
 
 /**
  * Nội dung phiếu dạng chữ — dùng để gửi Zalo/SMS.

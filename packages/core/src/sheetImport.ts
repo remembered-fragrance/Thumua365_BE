@@ -14,8 +14,8 @@
  * chỉ có một chỗ định nghĩa.
  */
 
-import { parseNumber } from './parseNumber';
-import { fold } from './vietnameseFold';
+import { parseNumber } from './parseNumber.js';
+import { fold } from './vietnameseFold.js';
 
 /** Một ô có thể là chữ, số, ngày, hoặc trống. */
 export type Cell = string | number | boolean | Date | null | undefined;

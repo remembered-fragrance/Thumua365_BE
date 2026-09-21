@@ -1,6 +1,6 @@
-import { linePhysicalWeight, lineTotals } from './calc';
-import { purchases, sales } from './selectors';
-import type { AppData } from './types';
+import { linePhysicalWeight, lineTotals } from './calc.js';
+import { purchases, sales } from './selectors.js';
+import type { AppData } from './types.js';
 
 // ─── Inventory (Workstream F4) ────────────────────────────────────────────────
 

@@ -179,6 +179,79 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 
 ---
 
+## BE1 — Khung NestJS, bảo mật nền · 21/09/2026
+
+**Kết quả:** API chạy được, kiểm JWT thật của Supabase staging qua JWKS; frontend có
+`@mambo/sdk` để gọi. Chưa deploy — chờ tài khoản Render.
+
+### Làm gì
+
+- `apps/api`: NestJS 11 + Express 5, CommonJS. Hai endpoint: `GET /v1/health` (công khai),
+  `GET /v1/me` (cần đăng nhập).
+- Chuỗi xử lý mỗi request: middleware (`requestId` + log truy cập) → helmet → CORS → đọc
+  JSON (≤1MB) → ThrottlerGuard → JwtAuthGuard → OrgContextGuard → PermissionGuard → handler
+  → ContractInterceptor → ExceptionFilter.
+- `packages/contracts` 0.2.0: `routes` (danh bạ endpoint), `Me`, `Health`, thêm
+  `NOT_FOUND`/`PAYLOAD_TOO_LARGE`; `openapi.json` sinh tự động, có test bắt khớp.
+- `packages/sdk` 0.2.0 (mới): `createClient` → `health()`, `me()`; `ApiError` mang `code`.
+- `apps/api/Dockerfile`, `.dockerignore`, `render.yaml` (staging), CI thêm job `docker`
+  build image + chạy container + gọi `/v1/health` và `/v1/me`.
+
+### Quyết định
+
+1. **NestJS 11, không phải 12.** v12 ra 27/08/2026, **chỉ ESM**. v11.2.x ổn định, CJS, mọi
+   gói phụ (throttler, nest-winston) tương thích. Lên 12 là một việc riêng, sau khi hệ sinh
+   thái theo kịp.
+2. **jose v5, không phải v6.** v6 chỉ ESM; API chạy CJS.
+3. **Import tương đối trong mọi gói có đuôi `.js`** (kể cả 37 file của `core` — chỉ đổi
+   đường import, không đổi logic). Không có đuôi thì `.d.ts` sinh ra vô dụng với
+   `moduleResolution: nodenext` của API: TS báo `@mambo/contracts` "không có export nào".
+   Vite và `bundler` vẫn hiểu đuôi `.js`.
+4. **Log truy cập ở middleware, không ở interceptor** (khác chữ trên sơ đồ): interceptor chạy
+   sau guard nên request bị 401/403/429 sẽ không có log — đúng loại cần xem nhất.
+5. **"Transform" = kiểm phản hồi bằng schema hợp đồng** (`ContractInterceptor`): lọc trường
+   thừa, sai hình dạng thì 500. Đổi tên cột DB thuộc lớp dữ liệu (BE2).
+6. **Mặc định đóng:** handler thiếu `@Endpoint` vẫn bị bắt đăng nhập.
+7. **`/v1/me` hỏi Supabase Auth thật** (`/auth/v1/user` bằng token của chính người dùng +
+   publishable key) — JWT không có `phone_confirmed_at`; kèm lợi ích phát hiện phiên đã bị
+   thu hồi. Không dùng `service_role` ở BE1.
+8. **Giấu email nội bộ** `…@id.thumua365.vn` (khoá đăng nhập cho người chỉ có SĐT) khỏi `/me`.
+9. **Lỗi 500 không lộ chi tiết** ra ngoài — chi tiết vào log và Sentry. Có test.
+10. `docker-compose` cho Postgres **dời sang BE2** (BE1 chưa có database; máy dev chưa có Docker).
+11. `render.yaml` **chỉ có staging** — production thêm ở BE10, không trả tiền cho thứ chưa dùng.
+12. Bộ đọc JSON tự dựng (`bodyParser: false` + `express.json`) để lỗi 413/cú pháp sai ra đúng
+    định dạng — lỗi của nó xảy ra trước Nest nên exception filter không bắt được.
+
+### Lỗi bắt được trong lúc làm
+
+- **Vòng phụ thuộc** `auth-user.ts` ↔ `request-context.ts` (chỉ qua `import type`, nhưng vẫn
+  là vòng) — dependency-cruiser bắt; tách decorator `CurrentUser` ra `current-user.ts`.
+- Bản đầu `ContractInterceptor` ném lỗi kèm danh sách trường sai **ra ngoài** trong `details`
+  của lỗi 500 — sửa để lỗi `INTERNAL` không bao giờ mang `message`/`details` gốc.
+- `z.uuid()` của zod v4 kiểm chặt RFC (version 1–8, variant 8–b) — id của Supabase và
+  `crypto.randomUUID()` đều đạt; uuid tự gõ tay trong test phải đúng dạng này.
+
+### Chạy thật đã kiểm
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — 315 (core) + 25 (contracts) + 6 (sdk) + 33 (api) test; 0 vi phạm ranh giới |
+| API build rồi chạy `node dist/main.js` trỏ Supabase staging | Lên trong ~30ms, log JSON mỗi request một dòng |
+| `GET /v1/health` | `{"status":"ok","version":"0.2.0","commit":"…","env":"staging"}` |
+| `GET /v1/me` không token | 401 `UNAUTHENTICATED`, `requestId` khớp header |
+| Token giả mang `kid` lạ | API đi lấy **JWKS thật** của staging → 401 |
+| Đường dẫn lạ | 404 `NOT_FOUND` |
+| Test e2e (supertest, đúng `configureApp` của production) | Token rác / sai issuer / hết hạn / khoá lạ / khoá anon → 401 · phiên bị thu hồi → 401 · Supabase lỗi → 500 không lộ chi tiết · JSON hỏng → 422 · body 1,1MB → 413 · CORS domain lạ không có header · quá hạn mức → 429 có `Retry-After`, `/v1/health` không bị tính · staff vựa xoá phiếu → 403 · chủ vựa → 200 · nông dân owner → 403 · trường thừa bị lọc · sai hợp đồng → 500 |
+
+### 🔴 Chưa kiểm được
+
+- **Token thật của một người dùng thật** chưa đi qua `/v1/me` — cần publishable key của
+  staging và một tài khoản thử. Tất cả nhánh đã có test với token ES256 tự ký.
+- **Dockerfile chưa build lần nào trên máy** (không có Docker) — CI job `docker` là lần đầu.
+- **Deploy staging** — chờ tài khoản Render (áp `render.yaml` qua Blueprint).
+
+---
+
 ## Bốn số phải giữ trong tầm
 
 | Chỉ số | Ngưỡng | Cuối BE0 |
@@ -186,7 +259,7 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 | Phủ test `core` | ≥ 80% dòng | **97,7%** |
 | Vi phạm ranh giới | 0 | **0** |
 | File dài nhất trong `packages/*/src` | ≤ 300 dòng | 285 (`sheetImport.ts`, bê từ frontend) |
-| Thời gian phản hồi p95 API | ≤ 300ms ở staging | chưa có API |
+| Thời gian phản hồi p95 API | ≤ 300ms ở staging | chưa deploy (tại chỗ `/v1/health` ~5ms) |
 
 ---
 
@@ -194,8 +267,9 @@ Cấu hình khi tạo (giống nhau ở hai project, mật khẩu database khác
 
 | Việc | Cần gì | Chặn bước |
 |---|---|---|
-| Chọn nơi chạy container API | Quyết định + đăng ký tài khoản | BE1 |
-| Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | BE1 |
+| Tài khoản Render nối GitHub, áp `render.yaml`, điền `SUPABASE_PUBLISHABLE_KEY` + `CORS_ORIGINS` | Tài | Deploy BE1 |
+| Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | Không chặn — tạm dùng `*.onrender.com` |
+| Docker Desktop trên máy dev (cần WSL2, quyền quản trị) | Tài tự cài | BE2 |
 | Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | BE2 |
 | Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh | BE6 |
 

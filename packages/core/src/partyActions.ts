@@ -3,9 +3,9 @@
  * Tầng `data/` gọi các hàm này rồi mới lo việc ghi xuống máy và đẩy lên mạng.
  */
 
-import { newId } from './id';
-import { GUEST_BUYER_ID, GUEST_SUPPLIER_ID } from './normalizeTransaction';
-import type { AppData, Buyer, Supplier } from './types';
+import { newId } from './id.js';
+import { GUEST_BUYER_ID, GUEST_SUPPLIER_ID } from './normalizeTransaction.js';
+import type { AppData, Buyer, Supplier } from './types.js';
 
 const WALK_IN = 'Khách lẻ';
 

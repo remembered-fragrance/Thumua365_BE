@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import type { MemberRole, OrgType } from './organization';
+import type { MemberRole, OrgType } from './organization.js';
 
 export const PERMISSIONS = [
   'order:create',

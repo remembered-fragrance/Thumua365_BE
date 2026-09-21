@@ -5,10 +5,10 @@
  * băng dòng nào. Chỉ khi hoàn thành mới trở thành phiếu thật.
  */
 
-import { newId } from './id';
-import { GUEST_BUYER_ID, GUEST_SUPPLIER_ID } from './normalizeTransaction';
-import { addTransaction } from './receiptActions';
-import type { AppData, DraftReceipt, Transaction, TransactionLine } from './types';
+import { newId } from './id.js';
+import { GUEST_BUYER_ID, GUEST_SUPPLIER_ID } from './normalizeTransaction.js';
+import { addTransaction } from './receiptActions.js';
+import type { AppData, DraftReceipt, Transaction, TransactionLine } from './types.js';
 
 export type DraftInput = Omit<DraftReceipt, 'id' | 'createdAt' | 'updatedAt'> &
   Partial<Pick<DraftReceipt, 'id' | 'createdAt'>>;

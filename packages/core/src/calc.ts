@@ -1,4 +1,4 @@
-import type { PriceAdjustment, Transaction, TransactionLine } from './types';
+import type { PriceAdjustment, Transaction, TransactionLine } from './types.js';
 
 export interface LineTotals {
   readonly netWeight: number;

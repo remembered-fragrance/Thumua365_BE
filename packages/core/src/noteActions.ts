@@ -1,5 +1,5 @@
-import { newId } from './id';
-import type { AppData, AppSettings, Note } from './types';
+import { newId } from './id.js';
+import type { AppData, AppSettings, Note } from './types.js';
 
 export const addNote = (data: AppData, body: string): { data: AppData; note: Note | null } => {
   const text = body.trim();

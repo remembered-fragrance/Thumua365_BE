@@ -3,7 +3,7 @@
  * Tách khỏi `types.ts` để file kiểu chỉ còn kiểu, không lẫn dữ liệu.
  */
 
-import type { CropType, Product } from './types';
+import type { CropType, Product } from './types.js';
 
 export interface CropMeta {
   readonly id: CropType;

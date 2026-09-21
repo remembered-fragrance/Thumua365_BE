@@ -1,21 +1,26 @@
 {
   "name": "thumua365-be",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "build": "npm run build -w @mambo/core -w @mambo/contracts",
+    "build:packages": "npm run build -w @mambo/core && npm run build -w @mambo/contracts && npm run build -w @mambo/sdk",
+    "build": "npm run build:packages && npm run build -w @mambo/api",
+    "dev": "npm run build:packages && npm run dev -w @mambo/api",
     "lint": "oxlint",
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces",
-    "boundaries": "depcruise packages --config .dependency-cruiser.cjs",
-    "verify": "npm run lint && npm run typecheck && npm run boundaries && npm run test && npm run build"
+    "boundaries": "depcruise packages apps --config .dependency-cruiser.cjs",
+    "openapi": "npm run openapi -w @mambo/contracts",
+    "mock": "npx -y @stoplight/prism-cli@5 mock packages/contracts/openapi.json",
+    "verify": "npm run lint && npm run build:packages && npm run typecheck && npm run boundaries && npm run test && npm run build -w @mambo/api"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
@@ -24,6 +29,12 @@
     "oxlint": "^1.69.0",
     "tsup": "^8.5.0",
     "typescript": "~6.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "tsx": "^4.23.15"
+  },
+  "allowScripts": {
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.2": true,
+    "@swc/core@1.16.2": true
   }
 }

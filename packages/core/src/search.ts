@@ -6,9 +6,9 @@
  * KHÔNG biết route — `features/` quyết định bấm vào một kết quả thì đi đâu.
  */
 
-import { transactionTotals } from './calc';
-import type { AppData, Transaction } from './types';
-import { fold } from './vietnameseFold';
+import { transactionTotals } from './calc.js';
+import type { AppData, Transaction } from './types.js';
+import { fold } from './vietnameseFold.js';
 
 export type SearchHitKind = 'transaction' | 'supplier' | 'buyer' | 'product';
 

@@ -1,4 +1,4 @@
-import type { WeightUnit } from './types';
+import type { WeightUnit } from './types.js';
 
 /** 302 hg = 30.2 kg */
 export const toKg = (value: number, unit: WeightUnit): number =>

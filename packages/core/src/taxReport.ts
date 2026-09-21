@@ -3,8 +3,8 @@
  * Gộp số liệu mua/bán/lãi gộp theo kỳ. Việc xuất XLSX nằm ở `export/taxReportXlsx.ts`.
  */
 
-import { transactionTotals } from './calc';
-import type { AppData } from './types';
+import { transactionTotals } from './calc.js';
+import type { AppData } from './types.js';
 
 export interface TaxReportRange {
   readonly from: Date;

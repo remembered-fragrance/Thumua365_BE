@@ -407,28 +407,41 @@ chưa đạt.
   lần đầu trên GitHub; release `v0.1.0` có hai file `.tgz`; frontend build được với
   `@mambo/core` từ release và 43 test `data/`, `features/` còn lại vẫn xanh.
 
-### BE1 — Khung NestJS, bảo mật nền, hạ tầng (2–3 buổi)
+### BE1 — Khung NestJS, bảo mật nền, hạ tầng (2–3 buổi) · ✅ code xong 21/09/2026
 
 - **Backend:**
-  - NestJS; `ConfigModule` kiểm env bằng zod; **Winston** log JSON (`requestId`, `orgId`,
-    thời gian); `LoggingInterceptor`, `TransformInterceptor`; `ExceptionFilter` theo §3.1.
-  - `SupabaseJwtGuard` (JWKS), `OrgContextGuard`, `PermissionGuard` đọc ma trận từ contracts.
-  - **Bảo mật nền:** HTTPS, CORS chỉ domain app, `helmet`, rate limit (`@nestjs/throttler`),
-    giới hạn kích thước body.
-  - `GET /v1/health`, `GET /v1/me` (§3.2, dữ liệu giả tới BE2).
-  - Dockerfile nhiều tầng; `docker-compose` dev (Postgres 16 + PostGIS). Container API vùng
-    Singapore (đề xuất Render). Supabase đã có: staging `bldlrkmszjmhifubxjvl`, prod
-    `grrzveprprjukvosdtra`, cả hai ký JWT bằng ES256 ⇒ kiểm qua JWKS.
-  - OpenAPI sinh từ contracts, `openapi.json` commit; `npm run mock` (Prism).
-  - CI: lint · typecheck · test · build image → deploy **staging** khi merge; **prod bấm tay**.
-  - Sentry cho API (bắt lỗi từ ngày đầu, trước khi có người dùng).
-- **Frontend:** `VITE_API_URL`; gọi `/v1/me`; làm `/lien-he` + link pháp lý (R4).
+  - **NestJS 11** (không phải 12 — v12 chỉ ESM, ra được 3 tuần), CommonJS, Express 5.
+    Env kiểm bằng zod lúc khởi động (`src/config/env.ts`); **Winston** log JSON.
+  - Log truy cập ở **middleware** (không phải interceptor) để ghi cả request bị guard chặn
+    (401/403/429): `requestId`, `userId`, `orgId`, thời gian. Không ghi Authorization.
+  - **Transform** = `ContractInterceptor`: mọi phản hồi đi qua schema của `routes` — trường
+    thừa bị lọc, sai hình dạng → 500. Đổi camelCase ↔ snake_case thuộc lớp dữ liệu (BE2).
+  - `ExceptionFilter` bắt MỌI lỗi ra đúng §3.1; lỗi 500 không lộ chi tiết, gửi Sentry nếu có
+    `SENTRY_DSN`. Lỗi bộ đọc JSON (quá 1MB, sai cú pháp) chặn riêng vì xảy ra trước Nest.
+  - `JwtAuthGuard` (JWKS, ES256, issuer/audience, `role = authenticated`), `OrgContextGuard`,
+    `PermissionGuard` đọc ma trận từ contracts. Handler không khai `@Endpoint` bị coi là cần
+    đăng nhập (mặc định đóng).
+  - `@Endpoint(routes.x)`: đường dẫn, phương thức, loại xác thực, quyền, schema phản hồi đều
+    lấy từ `@mambo/contracts` — controller không tự gõ đường dẫn.
+  - **Bảo mật nền:** CORS chỉ domain trong `CORS_ORIGINS`, `helmet`, rate limit theo IP
+    (`trust proxy` cho Render), giới hạn body 1MB. HTTPS do Render lo.
+  - `GET /v1/health`; `GET /v1/me` — thông tin người dùng lấy thật từ Supabase Auth
+    (`/auth/v1/user` bằng token của chính họ, có `phone_confirmed_at`), `memberships: []`
+    tới BE2, `pendingLinks: 0` tới BE4.
+  - Dockerfile nhiều tầng (`apps/api/Dockerfile`, build từ gốc repo). CI build image và chạy
+    thử container. `docker-compose` cho Postgres dời sang **BE2** — BE1 chưa có database.
+  - `render.yaml`: chỉ staging, gói free, vùng Singapore, deploy khi CI xanh.
+  - `openapi.json` sinh từ `routes`, test bắt buộc khớp; `npm run mock` (Prism).
+  - Gói **`@mambo/sdk`**: client có kiểu cho frontend.
+- **Frontend:** cài `@mambo/sdk`, `@mambo/contracts` từ release `v0.2.0`; `VITE_API_URL`;
+  gọi `sdk.me()` sau khi đăng nhập; làm `/lien-he` + link pháp lý (R4).
 - **Xong khi:** đăng nhập staging → `/v1/me` đúng; token sai → 401 đúng định dạng; gọi từ
   domain lạ bị CORS chặn; spam endpoint → 429.
 
 ### BE2 — Database, ba vai trò, OTP, audit (3–4 buổi)
 
 - **Backend:**
+  - `docker-compose` dev (Postgres 16 + PostGIS) — cần Docker Desktop trên máy dev.
   - Prisma baseline từ 10 migration cũ + **toàn bộ §1.3** + `postgis`. Từ đây Prisma
     Migrate sở hữu schema; `supabase/migrations/` đóng băng.
   - Hai role `api_service` / `api_privileged`, RLS theo phiên, thu hồi quyền của

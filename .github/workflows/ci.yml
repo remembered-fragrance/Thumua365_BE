@@ -19,14 +19,49 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Build gói dùng chung (core → contracts → sdk)
+        run: npm run build:packages
+
       - name: Kiểm kiểu
         run: npm run typecheck
 
-      - name: Ranh giới gói (core thuần)
+      - name: Ranh giới gói
         run: npm run boundaries
 
-      - name: Test (core phủ ≥80%)
+      # Gồm cả test "openapi.json khớp hợp đồng" — quên `npm run openapi` là đỏ.
+      - name: Test
         run: npm run test
 
-      - name: Build
-        run: npm run build
+      - name: Build API
+        run: npm run build -w @mambo/api
+
+  # Máy dev không có Docker: đây là nơi duy nhất Dockerfile được build và chạy thử
+  # trước khi Render dùng nó.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f apps/api/Dockerfile -t thumua365-api .
+
+      - name: Chạy container và gọi /v1/health
+        run: |
+          docker run -d --name api -p 3000:3000 \
+            -e APP_ENV=development \
+            -e SUPABASE_URL=https://bldlrkmszjmhifubxjvl.supabase.co \
+            -e SUPABASE_PUBLISHABLE_KEY=ci-placeholder \
+            thumua365-api
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/v1/health; then echo; exit 0; fi
+            sleep 1
+          done
+          docker logs api
+          exit 1
+
+      - name: /v1/me không token phải là 401 đúng định dạng
+        run: |
+          code=$(curl -s -o body.json -w '%{http_code}' http://localhost:3000/v1/me)
+          cat body.json; echo
+          test "$code" = 401
+          grep -q '"code":"UNAUTHENTICATED"' body.json

@@ -7,10 +7,10 @@
  *   dòng hàng được đóng băng khi phiếu chốt (freezeLineTotals)
  */
 
-import { freezeLineTotals, transactionTotals } from './calc';
-import { newId } from './id';
-import { resolveBuyer, resolveSupplier } from './partyActions';
-import type { AppData, Payment, Product, Transaction, TransactionLine } from './types';
+import { freezeLineTotals, transactionTotals } from './calc.js';
+import { newId } from './id.js';
+import { resolveBuyer, resolveSupplier } from './partyActions.js';
+import type { AppData, Payment, Product, Transaction, TransactionLine } from './types.js';
 
 export type NewTransaction = Omit<Transaction, 'id' | 'supplierId'> & { supplierId?: string };
 

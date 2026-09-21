@@ -10,7 +10,7 @@
  * - Công thức dòng (lineNetWeight, lineTotals) KHÔNG thay đổi.
  */
 
-import type { PriceAdjustment, PricingRule, TransactionLine } from './types';
+import type { PriceAdjustment, PricingRule, TransactionLine } from './types.js';
 
 // ─── Context để suggestAdjustments tính toán ─────────────────────────────────
 

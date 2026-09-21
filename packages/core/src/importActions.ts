@@ -11,11 +11,11 @@
  * danh mục hàng chục mục trùng nhau ngay ngày đầu dùng app.
  */
 
-import { newId } from './id';
-import { addSupplier } from './partyActions';
-import { addTransaction } from './receiptActions';
-import type { ReceiptImport, SupplierImport } from './sheetImport';
-import type { AppData, Supplier, Transaction, TransactionLine } from './types';
+import { newId } from './id.js';
+import { addSupplier } from './partyActions.js';
+import { addTransaction } from './receiptActions.js';
+import type { ReceiptImport, SupplierImport } from './sheetImport.js';
+import type { AppData, Supplier, Transaction, TransactionLine } from './types.js';
 
 export const importSuppliers = (
   data: AppData,

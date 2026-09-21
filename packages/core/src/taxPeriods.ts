@@ -6,7 +6,7 @@
  * selector, không sửa hàm đang có (E §4.4).
  */
 
-import type { TaxReportRange } from './taxReport';
+import type { TaxReportRange } from './taxReport.js';
 
 export type PeriodKind = 'month' | 'quarter' | 'year';
 

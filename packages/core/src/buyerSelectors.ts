@@ -1,6 +1,6 @@
-import { transactionTotals } from './calc';
-import { sales } from './selectors';
-import type { AppData } from './types';
+import { transactionTotals } from './calc.js';
+import { sales } from './selectors.js';
+import type { AppData } from './types.js';
 
 // ─── Buyer Selectors (Workstream F1) ─────────────────────────────────────────
 

@@ -1,0 +1,31 @@
+# Render Blueprint — áp dụng: Render Dashboard → Blueprints → New Blueprint Instance → chọn repo.
+#
+# Chỉ có STAGING. Production thêm vào đây ở BE10 (gói trả phí, luôn chạy, deploy tay).
+# Biến `sync: false` là bí mật hoặc tuỳ môi trường: Render hỏi giá trị lúc tạo,
+# KHÔNG ghi giá trị thật vào file này.
+
+services:
+  - type: web
+    name: thumua365-api-staging
+    runtime: docker
+    region: singapore
+    plan: free
+    branch: master
+    # Chỉ deploy khi CI trên GitHub đã xanh.
+    autoDeployTrigger: checksPass
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /v1/health
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: SUPABASE_URL
+        value: https://bldlrkmszjmhifubxjvl.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+      - key: SENTRY_DSN
+        sync: false

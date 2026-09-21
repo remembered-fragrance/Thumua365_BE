@@ -1,5 +1,5 @@
-import { newId } from './id';
-import type { AppData, PricingRule } from './types';
+import { newId } from './id.js';
+import type { AppData, PricingRule } from './types.js';
 
 export const addPricingRule = (
   data: AppData,

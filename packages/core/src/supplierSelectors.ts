@@ -1,6 +1,6 @@
-import { transactionTotals } from './calc';
-import { purchases } from './selectors';
-import type { AppData } from './types';
+import { transactionTotals } from './calc.js';
+import { purchases } from './selectors.js';
+import type { AppData } from './types.js';
 
 export interface SupplierSummary {
   readonly id: string;

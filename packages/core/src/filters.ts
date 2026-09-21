@@ -1,5 +1,5 @@
-import { transactionTotals } from './calc';
-import type { Transaction, TransactionKind } from './types';
+import { transactionTotals } from './calc.js';
+import type { Transaction, TransactionKind } from './types.js';
 
 export type TimePeriod = 'day' | 'week' | 'month' | 'year' | 'custom' | 'all';
 export type PaymentFilter = 'all' | 'paid' | 'unpaid';

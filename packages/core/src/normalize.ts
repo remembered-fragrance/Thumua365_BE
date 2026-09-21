@@ -6,8 +6,8 @@
  * thứ tự động xuất hiện trong sổ của họ.
  */
 
-import { newId } from './id';
-import { normalizeLine, normalizeTransaction } from './normalizeTransaction';
+import { newId } from './id.js';
+import { normalizeLine, normalizeTransaction } from './normalizeTransaction.js';
 import type {
   AppData,
   AppSettings,
@@ -16,9 +16,9 @@ import type {
   Note,
   Product,
   Supplier,
-} from './types';
-import { DEFAULT_PRODUCTS, productNameFromCrop } from './catalog';
-import { cropFrom, formulaFrom } from './normalizeTransaction';
+} from './types.js';
+import { DEFAULT_PRODUCTS, productNameFromCrop } from './catalog.js';
+import { cropFrom, formulaFrom } from './normalizeTransaction.js';
 
 export const defaultSettings = (): AppSettings => ({
   defaultWeightUnit: 'kg',

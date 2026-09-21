@@ -11,10 +11,10 @@
  * cho thấy app bắt được lỗi nhập sai.
  */
 
-import { freezeLineTotals } from './calc';
-import { DEFAULT_PRODUCTS } from './catalog';
-import { newId } from './id';
-import { defaultSettings } from './normalize';
+import { freezeLineTotals } from './calc.js';
+import { DEFAULT_PRODUCTS } from './catalog.js';
+import { newId } from './id.js';
+import { defaultSettings } from './normalize.js';
 import type {
   AppData,
   Buyer,
@@ -22,7 +22,7 @@ import type {
   Supplier,
   Transaction,
   TransactionLine,
-} from './types';
+} from './types.js';
 
 const DAY_MS = 86_400_000;
 

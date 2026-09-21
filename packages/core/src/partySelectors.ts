@@ -7,9 +7,9 @@
  * phân biệt. Hai hàm cũ giữ nguyên.
  */
 
-import { buyerSummaries } from './buyerSelectors';
-import { supplierSummaries } from './supplierSelectors';
-import type { AppData, Transaction } from './types';
+import { buyerSummaries } from './buyerSelectors.js';
+import { supplierSummaries } from './supplierSelectors.js';
+import type { AppData, Transaction } from './types.js';
 
 export type PartyRole = 'supplier' | 'buyer';
 

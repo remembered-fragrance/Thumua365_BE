@@ -11,7 +11,7 @@
  * ghi 30 phiếu", và họ đếm cả hai loại như nhau.
  */
 
-import type { AppData, Transaction } from './types';
+import type { AppData, Transaction } from './types.js';
 
 export interface QuotaState {
   /** Số phiếu đã ghi trong tháng dương lịch hiện tại. */

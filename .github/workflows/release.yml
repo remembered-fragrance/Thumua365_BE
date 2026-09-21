@@ -26,7 +26,7 @@ jobs:
       - name: Tag phải khớp version của các gói
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          for pkg in packages/core packages/contracts; do
+          for pkg in packages/core packages/contracts packages/sdk apps/api; do
             VERSION=$(node -p "require('./$pkg/package.json').version")
             if [ "$VERSION" != "$TAG" ]; then
               echo "$pkg có version $VERSION, tag là $TAG" >&2
@@ -35,7 +35,7 @@ jobs:
           done
 
       - name: Đóng gói
-        run: npm pack -w @mambo/core -w @mambo/contracts
+        run: npm pack -w @mambo/core -w @mambo/contracts -w @mambo/sdk
 
       - name: Tạo release
         env:

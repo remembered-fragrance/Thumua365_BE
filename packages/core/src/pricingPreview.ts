@@ -6,8 +6,8 @@
  * và người dùng mất niềm tin vào cả hai.
  */
 
-import { suggestAdjustments } from './pricing';
-import type { PricingRule, TransactionLine } from './types';
+import { suggestAdjustments } from './pricing.js';
+import type { PricingRule, TransactionLine } from './types.js';
 
 /** Đơn hàng mẫu: 1 tấn × 20.000đ = 20 triệu. Số tròn để nhẩm được trong đầu. */
 export const SAMPLE_KG = 1_000;

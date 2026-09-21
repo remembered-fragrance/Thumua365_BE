@@ -1,5 +1,5 @@
-import { lineTotals, transactionTotals } from './calc';
-import type { AppData, CropType, Transaction } from './types';
+import { lineTotals, transactionTotals } from './calc.js';
+import type { AppData, CropType, Transaction } from './types.js';
 
 // ─── Helpers phân loại giao dịch ─────────────────────────────────────────────
 
