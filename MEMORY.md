@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | Chưa từng deploy, chưa có project Supabase, **chưa có dữ liệu thật** |
+| Trạng thái sản phẩm | BE0–BE1 xong · API staging trên Render · hai project Supabase đã tạo · **chưa có database nghiệp vụ, chưa có dữ liệu thật** · tiếp theo: BE2 |
 
 ---
 
@@ -330,6 +330,24 @@ cho frontend. Không phải frontend sản phẩm.
 
 ---
 
+## Đồng bộ tài liệu với code sau BE1 · 21/09/2026
+
+Soát lại `docs/` và sơ đồ v2 so với code đã chạy; sửa chỗ lệch để BE2 không làm theo chữ cũ.
+
+| Chỗ lệch | Sửa thành |
+|---|---|
+| Sơ đồ v2: "Prisma bỏ qua RLS, nên lớp chính phải là Guard" — ngược quyết định #7 | `api_service` **không** `BYPASSRLS`; RLS theo phiên `app.org_id` bắt lỗi quên lọc `orgId` |
+| Đổi camelCase ↔ snake_case "ở interceptor" (THONG_TIN §3.2, KH §3) | Thuộc lớp dữ liệu (BE2); `ContractInterceptor` chỉ kiểm/lọc phản hồi — đúng quyết định BE1 #5 |
+| "Logging interceptor" | Log truy cập ở middleware (quyết định BE1 #4) |
+| Bảng mã lỗi KH §3.1 thiếu `NOT_FOUND`, `PAYLOAD_TOO_LARGE` | Thêm, kèm việc frontend phải làm |
+| Tên `SupabaseJwtGuard` | `JwtAuthGuard`; thứ tự guard ghi đủ, có `ClientIpThrottlerGuard` |
+| Backup "PITR của Supabase" trên sơ đồ | Prod ở gói Free ⇒ `pg_dump` là lớp bắt buộc; Pro khi nâng gói; PITR sau doanh thu |
+| Tình trạng "backend chưa bắt đầu", cột ✅/❌ của BE1, nơi chạy container "chọn ở BE1" | Cập nhật theo thực tế: Render Singapore, staging chạy, BE0–BE1 ✅ |
+
+Không đổi code, không đổi quyết định nào — chỉ cho tài liệu nói đúng điều đã chốt và đã làm.
+
+---
+
 ## Bốn số phải giữ trong tầm
 
 | Chỉ số | Ngưỡng | Cuối BE0 |
@@ -354,11 +372,12 @@ cho frontend. Không phải frontend sản phẩm.
 
 ## Ghi chú vận hành
 
-- Máy làm việc: **Windows 11, Node 24, npm 11. Không có Docker, không có WSL, không có
-  `gh` CLI.** CI chạy Node 22 (`engines: >=22`).
+- Máy làm việc: **Windows 11, Node 24, npm 11, `gh` 2.101 (đăng nhập `remembered-fragrance`).
+  Không có Docker, không có WSL.** CI chạy Node 22 (`engines: >=22`).
 - Git đang bật `core.autocrlf=true` ⇒ cảnh báo "LF will be replaced by CRLF" khi commit là
   bình thường; trong repo vẫn lưu LF.
 - Phát hành phiên bản mới: nâng `version` của **mọi** gói cùng lúc → ghi
   `packages/contracts/CHANGELOG.md` → `git tag vX.Y.Z && git push origin vX.Y.Z`. Tag lệch
   version thì `release.yml` dừng.
-- Xem trạng thái CI khi không có `gh`: `curl -s https://api.github.com/repos/remembered-fragrance/Thumua365_BE/actions/runs?per_page=1`.
+- Xem CI: `gh run list -L 3` · PR: `gh pr checks <số>`. Không có `gh` thì
+  `curl -s https://api.github.com/repos/remembered-fragrance/Thumua365_BE/actions/runs?per_page=1`.
