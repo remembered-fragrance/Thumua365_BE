@@ -372,11 +372,12 @@ Không đổi code, không đổi quyết định nào — chỉ cho tài liệu
 
 ## Ghi chú vận hành
 
-- Máy làm việc: **Windows 11, Node 24, npm 11. Không có Docker, không có WSL, không có
-  `gh` CLI.** CI chạy Node 22 (`engines: >=22`).
+- Máy làm việc: **Windows 11, Node 24, npm 11, `gh` 2.101 (đăng nhập `remembered-fragrance`).
+  Không có Docker, không có WSL.** CI chạy Node 22 (`engines: >=22`).
 - Git đang bật `core.autocrlf=true` ⇒ cảnh báo "LF will be replaced by CRLF" khi commit là
   bình thường; trong repo vẫn lưu LF.
 - Phát hành phiên bản mới: nâng `version` của **mọi** gói cùng lúc → ghi
   `packages/contracts/CHANGELOG.md` → `git tag vX.Y.Z && git push origin vX.Y.Z`. Tag lệch
   version thì `release.yml` dừng.
-- Xem trạng thái CI khi không có `gh`: `curl -s https://api.github.com/repos/remembered-fragrance/Thumua365_BE/actions/runs?per_page=1`.
+- Xem CI: `gh run list -L 3` · PR: `gh pr checks <số>`. Không có `gh` thì
+  `curl -s https://api.github.com/repos/remembered-fragrance/Thumua365_BE/actions/runs?per_page=1`.
