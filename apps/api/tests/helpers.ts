@@ -5,9 +5,11 @@ import { Test } from '@nestjs/testing';
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWTPayload } from 'jose';
 import { AppModule } from '../src/app.module';
 import { type MembershipContext, type MembershipLookup, NoMembershipsYet } from '../src/auth/membership';
+import type { SupabaseAdmin } from '../src/auth/supabase-admin';
 import type { SupabaseAccount, SupabaseUsers } from '../src/auth/supabase-users';
 import { configureApp } from '../src/bootstrap';
 import { type Env, loadEnv } from '../src/config/env';
+import { Database } from '../src/db/database';
 import { buildLogger } from '../src/logger';
 
 export const SUPABASE_URL = 'https://testref.supabase.co';
@@ -66,13 +68,36 @@ export class FakeMemberships implements MembershipLookup {
   async listForUser(): Promise<MeMembership[]> {
     return [];
   }
+
+  async pendingLinks(): Promise<number> {
+    return 0;
+  }
 }
+
+/** Auth Admin giả: id → email đăng nhập. */
+export class FakeSupabaseAdmin implements SupabaseAdmin {
+  readonly emails = new Map<string, string>();
+  readonly asked: string[] = [];
+
+  async loginEmail(userId: string): Promise<string | null> {
+    this.asked.push(userId);
+    return this.emails.get(userId) ?? null;
+  }
+}
+
+/**
+ * Postgres cho test không cần database: kết nối lười, không bao giờ được chạm tới.
+ * Test cần database thật nằm ở tests/db/ (`npm run test:db`).
+ */
+export const UNUSED_DATABASE_URL = 'postgresql://unused:unused@127.0.0.1:1/unused';
 
 export const testEnv = (overrides: Record<string, string> = {}): Env =>
   loadEnv({
     APP_ENV: 'staging',
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+    SUPABASE_SECRET_KEY: 'sb_secret_test',
+    DATABASE_URL: UNUSED_DATABASE_URL,
     CORS_ORIGINS: ALLOWED_ORIGIN,
     RENDER_GIT_COMMIT: 'abcdef1234567',
     ...overrides,
@@ -82,7 +107,9 @@ export interface TestAppOptions {
   readonly env?: Env;
   readonly jwks: Awaited<ReturnType<typeof makeSigner>>['jwks'];
   readonly supabaseUsers?: SupabaseUsers;
+  readonly supabaseAdmin?: SupabaseAdmin;
   readonly memberships?: MembershipLookup;
+  readonly db?: Database;
   /** Controller chỉ có trong test — để thử guard và interceptor với route giả. */
   readonly extraControllers?: Type[];
 }
@@ -90,19 +117,23 @@ export interface TestAppOptions {
 /** Dựng đúng app như main.ts, chỉ thay phụ thuộc chạm ra ngoài. */
 export const buildTestApp = async (options: TestAppOptions): Promise<INestApplication> => {
   const env = options.env ?? testEnv();
+  const logger = buildLogger(env, true);
   const moduleRef = await Test.createTestingModule({
     imports: [
       AppModule.forRoot(env, {
         jwks: options.jwks,
         supabaseUsers: options.supabaseUsers ?? new FakeSupabaseUsers(),
+        supabaseAdmin: options.supabaseAdmin ?? new FakeSupabaseAdmin(),
         memberships: options.memberships ?? new NoMembershipsYet(),
+        db: options.db ?? new Database(env.DATABASE_URL),
+        logger,
       }),
     ],
     controllers: options.extraControllers ?? [],
   }).compile();
 
   const app = moduleRef.createNestApplication({ bodyParser: false, logger: false });
-  configureApp(app, env, buildLogger(env, true));
+  configureApp(app, env, logger);
   await app.init();
   return app;
 };

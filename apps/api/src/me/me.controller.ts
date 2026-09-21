@@ -1,17 +1,14 @@
-import { type Me, routes } from '@mambo/contracts';
-import { Controller, Inject } from '@nestjs/common';
+import { type Me, type MeBootstrapInput, routes } from '@mambo/contracts';
+import { Body, Controller, Inject } from '@nestjs/common';
+import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/current-user';
+import { isInternalEmail } from '../auth/login-email';
 import { MEMBERSHIP_LOOKUP, type MembershipLookup } from '../auth/membership';
 import { SUPABASE_USERS, type SupabaseAccount, type SupabaseUsers } from '../auth/supabase-users';
 import { Endpoint } from '../common/endpoint';
-
-/**
- * Email nội bộ cho người chỉ đăng ký bằng số điện thoại (`84912…@id.thumua365.vn`,
- * xem `data/auth.ts` của frontend). Đó là khoá đăng nhập, không phải email thật —
- * không trả ra như thể người dùng có email.
- */
-const INTERNAL_EMAIL_DOMAIN = '@id.thumua365.vn';
+import { RequestId } from '../common/request-id';
+import { BootstrapService } from './bootstrap.service';
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null);
 
@@ -19,13 +16,14 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 const e164 = (phone: string | null | undefined): string | null =>
   phone ? `+${phone.replace(/^\+/, '')}` : null;
 
+/** Email nội bộ (người chỉ có SĐT) là khoá đăng nhập — không trả ra như thể họ có email. */
 export const meUserFrom = (account: SupabaseAccount): Me['user'] => {
   const email = text(account.email);
   return {
     id: account.id,
     name: text(account.user_metadata?.name),
     phone: e164(account.phone),
-    email: email && !email.endsWith(INTERNAL_EMAIL_DOMAIN) ? email : null,
+    email: email && !isInternalEmail(email) ? email : null,
     phoneVerified: Boolean(account.phone_confirmed_at),
   };
 };
@@ -34,23 +32,41 @@ export const meUserFrom = (account: SupabaseAccount): Me['user'] => {
 export class MeController {
   private readonly users: SupabaseUsers;
   private readonly memberships: MembershipLookup;
+  private readonly bootstrapper: BootstrapService;
 
-  constructor(@Inject(SUPABASE_USERS) users: SupabaseUsers, @Inject(MEMBERSHIP_LOOKUP) memberships: MembershipLookup) {
+  constructor(
+    @Inject(SUPABASE_USERS) users: SupabaseUsers,
+    @Inject(MEMBERSHIP_LOOKUP) memberships: MembershipLookup,
+    bootstrapper: BootstrapService,
+  ) {
     this.users = users;
     this.memberships = memberships;
+    this.bootstrapper = bootstrapper;
   }
 
   @Endpoint(routes.me)
   async me(@CurrentUser() user: AuthUser): Promise<Me> {
-    const [account, memberships] = await Promise.all([
-      this.users.fetch(user.token),
+    return this.build(user, await this.users.fetch(user.token));
+  }
+
+  @Endpoint(routes.meBootstrap)
+  async bootstrap(
+    @CurrentUser() user: AuthUser,
+    @Body() input: z.output<typeof MeBootstrapInput>,
+    @RequestId() requestId: string,
+  ): Promise<Me> {
+    // Hỏi Supabase TRƯỚC khi ghi: phiên bị thu hồi thì dừng ở đây (401), và số điện
+    // thoại của hồ sơ lấy từ chính tài khoản.
+    const account = await this.users.fetch(user.token);
+    await this.bootstrapper.run(user, account, input, requestId);
+    return this.build(user, account);
+  }
+
+  private async build(user: AuthUser, account: SupabaseAccount): Promise<Me> {
+    const [memberships, pendingLinks] = await Promise.all([
       this.memberships.listForUser(user.id),
+      this.memberships.pendingLinks(user.id),
     ]);
-    return {
-      user: meUserFrom(account),
-      memberships,
-      // Lời mời kết nối có từ BE4 (partner_links). Tới đó luôn 0.
-      pendingLinks: 0,
-    };
+    return { user: meUserFrom(account), memberships, pendingLinks };
   }
 }

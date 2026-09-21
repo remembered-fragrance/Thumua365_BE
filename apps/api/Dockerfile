@@ -17,15 +17,29 @@ RUN npm ci --no-audit --no-fund
 COPY tsconfig.base.json ./
 COPY packages packages
 COPY apps/api apps/api
-RUN npm run build:packages && npm run build -w @mambo/api \
-  && npm prune --omit=dev --no-audit --no-fund
+# `build` của API chạy `prisma generate` trước — Prisma Client được biên dịch vào dist.
+RUN npm run build:packages && npm run build -w @mambo/api
+
+# Chỉ gói chạy thật. Prisma CLI, TypeScript, Prisma Studio… là peer tuỳ chọn của
+# @prisma/client nên lockfile đánh dấu `devOptional` — `--omit=dev` một mình không bỏ
+# được, cần thêm `--omit=optional` (gói optional duy nhất phía chạy thật là
+# pg-cloudflare, chỉ dùng trên Cloudflare Workers).
+FROM node:22-alpine AS deps
+WORKDIR /repo
+COPY package.json package-lock.json ./
+COPY packages/core/package.json packages/core/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/sdk/package.json packages/sdk/
+COPY apps/api/package.json apps/api/
+RUN npm ci --omit=dev --omit=optional --ignore-scripts --no-audit --no-fund && mkdir -p apps/api/node_modules
 
 FROM node:22-alpine
 ENV NODE_ENV=production
 WORKDIR /repo
 
-COPY --from=build /repo/package.json ./
-COPY --from=build /repo/node_modules node_modules
+COPY --from=deps /repo/package.json ./
+COPY --from=deps /repo/node_modules node_modules
+COPY --from=deps /repo/apps/api/node_modules apps/api/node_modules
 COPY --from=build /repo/packages/core/package.json packages/core/
 COPY --from=build /repo/packages/core/dist packages/core/dist
 COPY --from=build /repo/packages/contracts/package.json packages/contracts/

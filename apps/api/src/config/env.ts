@@ -3,8 +3,8 @@
  * KHÔNG chạy, kèm câu báo lỗi chỉ đúng biến nào; không có chuyện chạy nửa vời
  * rồi hỏng ở request đầu tiên.
  *
- * Không biến nào ở đây là bí mật tới BE1: URL và publishable key của Supabase
- * vốn công khai trong app web. Bí mật (DATABASE_URL, service_role) thêm từ BE2.
+ * Bí mật từ BE2: DATABASE_URL (mật khẩu role api_service) và SUPABASE_SECRET_KEY.
+ * Chỉ nằm trong apps/api/.env (đã .gitignore) và biến môi trường của Render.
  */
 
 import { AppEnv } from '@mambo/contracts';
@@ -26,6 +26,19 @@ const EnvSchema = z
     PORT: z.coerce.number().int().positive().default(3000),
     SUPABASE_URL: z.url().transform((u) => u.replace(/\/+$/, '')),
     SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+    /**
+     * Khoá secret (`sb_secret_…`) — CHỈ cho Auth Admin API: đổi id người dùng thành email
+     * đăng nhập (/v1/auth/resolve-identifier). Không bao giờ ra khỏi API.
+     */
+    SUPABASE_SECRET_KEY: z.string().min(1),
+    /**
+     * Postgres bằng role `api_service` (không bypass RLS). Supabase: Transaction pooler,
+     * cổng 6543, user `api_service.<project-ref>`. Migration dùng DIRECT_URL (role
+     * postgres) — biến đó chỉ Prisma CLI đọc, không có ở đây.
+     */
+    DATABASE_URL: z
+      .string()
+      .refine((v) => /^postgres(ql)?:\/\//.test(v), 'phải là chuỗi kết nối postgresql://'),
     CORS_ORIGINS: csv,
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
     LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),

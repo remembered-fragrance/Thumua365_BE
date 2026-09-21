@@ -1,0 +1,33 @@
+# Postgres cho máy dev và test tích hợp — `npm run db:up`.
+#
+# Cùng bản với Supabase staging (Postgres 17 + PostGIS). Hai script trong
+# apps/api/prisma/dev/ dựng lại đúng những gì Supabase có sẵn trước khi Prisma
+# Migrate chạy, để migration chạy ở đây y như trên staging.
+#
+# Cổng 54329 (không phải 5432) để không đụng Postgres khác trên máy.
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: thumua365
+    ports:
+      - '54329:5432'
+    volumes:
+      - ./apps/api/prisma/dev/00_supabase_shim.sql:/docker-entrypoint-initdb.d/00_supabase_shim.sql:ro
+      # Đè script mặc định của image: nó bật PostGIS trong schema `public`, còn
+      # Supabase để PostGIS trong schema `extensions` (migration tự bật).
+      - ./apps/api/prisma/dev/10_postgis.sh:/docker-entrypoint-initdb.d/10_postgis.sh:ro
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # Qua TCP: trong lúc chạy script khởi tạo, Postgres tạm chỉ nghe socket — hỏi
+      # socket sẽ báo "sẵn sàng" trước khi role và schema được tạo xong.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d thumua365']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  db-data:

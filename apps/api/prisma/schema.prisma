@@ -1,0 +1,558 @@
+// Schema database THUMUA365 — đủ bốn nhóm bảng của kiến trúc v2 (KH backend §1.3).
+//
+// Prisma Migrate là nơi DUY NHẤT sửa schema. Những gì Prisma không diễn tả được
+// (CHECK, index một phần, trigger, hàm, role, quyền, RLS) nằm trong phần SQL viết
+// tay của file migration — xem đầu và cuối prisma/migrations/*/migration.sql.
+//
+// Quy ước (giữ từ supabase/migrations/0001 của repo frontend):
+//   - Tên cột snake_case trong DB, camelCase trong code (@map). Đổi tên ở lớp dữ liệu.
+//   - Bảng SỔ (ghi offline): id do CLIENT sinh, không có default.
+//     Bảng còn lại: id do server sinh (gen_random_uuid()).
+//   - Xoá mềm bằng deleted_at. Role api_service không có quyền DELETE.
+//   - Tiền: BigInt (số nguyên đồng). Khối lượng, %, đơn giá: Float.
+//   - updated_at do trigger touch_updated_at đặt, không do Prisma.
+//   - Không khoá ngoại sang auth.users: database không phụ thuộc schema của
+//     Supabase Auth. Việc cần Auth (email đăng nhập, phone_confirmed_at) đi qua
+//     Auth API.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Tổ chức ─────────────────────────────────────────────────────────────────
+
+/// Mọi chủ thể là một tổ chức, kể cả hộ nông dân một người.
+model Organization {
+  id        String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// farmer | trader | enterprise
+  type      String
+  name      String
+  phone     String?
+  address   String?
+  location  Unsupported("geography(Point, 4326)")?
+  createdBy String                                  @map("created_by") @db.Uuid
+  createdAt DateTime                                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime                                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?                               @map("deleted_at") @db.Timestamptz(6)
+
+  memberships    Membership[]
+  branches       Branch[]
+  subscriptions  Subscription[]
+  features       OrganizationFeature[]
+  suppliers      Supplier[]
+  buyers         Buyer[]
+  products       Product[]
+  transactions   Transaction[]
+  payments       Payment[]
+  drafts         Draft[]
+  pricingRules   PricingRule[]
+  notes          Note[]
+  paymentIntents PaymentIntent[]
+  notifications  Notification[]
+  syncOps        SyncOp[]
+  ownedLinks     PartnerLink[]                    @relation("LinkOwner")
+  linkedLinks    PartnerLink[]                    @relation("LinkLinked")
+  ordersSelling  Order[]                          @relation("OrderSeller")
+  ordersBuying   Order[]                          @relation("OrderBuyer")
+  ordersCreated  Order[]                          @relation("OrderCreator")
+
+  @@map("organizations")
+}
+
+model Branch {
+  id             String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                                 @map("organization_id") @db.Uuid
+  name           String
+  address        String?
+  location       Unsupported("geography(Point, 4326)")?
+  createdAt      DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?                              @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  memberships  Membership[]
+  transactions Transaction[]
+  drafts       Draft[]
+  orders       Order[]
+
+  @@index([organizationId])
+  @@map("branches")
+}
+
+/// Người dùng (auth.users.id) ở trong tổ chức nào, với vai trò gì.
+model Membership {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  /// owner | manager | staff
+  role           String
+  /// Nhân viên gắn với một chi nhánh; null = cả tổ chức.
+  branchId       String?   @map("branch_id") @db.Uuid
+  /// invited | active | removed
+  status         String    @default("active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+/// Gói của một tổ chức vựa/doanh nghiệp. Nông dân không có hàng nào ở đây.
+/// Không có trạng thái 'expired' — suy ra từ ngày tháng (@mambo/core/subscription).
+model Subscription {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String          @map("organization_id") @db.Uuid
+  /// trialing | active | past_due | canceled
+  status           String
+  trialEndsAt      DateTime?       @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodEnd DateTime?       @map("current_period_end") @db.Timestamptz(6)
+  /// Doanh nghiệp: số chi nhánh tối đa theo gói. null = không giới hạn.
+  branchLimit      Int?            @map("branch_limit")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  paymentIntents PaymentIntent[]
+
+  @@index([organizationId])
+  @@map("subscriptions")
+}
+
+/// Tính năng bật cho từng tổ chức — mở dần cho nhóm pilot (KH §3.3).
+model OrganizationFeature {
+  organizationId String   @map("organization_id") @db.Uuid
+  feature        String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@id([organizationId, feature])
+  @@map("organization_features")
+}
+
+/// Phần THUMUA365 cần thêm cho một tài khoản Supabase Auth. id = auth.users.id.
+model Profile {
+  id            String    @id @db.Uuid
+  name          String
+  /// Gõ "VuaBaTam" hay "vuabatam" đều vào một tài khoản.
+  username      String?   @unique @db.Citext
+  /// Luôn ở dạng +84… (CHECK normalize_phone). Là khoá đăng nhập.
+  phone         String?   @unique
+  /// Email thật người dùng khai thêm — chỉ để tự lấy lại mật khẩu.
+  recoveryEmail String?   @map("recovery_email") @db.Citext
+  /// Do trigger sinh, không nhận từ client.
+  referralCode  String?   @unique @map("referral_code") @db.Citext
+  referredBy    String?   @map("referred_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@index([referredBy])
+  @@map("profiles")
+}
+
+// ─── Chuỗi — dùng chung giữa hai tổ chức, id do server sinh ──────────────────
+
+/// Dòng danh bạ trong sổ của `owner` ↔ tổ chức có tài khoản thật (`linked`).
+/// Chỉ `active` khi bên được liên kết đồng ý VÀ số điện thoại đã xác thực OTP.
+model PartnerLink {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerOrgId   String    @map("owner_org_id") @db.Uuid
+  /// supplier | buyer — partner_id trỏ vào bảng tương ứng trong sổ của owner.
+  partnerKind  String    @map("partner_kind")
+  partnerId    String    @map("partner_id") @db.Uuid
+  linkedOrgId  String?   @map("linked_org_id") @db.Uuid
+  invitedPhone String?   @map("invited_phone")
+  /// pending | active | revoked
+  status       String    @default("pending")
+  decidedBy    String?   @map("decided_by") @db.Uuid
+  decidedAt    DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  owner  Organization  @relation("LinkOwner", fields: [ownerOrgId], references: [id])
+  linked Organization? @relation("LinkLinked", fields: [linkedOrgId], references: [id])
+
+  @@index([ownerOrgId])
+  @@index([linkedOrgId])
+  @@map("partner_links")
+}
+
+/// Ý định mua/bán giữa hai tổ chức, TRƯỚC khi cân. Server giữ, không nằm trong sổ offline.
+model Order {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sellerOrgId     String?   @map("seller_org_id") @db.Uuid
+  sellerPartnerId String?   @map("seller_partner_id") @db.Uuid
+  buyerOrgId      String    @map("buyer_org_id") @db.Uuid
+  buyerPartnerId  String?   @map("buyer_partner_id") @db.Uuid
+  createdByOrgId  String    @map("created_by_org_id") @db.Uuid
+  createdBy       String    @map("created_by") @db.Uuid
+  productId       String?   @map("product_id") @db.Uuid
+  crop            String?
+  estQuantity     Float     @map("est_quantity")
+  unit            String    @default("kg")
+  offeredPrice    Float?    @map("offered_price")
+  /// submitted | accepted | scheduled | fulfilled | cancelled
+  status          String    @default("submitted")
+  pickupAt        DateTime? @map("pickup_at") @db.Timestamptz(6)
+  pickupAddress   String?   @map("pickup_address")
+  branchId        String?   @map("branch_id") @db.Uuid
+  /// Tăng mỗi lần chuyển trạng thái; lệch → 409 ORDER_STATE_CHANGED.
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  seller       Organization? @relation("OrderSeller", fields: [sellerOrgId], references: [id])
+  buyer        Organization  @relation("OrderBuyer", fields: [buyerOrgId], references: [id])
+  creatorOrg   Organization  @relation("OrderCreator", fields: [createdByOrgId], references: [id])
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  events       OrderEvent[]
+  transactions Transaction[]
+  drafts       Draft[]
+
+  @@index([sellerOrgId, status])
+  @@index([buyerOrgId, status])
+  @@map("orders")
+}
+
+/// Mọi lần đơn đổi trạng thái. Chỉ ghi thêm.
+model OrderEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  fromStatus  String?  @map("from_status")
+  toStatus    String   @map("to_status")
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@map("order_events")
+}
+
+// ─── Sổ — ghi offline, id do CLIENT sinh ─────────────────────────────────────
+
+model Supplier {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  name           String
+  /// Như vựa gõ. So khớp kết nối qua normalize_phone(phone).
+  phone          String?
+  location       String?
+  note           String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, updatedAt])
+  @@map("suppliers")
+}
+
+model Buyer {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  name           String
+  phone          String?
+  location       String?
+  note           String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, updatedAt])
+  @@map("buyers")
+}
+
+model Product {
+  id               String    @id @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  createdBy        String    @map("created_by") @db.Uuid
+  name             String
+  unit             String    @default("kg")
+  /// standard | netAfterTare | rubberLatex | lossPercent
+  formulaType      String    @map("formula_type")
+  isSuggested      Boolean   @default(false) @map("is_suggested")
+  isActive         Boolean   @default(true) @map("is_active")
+  /// rubber | cashew | coffee | pepper
+  crop             String?
+  lastPricePerUnit Float?    @map("last_price_per_unit")
+  group            String?
+  qualityGrades    String[]  @map("quality_grades")
+  trackInventory   Boolean?  @map("track_inventory")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, updatedAt])
+  @@map("products")
+}
+
+/// Phiếu mua/bán đã chốt. KHÔNG có cột amount_paid — luôn sum(payments).
+model Transaction {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  branchId       String?   @map("branch_id") @db.Uuid
+  /// Phiếu lập theo đơn — đồng bộ lên thì đơn tự sang fulfilled (BE5).
+  orderId        String?   @map("order_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  date           DateTime  @db.Timestamptz(6)
+  /// purchase | sale
+  kind           String
+  /// suppliers.id khi mua, buyers.id khi bán. NULL = Khách lẻ.
+  counterpartyId String?   @map("counterparty_id") @db.Uuid
+  /// Giữ vì core/types.ts Transaction.supplierId còn bắt buộc.
+  supplierId     String?   @map("supplier_id")
+  supplierName   String    @map("supplier_name")
+  /// Đóng băng theo phiếu (freezeLineTotals) — JSONB, camelCase bên trong.
+  lines          Json
+  creditTerms    Json?     @map("credit_terms")
+  adjustments    Json?
+  attachmentIds  String[]  @map("attachment_ids")
+  note           String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  order        Order?       @relation(fields: [orderId], references: [id])
+  payments     Payment[]
+
+  @@index([organizationId, date(sort: Desc)])
+  @@index([organizationId, updatedAt])
+  @@index([organizationId, counterpartyId])
+  @@map("transactions")
+}
+
+/// Lần trả tiền — CHỈ GHI THÊM. Huỷ = xoá mềm; không bao giờ sửa số tiền.
+model Payment {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  transactionId  String    @map("transaction_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  date           DateTime  @db.Timestamptz(6)
+  amount         BigInt
+  note           String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Có từ BE2: huỷ một lần trả phải lan sang máy khác khi kéo theo updated_at.
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  transaction  Transaction  @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId])
+  @@index([organizationId, updatedAt])
+  @@map("payments")
+}
+
+model Draft {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  branchId       String?   @map("branch_id") @db.Uuid
+  orderId        String?   @map("order_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  /// draft | waiting
+  status         String    @default("draft")
+  /// purchase | sale
+  kind           String?
+  counterpartyId String?   @map("counterparty_id") @db.Uuid
+  supplierId     String?   @map("supplier_id")
+  supplierName   String    @default("") @map("supplier_name")
+  lines          Json      @default("[]")
+  amountPaid     BigInt    @default(0) @map("amount_paid")
+  note           String?
+  attachmentIds  String[]  @map("attachment_ids")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  order        Order?       @relation(fields: [orderId], references: [id])
+
+  @@index([organizationId, updatedAt])
+  @@map("drafts")
+}
+
+model PricingRule {
+  id              String    @id @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  createdBy       String    @map("created_by") @db.Uuid
+  name            String
+  /// logistics | volumeDiscount | manual
+  kind            String
+  productId       String?   @map("product_id") @db.Uuid
+  fixedAmount     BigInt?   @map("fixed_amount")
+  percentOfTotal  Float?    @map("percent_of_total")
+  minWeightKg     Float?    @map("min_weight_kg")
+  appliesOnPickup Boolean?  @map("applies_on_pickup")
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, updatedAt])
+  @@map("pricing_rules")
+}
+
+model Note {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  body           String
+  pinned         Boolean   @default(false)
+  done           Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, updatedAt])
+  @@map("notes")
+}
+
+// ─── Hệ thống ────────────────────────────────────────────────────────────────
+
+/// Chống trùng thao tác đồng bộ: ghi cùng transaction với thao tác (KH §4.1).
+model SyncOp {
+  opId           String   @id @map("op_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  deviceId       String   @map("device_id") @db.Uuid
+  seq            BigInt
+  /// insert | update | softDelete
+  kind           String
+  entity         String
+  recordId       String   @map("record_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@map("sync_ops")
+}
+
+model Notification {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  /// null = cho mọi thành viên của tổ chức.
+  userId         String?   @map("user_id") @db.Uuid
+  kind           String
+  payload        Json      @default("{}")
+  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+/// Đo lường first-party. Không tên, SĐT, email hay số tiền cụ thể (R5).
+model AnalyticsEvent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  orgType        String?  @map("org_type")
+  anonId         String   @map("anon_id")
+  name           String
+  props          Json     @default("{}")
+  appVersion     String?  @map("app_version")
+  platform       String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([name, createdAt])
+  @@map("analytics_events")
+}
+
+/// Thao tác nhạy cảm: xoá phiếu, huỷ lần trả, đổi quyền, kết nối... CHỈ GHI THÊM.
+/// Không khoá ngoại: xoá tổ chức không được xoá dấu vết.
+model AuditLog {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  action         String
+  entity         String
+  entityId       String?  @map("entity_id")
+  before         Json?
+  after          Json?
+  requestId      String?  @map("request_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("audit_log")
+}
+
+/// Chống trùng webhook: khoá chính CHÍNH LÀ mã giao dịch ngân hàng. Chỉ api_privileged.
+model BankTransaction {
+  bankTxId        String   @id @map("bank_tx_id")
+  organizationId  String?  @map("organization_id") @db.Uuid
+  paymentIntentId String?  @map("payment_intent_id") @db.Uuid
+  amount          BigInt
+  description     String?
+  /// webhook | admin
+  source          String   @default("webhook")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("bank_transactions")
+}
+
+model PaymentIntent {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  subscriptionId String?   @map("subscription_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  amount         BigInt
+  /// pending | paid | failed | expired
+  status         String
+  provider       String
+  /// Mã 6 ký tự trong nội dung chuyển khoản.
+  providerRef    String?   @map("provider_ref")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("payment_intents")
+}
+
+/// Quản trị viên chạm dữ liệu người dùng — bắt buộc người duyệt. Chỉ api_privileged.
+model AdminAccessLog {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  action         String
+  /// Ai duyệt — nhập tay, không tự sinh.
+  operator       String
+  reason         String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("admin_access_log")
+}

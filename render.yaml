@@ -23,6 +23,12 @@ services:
         value: https://bldlrkmszjmhifubxjvl.supabase.co
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
+      # BE2 — bí mật. DATABASE_URL là role api_service qua Transaction pooler (6543), lấy từ
+      # apps/api/.env sau `npm run db:role-password`. KHÔNG phải chuỗi của role postgres.
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: CORS_ORIGINS
         sync: false
       - key: LOG_LEVEL

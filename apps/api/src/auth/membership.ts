@@ -9,15 +9,16 @@ export interface MembershipContext {
 }
 
 /**
- * Tra membership. Chỉ đếm membership `active`.
+ * Tra membership. Chỉ đếm membership `active` của tổ chức chưa bị xoá.
  *
- * BE1 chưa có database ⇒ `NoMembershipsYet`: không ai thuộc tổ chức nào, mọi
- * route `auth: 'org'` trả NOT_A_MEMBER. BE2 thay bằng bản đọc qua Prisma — guard
- * và controller không phải sửa.
+ * Bản thật: `PrismaMemberships` (đọc qua RLS). `NoMembershipsYet` chỉ còn cho test
+ * không cần database: không ai thuộc tổ chức nào.
  */
 export interface MembershipLookup {
   find(userId: string, organizationId: string): Promise<MembershipContext | null>;
   listForUser(userId: string): Promise<MeMembership[]>;
+  /** Lời mời kết nối đang chờ, cộng trên mọi tổ chức người này thuộc (`/v1/me`). */
+  pendingLinks(userId: string): Promise<number>;
 }
 
 export const MEMBERSHIP_LOOKUP = Symbol('MEMBERSHIP_LOOKUP');
@@ -29,5 +30,9 @@ export class NoMembershipsYet implements MembershipLookup {
 
   async listForUser(): Promise<MeMembership[]> {
     return [];
+  }
+
+  async pendingLinks(): Promise<number> {
+    return 0;
   }
 }

@@ -52,7 +52,8 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(dist|coverage|node_modules|tests)/' },
+    // Prisma Client sinh tự động — không phải code của ta.
+    exclude: { path: '(dist|coverage|node_modules|tests|generated)/' },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.base.json' },
   },
