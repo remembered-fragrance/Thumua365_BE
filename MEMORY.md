@@ -479,6 +479,39 @@ không có đường nào đọc chéo dữ liệu. Đăng nhập vẫn bằng m
 
 ---
 
+## Hướng dẫn frontend — `docs/FRONTEND.md` · 28/09/2026
+
+**Kết quả:** một file duy nhất cho người làm frontend: cài gì, gọi gì, luật nào, và từng bước
+BE0 → BE10 frontend phải làm gì. README và `THONG_TIN_DU_AN.md` trỏ tới file này.
+
+### Vì sao
+
+- Frontend muốn **dựng lại app từ đầu**. Trước đó, thông tin cho frontend nằm rải ở README,
+  KH §3/§4.3/§7/§10, CHANGELOG, trang thử — không có cổng vào.
+- Soát repo frontend (chỉ đọc): `master` (`999a029`, 13/09) chưa cài `@mambo/*`, còn 72 file
+  import `@/core/`; nhánh `docs/huong-moi-ba-vai-tro` chưa merge, bản sao KH backend trong đó là
+  bản 21/09 (lệch ~1.300 dòng). Nhánh `feat/nestjs-p0` (22/09, chưa merge) dựng **một NestJS
+  riêng trong repo frontend** + migration Supabase `0011`–`0018`, hợp đồng khác hẳn: `/api/v1`,
+  header `X-Workspace-Id` và `Idempotency-Key` (CORS của API không cho hai header này), lỗi dạng
+  phẳng `{ code, message }`, đồng bộ qua `/legacy/*`, `fetch` tay thay `@mambo/sdk`. Mục "Không
+  làm" của `FRONTEND.md` liệt kê đúng những chỗ này kèm giá trị đúng.
+
+### Quyết định
+
+1. **`docs/FRONTEND.md` sửa cùng PR với mọi thay đổi hợp đồng** — thêm bước 6 vào "Thêm một
+   endpoint" trong README. Lệch với code thì code đúng.
+2. Phần chưa có hợp đồng (BE3–BE10) ghi là **dự kiến**, lấy từ KH §4, §6; tên chính xác chốt
+   trong `packages/contracts` khi tới bước đó.
+3. Khuyên frontend **mang sang** phần hàng đợi/`mergeChanges`/`deviceAccount` của repo cũ thay
+   vì viết lại — đã có test và giữ năm quy tắc chống mất tiền.
+
+### 🔴 Cần nói với người làm frontend
+
+- Nhánh `feat/nestjs-p0` không khớp hợp đồng — không merge; dùng repo BE + `@mambo/sdk`.
+- Bản sao tài liệu backend trong repo frontend đã cũ — đọc bản ở repo BE.
+
+---
+
 ## Bốn số phải giữ trong tầm
 
 | Chỉ số | Ngưỡng | Cuối BE0 |

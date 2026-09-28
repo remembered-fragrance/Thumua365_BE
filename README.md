@@ -8,9 +8,11 @@ Backend của **Mambo365 / THUMUA365**: nền tảng ba vai trò (nông dân · 
 | [`docs/THONG_TIN_DU_AN.md`](docs/THONG_TIN_DU_AN.md) | **Đầu tiên.** Sản phẩm, ba vai trò, kiến trúc, quyết định đã chốt |
 | [`docs/BE-backend-nestjs.md`](docs/BE-backend-nestjs.md) | Kế hoạch backend BE0 → BE10, hợp đồng API, đồng bộ offline |
 | [`docs/so-do-kien-truc-v2.html`](docs/so-do-kien-truc-v2.html) | Sơ đồ kiến trúc v2 (mở bằng trình duyệt) |
+| [`docs/FRONTEND.md`](docs/FRONTEND.md) | **Người làm frontend đọc file này.** Cài gì, gọi gì, luật nào, từng bước BE frontend làm gì |
 | [`MEMORY.md`](MEMORY.md) | Nhật ký: đã làm gì, quyết gì, vì sao, còn treo gì — đọc trước khi bắt đầu bước mới |
 
-Frontend ở repo riêng: `mambo365_deploymentphase`.
+Frontend ở repo riêng: `mambo365_deploymentphase`. Hướng dẫn khớp với backend:
+[`docs/FRONTEND.md`](docs/FRONTEND.md).
 
 ## Chạy
 
@@ -92,8 +94,11 @@ render.yaml      cấu hình Render (staging)
 3. Controller: `@Endpoint(routes.tenMoi)` — không tự gõ đường dẫn.
 4. SDK: thêm một hàm gọi `call('tenMoi')`.
 5. Ghi một dòng vào `packages/contracts/CHANGELOG.md`.
+6. Frontend phải làm gì mới → sửa [`docs/FRONTEND.md`](docs/FRONTEND.md) trong cùng PR.
 
 ## Frontend dùng các gói này thế nào
+
+Bản đầy đủ (luồng tài khoản, lỗi, đồng bộ, lộ trình từng bước): [`docs/FRONTEND.md`](docs/FRONTEND.md).
 
 Mỗi tag `v*` tạo một GitHub Release kèm file `.tgz` của từng gói. Repo frontend cài theo URL,
 khoá đúng phiên bản:
