@@ -69,6 +69,7 @@ export const createClient = (options: ClientOptions) => {
     name: N,
     body?: unknown,
     query?: Readonly<Record<string, string | number | undefined>>,
+    params?: Readonly<Record<string, string>>,
   ): Promise<RouteResponse<N>> => {
     const route = routes[name];
     const headers: Record<string, string> = { accept: 'application/json' };
@@ -83,13 +84,20 @@ export const createClient = (options: ClientOptions) => {
     if (orgId) headers['x-organization-id'] = orgId;
 
     // Tham số `undefined` bị bỏ — không gửi `?cursor=undefined`.
-    const params = new URLSearchParams();
+    const search = new URLSearchParams();
     for (const [key, value] of Object.entries(query ?? {})) {
-      if (value !== undefined) params.set(key, String(value));
+      if (value !== undefined) search.set(key, String(value));
     }
-    const qs = params.toString();
+    const qs = search.toString();
 
-    const res = await doFetch(`${options.baseUrl}${route.path}${qs ? `?${qs}` : ''}`, {
+    // `/v1/links/:id/accept` → `/v1/links/<id>/accept`; thiếu tham số là lỗi của app, nổ ngay.
+    const path = route.path.replace(/:([A-Za-z][A-Za-z0-9]*)/g, (_, key: string) => {
+      const value = params?.[key];
+      if (value === undefined) throw new Error(`Thiếu tham số đường dẫn ${key} cho ${route.path}`);
+      return encodeURIComponent(value);
+    });
+
+    const res = await doFetch(`${options.baseUrl}${path}${qs ? `?${qs}` : ''}`, {
       method: route.method,
       headers,
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -120,6 +128,27 @@ export const createClient = (options: ClientOptions) => {
     resolveIdentifier: (input: RouteBody<'resolveIdentifier'>) => send('resolveIdentifier', input),
     /** Sau khi xác thực OTP số điện thoại. Cần `getOrganizationId`. */
     discoverLinks: () => call('linksDiscover'),
+    /** Kết nối giữa tổ chức (BE4). Cần `getOrganizationId`. */
+    links: {
+      /** Cả hai phía: sổ của mình (`side: 'owner'`) và sổ bên kia nhắc tới mình (`side: 'linked'`). */
+      list: () => call('linksList'),
+      /** Sau khi xác thực OTP — tìm các sổ có số của mình, tạo / nhận lời mời chờ đồng ý. */
+      discover: () => call('linksDiscover'),
+      /** Bên sổ mời một dòng danh bạ có số điện thoại. Gọi lại trả kết nối đang có. */
+      invite: (input: RouteBody<'linksInvite'>) => send('linksInvite', input),
+      /** Bên được liên kết đồng ý. `PHONE_NOT_VERIFIED` → mở màn OTP. */
+      accept: (id: string) => call('linksAccept', undefined, undefined, { id }),
+      /** Một trong hai bên huỷ — mất quyền xem ngay. */
+      revoke: (id: string) => call('linksRevoke', undefined, undefined, { id }),
+    },
+    /** Phần sổ bên kia cho mình xem — chỉ trường in trên biên nhận (BE4). */
+    linked: {
+      /** Phiếu của một tổ chức đang kết nối, mới nhất trước. Gọi lại với `cursor` tới khi null. */
+      receipts: (params: { readonly orgId: string; readonly cursor?: string; readonly limit?: number }) =>
+        call('linkedReceipts', undefined, { orgId: params.orgId, cursor: params.cursor, limit: params.limit }),
+      /** Công nợ với từng tổ chức đang kết nối. */
+      balance: () => call('linkedBalance'),
+    },
     /** Sổ offline — chỉ vựa và doanh nghiệp. Cần `getOrganizationId` = tổ chức sở hữu sổ. */
     sync: {
       /**

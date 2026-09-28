@@ -13,6 +13,8 @@ export interface ApiRequest extends Request {
   membership?: MembershipContext;
   /** Query string đã kiểm bằng `route.query` (ContractInterceptor). */
   contractQuery?: unknown;
+  /** Tham số đường dẫn đã kiểm bằng `route.params` (ContractInterceptor). */
+  contractParams?: unknown;
 }
 
 /** Nhận `X-Request-Id` từ client nếu hợp lệ — để nối log hai phía khi hỗ trợ từ xa. */

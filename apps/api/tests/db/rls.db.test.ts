@@ -366,3 +366,64 @@ describe('discover_links — dò kết nối theo số đã xác thực', () => 
     expect([seenByA, seenByB, seenByFarmer]).toEqual([1, 0, 1]);
   });
 });
+
+describe('kết nối — luật ở database, đứng vững kể cả khi API có lỗi (BE4)', () => {
+  let farmer: string;
+  let farmerOrg: string;
+  let linkId: string;
+  let supplier: string;
+
+  beforeEach(async () => {
+    farmer = newId();
+    farmerOrg = await createOrg('farmer', farmer, 'Hộ cô Mai');
+    supplier = await createSupplier(orgA, '0912345678', 'Cô Mai');
+    linkId = newId();
+    await admin.query(
+      `insert into partner_links (id, owner_org_id, partner_kind, partner_id, linked_org_id, invited_phone, status)
+       values ($1, $2, 'supplier', $3, $4, '+84912345678', 'pending')`,
+      [linkId, orgA, supplier, farmerOrg],
+    );
+  });
+
+  const setStatus = (orgId: string, userId: string, status: string) =>
+    serviceError({ userId, orgId }, 'update partner_links set status = $1 where id = $2', [status, linkId]);
+
+  it('🔴 bên sổ KHÔNG tự bật active được — chỉ chính bên được liên kết', async () => {
+    expect(await setStatus(orgA, alice, 'active')).toMatch(/Chỉ bên được liên kết mới đồng ý/);
+  });
+
+  it('không tạo thẳng kết nối active; không đổi hai đầu; đã huỷ không mở lại', async () => {
+    expect(
+      await serviceError(
+        { userId: alice, orgId: orgA },
+        `insert into partner_links (owner_org_id, partner_kind, partner_id, linked_org_id, status)
+         values ($1, 'supplier', $2, $3, 'active')`,
+        [orgA, await createSupplier(orgA, '0911111111'), farmerOrg],
+      ),
+    ).toMatch(/luôn ở trạng thái pending/);
+    expect(
+      await serviceError({ userId: alice, orgId: orgA }, 'update partner_links set linked_org_id = $1 where id = $2', [orgB, linkId]),
+    ).toMatch(/không đổi được/);
+
+    await admin.query(`update partner_links set status = 'revoked' where id = $1`, [linkId]);
+    expect(await setStatus(farmerOrg, farmer, 'active')).toMatch(/không mở lại được/);
+  });
+
+  it('linked_receipts: chờ đồng ý → rỗng · đồng ý → có đúng phiếu · không ngữ cảnh → rỗng', async () => {
+    await admin.query(
+      `insert into transactions (id, organization_id, created_by, date, kind, counterparty_id, supplier_name, lines)
+       values ($1, $2, $3, now(), 'purchase', $4, 'Cô Mai', '[]')`,
+      [newId(), orgA, alice, supplier],
+    );
+    const receipts = (scope: { userId?: string; orgId?: string }) =>
+      asService(scope, async (c) => (await c.query('select id from public.linked_receipts(null, null, null, null)')).rowCount);
+
+    expect(await receipts({ userId: farmer, orgId: farmerOrg })).toBe(0);
+    await asService({ userId: farmer, orgId: farmerOrg }, (c) =>
+      c.query(`update partner_links set status = 'active' where id = $1`, [linkId]).then(() => c.query('commit')),
+    );
+    expect(await receipts({ userId: farmer, orgId: farmerOrg })).toBe(1);
+    expect(await receipts({ userId: bob, orgId: orgB })).toBe(0);
+    expect(await receipts({})).toBe(0);
+  });
+});

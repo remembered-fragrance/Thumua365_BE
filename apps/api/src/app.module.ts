@@ -16,6 +16,7 @@ import { DATABASE, type Database, DatabaseShutdown } from './db/database';
 import { DomainEvents, LOGGER } from './events/domain-events';
 import { HealthController } from './health/health.controller';
 import { LinksController } from './links/links.controller';
+import { LinksService } from './links/links.service';
 import { BootstrapService } from './me/bootstrap.service';
 import { MeController } from './me/me.controller';
 import { SyncController } from './sync/sync.controller';
@@ -53,6 +54,7 @@ export class AppModule {
         DatabaseShutdown,
         DomainEvents,
         BootstrapService,
+        LinksService,
         SyncPushService,
         SyncPullService,
         // Thứ tự đăng ký = thứ tự chạy.

@@ -17,6 +17,7 @@ export type AuditAction =
   | 'receipt.deleted'
   | 'payment.voided'
   | 'member.role_changed'
+  | 'link.invited'
   | 'link.accepted'
   | 'link.revoked';
 
