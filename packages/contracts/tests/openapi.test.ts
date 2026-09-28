@@ -34,6 +34,22 @@ describe('openapi.json', () => {
     expect(paths['/v1/me']?.get?.requestBody).toBeUndefined();
   });
 
+  it('tham số query thành parameters `in: query`, kèm 422', () => {
+    const pull = paths['/v1/sync/pull']?.get as Operation & { parameters?: { name: string; in: string; required: boolean }[] };
+    expect(pull.parameters?.filter((p) => p.in === 'query')).toEqual([
+      expect.objectContaining({ name: 'cursor', required: false }),
+      expect.objectContaining({ name: 'limit', required: false }),
+    ]);
+    expect(Object.keys(pull.responses)).toContain('422');
+  });
+
+  it('thân tài liệu (docBody) thay thân kiểm ở cổng: /sync/push mô tả đủ từng loại op', () => {
+    const push = JSON.stringify(paths['/v1/sync/push']?.post?.requestBody);
+    expect(push).toContain('"softDelete"');
+    expect(push).toContain('"pricingRule"');
+    expect(push).toContain('roundedTotal');
+  });
+
   it('route tổ chức khai báo 403 và header X-Organization-Id', () => {
     const discover = paths['/v1/links/discover']?.post as Operation & { parameters?: { name: string }[] };
     expect(Object.keys(discover.responses)).toEqual(expect.arrayContaining(['401', '403', '422']));

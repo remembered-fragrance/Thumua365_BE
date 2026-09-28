@@ -14,6 +14,7 @@ import { Health } from './health.js';
 import { LinksDiscoverResult } from './links.js';
 import { Me, MeBootstrapInput } from './me.js';
 import type { Permission } from './permissions.js';
+import { SyncPullQuery, SyncPullResult, SyncPushInput, SyncPushRequest, SyncPushResult } from './sync.js';
 
 /**
  * Ai được gọi:
@@ -32,6 +33,14 @@ export interface RouteDef {
   readonly permission?: Permission;
   /** Thân request (JSON). Server kiểm trước khi vào handler; sai → 422 `VALIDATION_FAILED`. */
   readonly body?: z.ZodType;
+  /**
+   * Thân request như tài liệu (openapi, mock) mô tả, khi `body` cố ý lỏng hơn — ví dụ
+   * `/sync/push` chỉ kiểm vỏ ở cổng để lỗi của từng op được trả về theo op, không làm hỏng
+   * cả lô. Không có thì tài liệu dùng `body`.
+   */
+  readonly docBody?: z.ZodType;
+  /** Tham số query string. Server kiểm trước khi vào handler; sai hoặc thừa → 422 `VALIDATION_FAILED`. */
+  readonly query?: z.ZodType;
   readonly response: z.ZodType;
   /** Hạn mức riêng mỗi phút mỗi IP, chặt hơn mức chung — cho route dễ bị dò. */
   readonly rateLimitPerMinute?: number;
@@ -80,6 +89,27 @@ export const routes = {
     response: LinksDiscoverResult,
     errors: ['PHONE_NOT_VERIFIED'],
   },
+  syncPush: {
+    method: 'POST',
+    path: '/v1/sync/push',
+    summary:
+      'Đẩy các thao tác ghi sổ trong hàng đợi của máy lên, tuần tự theo seq, mỗi op một transaction. Dừng ở op bị từ chối đầu tiên',
+    auth: 'org',
+    permission: 'book:sync',
+    body: SyncPushInput,
+    docBody: SyncPushRequest,
+    response: SyncPushResult,
+    errors: ['PLAN_EXPIRED'],
+  },
+  syncPull: {
+    method: 'GET',
+    path: '/v1/sync/pull',
+    summary: 'Kéo thay đổi của sổ về theo cursor do server cấp, gồm cả bản ghi đã xoá mềm. Gọi tới khi hasMore = false',
+    auth: 'org',
+    permission: 'book:sync',
+    query: SyncPullQuery,
+    response: SyncPullResult,
+  },
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteName = keyof typeof routes;
@@ -93,4 +123,14 @@ export type RouteWithBody = {
 /** Thân request mà client gửi (trước khi server chuẩn hoá: trim, chữ thường…). */
 export type RouteBody<N extends RouteWithBody> = (typeof routes)[N] extends { body: infer B extends z.ZodType }
   ? z.input<B>
+  : never;
+
+/** Tên các route có tham số query. */
+export type RouteWithQuery = {
+  [N in RouteName]: (typeof routes)[N] extends { query: z.ZodType } ? N : never;
+}[RouteName];
+
+/** Tham số query sau khi server đã kiểm và ép kiểu. */
+export type RouteQuery<N extends RouteWithQuery> = (typeof routes)[N] extends { query: infer Q extends z.ZodType }
+  ? z.output<Q>
   : never;

@@ -29,9 +29,21 @@ const errorStatuses = (route: RouteDef): number[] => {
     statuses.add(ERROR_STATUS.FORBIDDEN);
     statuses.add(ERROR_STATUS.VALIDATION_FAILED); // header X-Organization-Id thiếu hoặc sai
   }
-  if (route.body) statuses.add(ERROR_STATUS.VALIDATION_FAILED);
+  if (route.body || route.query) statuses.add(ERROR_STATUS.VALIDATION_FAILED);
   for (const code of route.errors ?? []) statuses.add(ERROR_STATUS[code]);
   return [...statuses].sort((a, b) => a - b);
+};
+
+/** Mỗi trường của schema query thành một tham số `in: query`. */
+const queryParameters = (route: RouteDef): JsonObject[] => {
+  if (!route.query) return [];
+  const schema = schemaOf(route.query, 'input') as { properties?: Record<string, JsonObject>; required?: string[] };
+  return Object.entries(schema.properties ?? {}).map(([name, property]) => ({
+    name,
+    in: 'query',
+    required: schema.required?.includes(name) ?? false,
+    schema: property,
+  }));
 };
 
 const operation = (name: string, route: RouteDef): JsonObject => {
@@ -52,17 +64,20 @@ const operation = (name: string, route: RouteDef): JsonObject => {
       schema: { type: 'string', format: 'uuid' },
     });
   }
+  parameters.push(...queryParameters(route));
+
+  const body = route.docBody ?? route.body;
 
   return {
     operationId: name,
     summary: route.summary,
     ...(route.auth === 'public' ? { security: [] } : {}),
     ...(parameters.length > 0 ? { parameters } : {}),
-    ...(route.body
+    ...(body
       ? {
           requestBody: {
             required: true,
-            content: { 'application/json': { schema: schemaOf(route.body, 'input') } },
+            content: { 'application/json': { schema: schemaOf(body, 'input') } },
           },
         }
       : {}),

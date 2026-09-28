@@ -17,6 +17,7 @@ import {
   type RouteName,
   type RouteResponse,
   type RouteWithBody,
+  type SyncPushRequest,
 } from '@mambo/contracts';
 
 export class ApiError extends Error {
@@ -64,7 +65,11 @@ const readError = async (res: Response): Promise<ApiError> => {
 export const createClient = (options: ClientOptions) => {
   const doFetch = options.fetch ?? fetch;
 
-  const call = async <N extends RouteName>(name: N, body?: unknown): Promise<RouteResponse<N>> => {
+  const call = async <N extends RouteName>(
+    name: N,
+    body?: unknown,
+    query?: Readonly<Record<string, string | number | undefined>>,
+  ): Promise<RouteResponse<N>> => {
     const route = routes[name];
     const headers: Record<string, string> = { accept: 'application/json' };
     if (body !== undefined) headers['content-type'] = 'application/json';
@@ -77,7 +82,14 @@ export const createClient = (options: ClientOptions) => {
     const orgId = options.getOrganizationId?.();
     if (orgId) headers['x-organization-id'] = orgId;
 
-    const res = await doFetch(`${options.baseUrl}${route.path}`, {
+    // Tham số `undefined` bị bỏ — không gửi `?cursor=undefined`.
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== undefined) params.set(key, String(value));
+    }
+    const qs = params.toString();
+
+    const res = await doFetch(`${options.baseUrl}${route.path}${qs ? `?${qs}` : ''}`, {
       method: route.method,
       headers,
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -108,6 +120,18 @@ export const createClient = (options: ClientOptions) => {
     resolveIdentifier: (input: RouteBody<'resolveIdentifier'>) => send('resolveIdentifier', input),
     /** Sau khi xác thực OTP số điện thoại. Cần `getOrganizationId`. */
     discoverLinks: () => call('linksDiscover'),
+    /** Sổ offline — chỉ vựa và doanh nghiệp. Cần `getOrganizationId` = tổ chức sở hữu sổ. */
+    sync: {
+      /**
+       * Đẩy một lô op (theo `seq` tăng dần, tối đa `SYNC_PUSH_MAX_OPS`). Xoá khỏi hàng đợi các op
+       * `applied`/`duplicate`; op `rejected` và mọi op sau nó giữ lại. Hết gói → `ApiError`
+       * `PLAN_EXPIRED`: dừng lượt, giữ nguyên hàng đợi, không tính là một lần thử hỏng.
+       */
+      push: (input: SyncPushRequest) => call('syncPush', input),
+      /** Kéo một trang. Gọi lại với `cursor` vừa nhận tới khi `hasMore` là false. */
+      pull: (params: { readonly cursor?: string; readonly limit?: number } = {}) =>
+        call('syncPull', undefined, { cursor: params.cursor, limit: params.limit }),
+    },
   };
 };
 

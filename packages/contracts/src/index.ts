@@ -6,3 +6,6 @@ export * from './me.js';
 export * from './organization.js';
 export * from './permissions.js';
 export * from './routes.js';
+export * from './sync.js';
+export * from './sync-parse.js';
+export * from './sync-records.js';
