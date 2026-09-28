@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE2 xong, chạy trên staging (Render + Supabase) · OTP dời sang BE4 · **BE3 đang làm** (hợp đồng + API + test xong, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend đi trước**, frontend dựng lại theo hợp đồng |
+| Trạng thái sản phẩm | BE0–BE3 xong (`v0.4.0`), chạy trên staging (Render + Supabase) · OTP dời sang BE4 · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend đi trước**, frontend dựng lại theo hợp đồng · tiếp theo: BE4 |
 
 ---
 
@@ -512,11 +512,11 @@ BE0 → BE10 frontend phải làm gì. README và `THONG_TIN_DU_AN.md` trỏ t�
 
 ---
 
-## BE3 — Đồng bộ sổ qua API · 🟡 đang làm · 28/09/2026
+## BE3 — Đồng bộ sổ qua API · `9185038` · tag `v0.4.0` · 28/09/2026 · ✅ đóng
 
-**Kết quả đến giờ:** hợp đồng `sync` trong contracts, `SyncModule` (push + pull), migration BE3,
-78 test trên Postgres thật xanh. Chưa lên staging, chưa nghiệm thu hai máy. Nhánh
-`be3/hop-dong-dong-bo` xếp chồng lên PR #5 (`docs/FRONTEND.md`, chưa merge).
+**Kết quả:** hợp đồng `sync` trong contracts, `SyncModule` (push + pull), migration BE3 chạy trên
+staging, 78 test trên Postgres thật xanh, nghiệm thu hai máy trên staging đạt — khớp từng đồng
+và khớp database. **Đạt R1.**
 
 ### Soát trước khi làm
 
@@ -586,15 +586,50 @@ BE0 → BE10 frontend phải làm gì. README và `THONG_TIN_DU_AN.md` trỏ t�
 | Test có bắt lỗi thật không | Tắt phần "kèm phiếu cha đến muộn" → test tương ứng đỏ; bật lại → xanh |
 | `schema.prisma` ↔ migration | `No difference detected` |
 
-### Còn lại của BE3
+### Lên staging · PR #5 `10da5ea`, PR #6 `9185038` · 28/09/2026
 
-- [ ] Review + merge (PR #5 trước, rồi PR BE3); hợp đồng cần **cả frontend** duyệt.
-- [ ] `prisma migrate deploy` lên staging — kiểm đúng project trước, như BE2.
-- [ ] Trang thử đồng bộ trong `tools/` (như `login-test`) để nghiệm thu "hai máy thật, một máy
-      tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → khớp từng đồng".
-- [ ] Phát hành `v0.4.0` khi nghiệm thu xong.
+| Việc | Kết quả |
+|---|---|
+| `prisma migrate deploy` lên staging | ✅ Trước khi chạy: `.env` đúng project `bldlrkmszjmhifubxjvl` (in user/host, không in mật khẩu), chỉ còn đúng migration BE3, staging có 1 vựa + 2 DN + 1 nông dân, sổ trống. Chạy migration TRƯỚC khi merge — migration chỉ thêm, image cũ chạy được |
+| Staging sau migration | `No difference detected` · 12 mặt hàng mặc định (vựa 4, hai DN 8, nông dân 0) · 8 trigger `keep_soft_deleted` · khoá ngoại ghép · `updated_at` `timestamptz(3)` |
+| Merge | #5 rồi #6. **PR xếp chồng phải đổi base sang `master` trước khi merge** — không thì #6 vào nhánh của #5, không vào `master` |
+| Render | Deploy `9185038` sau CI; `/v1/sync/pull`, `/v1/sync/push` không token → 401 đúng định dạng; preflight CORS từ `localhost:5174` → 204 |
+
+### ✅ Nghiệm thu hai máy — `tools/login-test/sync.html` · 28/09/2026
+
+Trang thử mới: `?may=A` / `?may=B` là hai "máy" trên một trình duyệt (sổ, hàng đợi, `deviceId`,
+cursor riêng), ô "mất mạng", lập phiếu (dòng đóng băng bằng core), trả tiền, huỷ lần trả, xoá
+phiếu, "dấu sổ" để so hai máy. Người dùng đăng nhập tài khoản vựa thử và chạy kịch bản; máy B
+mất mạng khi trả tiền.
+
+| | Máy A | Máy B | Database staging |
+|---|---|---|---|
+| Phiếu còn | 1 · 1.438.000đ | 1 · 1.438.000đ | 1.438.000 (tổng `roundedTotal` các dòng) |
+| Lần trả | 500.000 đã huỷ · 300.000 còn | như máy A | như hai máy |
+| Còn nợ | 1.138.000đ | 1.138.000đ | 1.438.000 − 300.000 |
+| Dấu sổ | `7d37fb25` | `7d37fb25` | — |
+
+Kèm theo, thấy được trên dữ liệu thật: hai máy cùng xoá một phiếu → 3 op xoá nhưng `audit_log`
+chỉ 2 dòng `receipt.deleted` (op thứ hai là `duplicate`); lần trả của phiếu đã xoá vẫn lưu.
+
+**Lỗi bắt được khi nghiệm thu — ở trang thử:** ô mặt hàng trống vì trang chỉ kéo về khi bấm
+"Đồng bộ". Sửa: mở sổ (có mạng) là đồng bộ ngay; chưa có mặt hàng thì nói rõ và khoá nút lưu.
+**Frontend thật cần làm y như vậy** (ghi vào FRONTEND.md §7). Nhãn "đã huỷ" đếm cả lần trả của
+phiếu đã xoá — sửa để chỉ đếm phiếu còn.
+
+### Phát hành `v0.4.0`
+
+Nâng mọi gói lên 0.4.0, CHANGELOG ngày 28/09, `openapi.json` sinh lại; URL cài gói trong README
+và FRONTEND.md trỏ `v0.4.0`.
+
+### Còn treo, chuyển tiếp
+
+- **Hợp đồng `sync` chưa có người làm frontend duyệt** — luật "PR vào contracts cần cả hai
+  người". Merge theo yêu cầu của Tài để đi tiếp; báo frontend đọc FRONTEND.md §7 và góp ý bằng PR.
 - Để sau (không chặn pilot): hạn mức 120 request/phút tính theo IP — mạng di động dùng chung IP
   (CGNAT); cân nhắc tính theo người dùng cho route sync.
+- Nghiệm thu trên hai thiết bị thật (điện thoại) cần thêm origin LAN vào `CORS_ORIGINS` của
+  staging — làm khi frontend mới có bản chạy.
 
 ---
 
@@ -630,5 +665,9 @@ BE0 → BE10 frontend phải làm gì. README và `THONG_TIN_DU_AN.md` trỏ t�
 - Phát hành phiên bản mới: nâng `version` của **mọi** gói cùng lúc → ghi
   `packages/contracts/CHANGELOG.md` → `git tag vX.Y.Z && git push origin vX.Y.Z`. Tag lệch
   version thì `release.yml` dừng.
+- **Docker trên Windows không mở được cổng 54329** khi Windows giữ dải cổng động chứa nó
+  (`netsh interface ipv4 show excludedportrange protocol=tcp`, gặp 28/09: dải 54255–54354). Chạy
+  tạm ở cổng khác bằng file ghi đè `ports: !override` + `TEST_DATABASE_ADMIN_URL` /
+  `TEST_DATABASE_SERVICE_URL`; sửa hẳn cần admin (khởi động lại dịch vụ `winnat`) hoặc đổi cổng.
 - Xem CI: `gh run list -L 3` · PR: `gh pr checks <số>`. Không có `gh` thì
   `curl -s https://api.github.com/repos/remembered-fragrance/Thumua365_BE/actions/runs?per_page=1`.

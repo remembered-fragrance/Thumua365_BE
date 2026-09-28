@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thử đồng bộ sổ — THUMUA365</title>
+  <link rel="stylesheet" href="/style.css">
+  <!-- Gói lấy từ chính repo (bản đã build), đúng gói frontend sẽ cài. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@mambo/sdk": "/pkg/sdk/index.js",
+        "@mambo/contracts": "/pkg/contracts/index.js",
+        "@mambo/core/calc": "/pkg/core/calc.js",
+        "zod": "/pkg/zod/index.js"
+      }
+    }
+  </script>
+  <script type="module" src="/sync.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Công cụ cho dev · không phải app thật</p>
+      <h1>Thử đồng bộ sổ — <span id="slot"></span></h1>
+      <p class="lead">Ghi cục bộ trước → op vào hàng đợi → <code>sdk.sync.push</code> theo <code>seq</code> →
+        <code>sdk.sync.pull</code> theo cursor → hợp nhất theo id. Mở <a id="other-slot" href="#">máy kia</a> ở
+        tab khác để thử hai máy.</p>
+      <p id="health" class="pill">Đang hỏi API…</p>
+    </header>
+
+    <section id="need-login" hidden>
+      <p class="hint">Chưa đăng nhập. Mở <a href="/">trang đăng nhập</a> (cùng trình duyệt), đăng nhập tài khoản
+        vựa hoặc doanh nghiệp, rồi quay lại đây.</p>
+    </section>
+
+    <section id="book-box" hidden>
+      <label>Tổ chức (header <code>X-Organization-Id</code>)
+        <select id="org-select"></select></label>
+      <p id="device" class="hint"></p>
+      <label class="choice"><input type="checkbox" id="offline"> Máy này đang <strong>mất mạng</strong> — không gọi API,
+        thao tác nằm trong hàng đợi</label>
+      <div class="row">
+        <button type="button" id="sync-btn">Đồng bộ</button>
+        <button type="button" id="reset-btn" class="secondary">Xoá sổ của máy này</button>
+      </div>
+      <p id="queue" class="hint"></p>
+    </section>
+
+    <section id="new-receipt" hidden>
+      <h2>Lập phiếu mua</h2>
+      <form id="receipt-form">
+        <label>Người bán <input id="r-seller" value="Khách lẻ" required></label>
+        <label>Mặt hàng <select id="r-product" required></select></label>
+        <label>Khối lượng (kg) <input id="r-weight" inputmode="decimal" value="100" required></label>
+        <label id="r-extra-label">Hàm lượng (%) <input id="r-extra" inputmode="decimal" value="30"></label>
+        <label>Đơn giá (đ/kg) <input id="r-price" inputmode="numeric" value="47940" required></label>
+        <label>Trả ngay (đ, để trống = nợ hết) <input id="r-paid" inputmode="numeric"></label>
+        <button type="submit" id="receipt-btn">Lưu phiếu (cục bộ)</button>
+        <p class="hint">Chưa có mặt hàng? Bấm "Đồng bộ" một lần — server tạo sẵn 4 mặt hàng cho mọi vựa.</p>
+      </form>
+    </section>
+
+    <p id="message" role="status"></p>
+
+    <section id="totals-box" hidden>
+      <h2>Sổ của máy này</h2>
+      <pre id="totals"></pre>
+      <p class="hint">Hai máy đã đồng bộ xong thì dòng "Dấu sổ" phải giống hệt nhau.</p>
+    </section>
+
+    <section id="receipts-box" hidden>
+      <h2>Phiếu</h2>
+      <div id="receipts"></div>
+    </section>
+
+    <section id="result-box" hidden>
+      <h2 id="result-title">Lần đồng bộ gần nhất</h2>
+      <pre id="result"></pre>
+    </section>
+  </main>
+</body>
+</html>

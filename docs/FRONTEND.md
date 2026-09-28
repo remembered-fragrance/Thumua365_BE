@@ -4,8 +4,8 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **28/09/2026** · Hợp đồng đã phát hành **`v0.3.0`** (BE0–BE2) · Đang làm: BE3 — hợp
-> đồng đồng bộ sổ **đã có** (mục 7), chưa phát hành.
+> Cập nhật **28/09/2026** · Hợp đồng đã phát hành **`v0.4.0`** (BE0–BE3: tài khoản, tổ chức,
+> đồng bộ sổ) · Tiếp theo: BE4 (kết nối, phần xem của nông dân, OTP).
 > **Backend đi trước:** frontend dựng lại app theo hợp đồng ở đây; hợp đồng mỗi bước ra trước,
 > có mock, frontend làm song song.
 > File này được sửa **cùng PR** với mọi thay đổi hợp đồng. Nếu thấy lệch với code thì code
@@ -80,9 +80,9 @@ khi backend đổi thì chỉ phải sửa một thư mục:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.3.0/mambo-core-0.3.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.3.0/mambo-contracts-0.3.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.3.0/mambo-sdk-0.3.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-core-0.4.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-contracts-0.4.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-sdk-0.4.0.tgz",
     "@supabase/supabase-js": "^2.116.0",
     "zod": "^4.1.0"
   }
@@ -143,7 +143,7 @@ export const api = createClient({
 });
 ```
 
-Các hàm SDK đã có ở `v0.3.0`:
+Các hàm SDK đã có ở `v0.4.0`:
 
 | Hàm | Endpoint | Cần | Trả về |
 |---|---|---|---|
@@ -152,9 +152,13 @@ Các hàm SDK đã có ở `v0.3.0`:
 | `api.meBootstrap(input)` | `POST /v1/me/bootstrap` | đăng nhập | `Me` |
 | `api.resolveIdentifier({ identifier })` | `POST /v1/auth/resolve-identifier` | — (10 lần/phút/IP) | `{ email }` |
 | `api.discoverLinks()` | `POST /v1/links/discover` | đăng nhập + tổ chức + quyền `linked:read` | `{ created, pending }` |
+| `api.sync.push({ deviceId, ops })` | `POST /v1/sync/push` | đăng nhập + tổ chức + quyền `book:sync` | `{ results }` — mục 7.3 |
+| `api.sync.pull({ cursor, limit })` | `GET /v1/sync/pull` | đăng nhập + tổ chức + quyền `book:sync` | `{ cursor, hasMore, resetRequired, changes }` — mục 7.4 |
 
-Ví dụ chạy được với đúng các hàm này: [`tools/login-test/app.js`](../tools/login-test/app.js).
-Chạy `npm run login-test` ở repo BE rồi mở http://localhost:5174.
+Ví dụ chạy được với đúng các hàm này: [`tools/login-test/app.js`](../tools/login-test/app.js) (tài
+khoản) và [`tools/login-test/sync.js`](../tools/login-test/sync.js) (sổ offline: hàng đợi, đẩy, kéo,
+hợp nhất). Chạy `npm run login-test` ở repo BE rồi mở http://localhost:5174; đồng bộ sổ ở
+`/sync.html?may=A` và `?may=B` — hai "máy" trên một trình duyệt.
 
 ---
 
@@ -372,12 +376,15 @@ const { created, pending } = await api.discoverLinks();                     // c
 
 ---
 
-## 7. Sổ offline và đồng bộ — BE3 (hợp đồng đã có, chưa phát hành)
+## 7. Sổ offline và đồng bộ — BE3 (`v0.4.0`, đã nghiệm thu trên staging)
 
-**Trạng thái:** hợp đồng nằm trong `packages/contracts` (`sync.ts`, `sync-records.ts`,
-`sync-parse.ts`); API chạy được và có test trên Postgres thật. **Chưa phát hành** — vào
-`v0.4.0` khi BE3 nghiệm thu. Làm trước trên mock: `npm run mock` (`openapi.json` đã có hai
-route, mô tả đủ từng loại op). Kiểu dữ liệu import từ `@mambo/contracts`, không tự khai.
+**Trạng thái:** phát hành trong `v0.4.0`, chạy trên staging, nghiệm thu hai máy đạt (28/09). Hợp
+đồng ở `packages/contracts` (`sync.ts`, `sync-records.ts`, `sync-parse.ts`); mock: `npm run mock`.
+Kiểu dữ liệu import từ `@mambo/contracts`, không tự khai. Ví dụ chạy được:
+[`tools/login-test/sync.js`](../tools/login-test/sync.js).
+
+**Mở sổ là đồng bộ ngay** (có mạng thì kéo về trước khi cho ghi): mặt hàng mặc định và phiếu của
+máy khác nằm trên server — chưa kéo thì ô chọn mặt hàng trống (gặp đúng lỗi này khi nghiệm thu).
 
 ### 7.1 Ghi: luôn ghi cục bộ trước
 
@@ -523,7 +530,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 | Bước | Backend mở ra | Frontend làm | Xong khi (nghiệm thu chung) |
 |---|---|---|---|
 | **BE0–BE2 ✅** | `v0.3.0`: `me`, `meBootstrap`, `resolveIdentifier`, `discoverLinks`, ma trận quyền, mã lỗi | Mục 2 và 5: cài gói, client, đăng ký, "Bác là ai?", đăng nhập một ô, chọn tổ chức, chọn vỏ, màn OTP (giao diện) | Đăng ký thật trên staging bằng cả ba loại tổ chức, đăng nhập lại trên máy khác |
-| **BE3** | `POST /v1/sync/push` · `GET /v1/sync/pull` | Mục 7: sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức | Hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → sau khi đồng bộ khớp từng đồng |
+| **BE3 ✅** | `v0.4.0`: `sync.push` · `sync.pull`, hình dạng 8 loại bản ghi, quyền từng op | Mục 7: sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức | Hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → sau khi đồng bộ khớp từng đồng |
 | **BE4** | `GET /v1/links` · `POST /v1/links/:id/accept` · `POST /v1/links/:id/revoke` · `POST /v1/links/invite { partnerId }` (trả link mời/Zalo) · `GET /v1/linked/receipts?orgId=&cursor=` · `GET /v1/linked/balance` · OTP chạy thật | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); danh sách lời mời chờ đồng ý; nút "Mời kết nối" trên trang nông hộ của vựa | Vựa ghi phiếu có nợ → nông dân đăng ký, OTP, đồng ý → thấy đúng phiếu, đúng số nợ; huỷ kết nối → mất quyền xem ngay |
 | **BE5** | `GET/POST /v1/orders` (lọc `role=seller\|buyer`, `status`) · `GET /v1/orders/:id` · `POST /v1/orders/:id/{accept,reject,schedule,cancel}` kèm `{ version }` · `GET /v1/notifications?cursor=` · `POST /v1/notifications/read` | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |
 | **BE6** | `GET/PATCH /v1/me/profile` · `GET /v1/me/subscription` · `GET/POST /v1/billing/intents` · `POST /v1/referrals/claim` · `DELETE /v1/me` | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
@@ -569,7 +576,8 @@ Ghi chú từng bước:
 - **Endpoint mới chỉ có trong kế hoạch:** viết hàm trong `src/data/` với đúng hình dạng ở mục
   7–8, tạm trả dữ liệu giả. Khi hợp đồng ra thì thay thân hàm bằng lời gọi SDK; màn hình không
   phải sửa.
-- **Xem luồng chạy thật:** `npm run login-test` (mục 2.3).
+- **Xem luồng chạy thật:** `npm run login-test` (mục 2.3) — tài khoản ở `/`, đồng bộ sổ ở
+  `/sync.html?may=A`.
 
 ---
 

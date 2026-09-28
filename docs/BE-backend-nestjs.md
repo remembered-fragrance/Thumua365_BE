@@ -3,8 +3,8 @@
 Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
-Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · **BE3 🟡** hợp đồng + API + test xong, còn
-staging và nghiệm thu hai máy — nhật ký ở [MEMORY.md](../MEMORY.md)
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · **BE3 ✅** (`v0.4.0`) · tiếp theo BE4 — nhật
+ký ở [MEMORY.md](../MEMORY.md)
 Hướng làm (28/09/2026): **backend đi trước**, frontend dựng lại app từ đầu theo hợp đồng
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
@@ -502,17 +502,19 @@ chưa đạt.
   thật~~ → **dời sang BE4** (22/09/2026): BE4 là bước đầu tiên cần số đã xác thực; code API
   đã sẵn (`PHONE_NOT_VERIFIED`).
 
-### BE3 — Đồng bộ sổ qua API (3–4 buổi) · quan trọng nhất về tiền · 🟡 đang làm
+### BE3 — Đồng bộ sổ qua API (3–4 buổi) · quan trọng nhất về tiền · ✅ đóng 28/09/2026 (`v0.4.0`)
 
 - **Backend:** `SyncModule` đúng §4; mapper 8 thực thể; audit xoá phiếu / huỷ lần trả;
   e2e năm quy tắc + ba test vai trò/RLS + bảy kịch bản VAN_HANH §6. Thêm khi làm (28/09):
   khoá ngoại ghép `(x_id, organization_id)` (khoá ngoại không đi qua RLS), trigger cấm khôi
   phục bản ghi đã xoá, 4 mặt hàng mặc định do server tạo (id `prod-…` của core không phải
-  UUID), `RouteDef.query`. Nghiệm thu hai máy bằng một trang thử trong `tools/` như BE2 —
-  frontend đang dựng lại.
+  UUID), `RouteDef.query`. Nghiệm thu hai máy bằng `tools/login-test/sync.html` — frontend
+  đang dựng lại.
 - **Frontend:** bảng §4.3.
 - **Xong khi:** hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả — sau
-  đồng bộ khớp từng đồng; e2e xanh trong CI. **Đạt R1.**
+  đồng bộ khớp từng đồng; e2e xanh trong CI. **Đạt R1.** ✅ 28/09/2026: hai máy trên staging
+  (máy B mất mạng) ra cùng tổng, cùng số còn nợ, cùng "dấu sổ", khớp database; `test:db` 78/78
+  trong CI.
 
 ### BE4 — Kết nối + Nông dân (2–3 buổi)
 

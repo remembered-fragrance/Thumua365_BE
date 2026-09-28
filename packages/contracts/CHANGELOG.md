@@ -3,7 +3,7 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
-## 0.4.0 — chưa phát hành (BE3)
+## 0.4.0 — 28/09/2026 (BE3)
 
 - `routes.syncPush` — `POST /v1/sync/push` (`book:sync`), thân `SyncPushRequest`
   `{ deviceId, ops: SyncOp[] }` (1–`SYNC_PUSH_MAX_OPS` = 200 op, `seq` tăng dần, `opId` không
