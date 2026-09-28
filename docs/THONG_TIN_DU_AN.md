@@ -310,6 +310,7 @@ trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, d
 | **THONG_TIN_DU_AN.md** (file này) | Tổng hợp — đọc đầu tiên |
 | [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) | **Sơ đồ kiến trúc v2** vẽ lại + luồng giá trị chính + hướng giải quyết từng điểm mở ([bản online](https://claude.ai/artifact/AWAQJgU1uptoWBe7vZy6AH)) |
 | [BE-backend-nestjs.md](BE-backend-nestjs.md) | Kế hoạch backend chi tiết: schema, ma trận quyền, hợp đồng sync, từng bước |
+| [FRONTEND.md](FRONTEND.md) | **Cho người làm frontend:** cài gì, gọi gì, luật nào, từng bước BE frontend làm gì |
 | [MEMORY.md](../MEMORY.md) của repo này | Nhật ký backend BE0 →: đã làm gì, quyết gì, vì sao, còn treo gì |
 | [deploy_plan/I-huong-moi.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/deploy_plan/I-huong-moi.md) | Đối chiếu sơ đồ với repo, năm yêu cầu phát hành, CH Play |
 | [MEMORY.md của repo frontend](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/MEMORY.md) | Nhật ký giai đoạn A→G: đã làm gì, vì sao, lỗi thật đã bắt |
