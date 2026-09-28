@@ -123,8 +123,13 @@ const render = () => {
   // Mặt hàng
   const products = live(state.book.products).filter((p) => p.isActive).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   const chosen = $('r-product').value;
-  $('r-product').replaceChildren(...products.map((p) => new Option(`${p.name} · ${p.formulaType}`, p.id)));
+  $('r-product').replaceChildren(
+    ...(products.length === 0
+      ? [new Option(syncing ? 'Đang kéo mặt hàng từ server…' : 'Chưa có mặt hàng — bấm "Đồng bộ" để kéo từ server', '')]
+      : products.map((p) => new Option(`${p.name} · ${p.formulaType}`, p.id))),
+  );
   if (products.some((p) => p.id === chosen)) $('r-product').value = chosen;
+  $('receipt-btn').disabled = products.length === 0;
   renderExtra();
 
   // Phiếu
@@ -160,7 +165,10 @@ const render = () => {
   // Tổng + dấu sổ
   const rows = txs.map((tx) => ({ tx, t: totalsOf(tx) })).sort((a, b) => a.tx.id.localeCompare(b.tx.id));
   const sum = (f) => rows.reduce((s, r) => s + f(r.t), 0);
-  const voided = Object.values(state.book.payments).filter((p) => p.deletedAt !== null).length;
+  // Chỉ đếm lần trả của phiếu còn hiệu lực — lần trả của phiếu đã xoá vẫn lưu nhưng không hiện.
+  const voided = Object.values(state.book.payments).filter(
+    (p) => p.deletedAt !== null && state.book.transactions[p.transactionId]?.deletedAt === null,
+  ).length;
   const print = fingerprint(rows.map((r) => `${r.tx.id}:${r.t.total}:${r.t.debt}`).join('|') + `#${paymentsCount()}`);
   $('totals').textContent = [
     `Phiếu: ${rows.length} · Lần trả còn hiệu lực: ${paymentsCount()} · đã huỷ: ${voided}`,
@@ -310,6 +318,7 @@ const sync = async () => {
   if (isOffline()) return say('Máy đang mất mạng — thao tác nằm trong hàng đợi. Bỏ đánh dấu rồi bấm "Đồng bộ".', 'error');
   syncing = true;
   $('sync-btn').disabled = true;
+  render();
   const log = { pushed: [], pulledPages: 0, merged: 0 };
   try {
     // Đẩy — lô theo seq, dừng ở op kẹt.
@@ -379,10 +388,12 @@ const sync = async () => {
 
 // ─── Khởi tạo ────────────────────────────────────────────────────────────────
 
+/** Mở sổ của tổ chức; có mạng thì đồng bộ ngay — mặt hàng, phiếu của máy khác về luôn. */
 const selectOrg = (id) => {
   orgId = id;
   loadState();
   render();
+  if (!isOffline()) void sync();
 };
 
 const init = async () => {
