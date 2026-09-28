@@ -3,9 +3,10 @@
 Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
-Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · **BE3 ✅** (`v0.4.0`) · tiếp theo BE4 — nhật
-ký ở [MEMORY.md](../MEMORY.md)
-Hướng làm (28/09/2026): **backend đi trước**, frontend dựng lại app từ đầu theo hợp đồng
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · **BE3 ✅** (`v0.4.0`) · **BE4 🟡** hợp đồng + API +
+test xong, còn Phone provider và nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
+Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
+hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
 Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
@@ -124,6 +125,20 @@ Vonage, MessageBird…) hoặc **Send SMS Hook** trỏ sang nhà cung cấp tron
 SpeedSMS…) nếu giá/tỉ lệ tới máy tốt hơn — chọn ở BE4 (dời từ BE2). Rate limit OTP bật ở dashboard Auth.
 
 Cùng cơ chế áp cho **vựa ↔ doanh nghiệp**.
+
+**Chốt khi làm BE4 (28/09/2026):**
+
+- Chỉ **bên được liên kết** đồng ý, và số đã xác thực OTP của người bấm phải **trùng** số được mời
+  (`invited_phone`) — kiểm lại ngay lúc bấm, không chỉ lúc dò.
+- `/links/invite` tạo lời mời chưa có bên được liên kết (`linked_org_id` null) nhắm vào số của dòng
+  danh bạ; `discover_links` nhận lời mời đó khi đúng số đó xác thực và dò. Trả `LinkSummary`, không
+  trả link Zalo — câu chữ mời để app tự soạn.
+- Huỷ: bên sổ cần `partner:manage`, bên được xem cần `linked:read`. `revoked` là trạng thái cuối.
+- Trigger `partner_links_guard` giữ luật ngay ở database: chỉ bên được liên kết bật `active`,
+  không tạo thẳng `active`, không đổi hai đầu, `revoked` không mở lại.
+- Đọc xuyên tổ chức chỉ qua `my_links()` và `linked_receipts()` (security definer, nhìn qua
+  `app.org_id()`); `linked_receipts` chỉ trả cột in trên biên nhận, phiếu chưa xoá, lần trả chưa huỷ.
+- `/linked/receipts?orgId=` lấy phiếu theo **tổ chức giữ sổ** (gộp mọi kết nối active với họ).
 
 ### 1.5 Đơn hàng & đặt lịch
 
@@ -394,7 +409,7 @@ Thêm: staff hai chi nhánh không thấy phiếu của nhau; nông dân bị hu
 | `POST /v1/auth/resolve-identifier` | chưa đăng nhập | Thay RPC `resolve_identifier`; rate limit; lỗi luôn cùng một câu |
 | `POST /v1/links/discover` | đã xác thực SĐT | §1.4 bước 3 |
 | `GET /v1/links` · `POST /v1/links/:id/{accept,revoke}` | mọi loại | |
-| `POST /v1/links/invite` `{ partnerId }` | vựa, DN | Trả link mời / Zalo |
+| `POST /v1/links/invite` `{ partnerKind, partnerId }` | vựa, DN (`partner:manage`) | Trả `LinkSummary` (BE4) |
 | `GET /v1/linked/receipts?orgId=&cursor=` · `GET /v1/linked/balance` | `linked:read` | Chỉ trường biên nhận |
 | `GET/POST /v1/orders` · `GET /v1/orders/:id` | mọi loại | Lọc `role=seller\|buyer`, `status` |
 | `POST /v1/orders/:id/{accept,reject,schedule,cancel}` `{ version }` | §1.6 | |
@@ -516,7 +531,7 @@ chưa đạt.
   (máy B mất mạng) ra cùng tổng, cùng số còn nợ, cùng "dấu sổ", khớp database; `test:db` 78/78
   trong CI.
 
-### BE4 — Kết nối + Nông dân (2–3 buổi)
+### BE4 — Kết nối + Nông dân (2–3 buổi) · 🟡 đang làm — hợp đồng + API + test xong 28/09
 
 - **Backend:** `/links/*`, `/linked/*`, hàm `linked_receipts()`; schema `LinkedReceipt`
   riêng trong contracts; sự kiện `link.*`. **Nhận từ BE2:** bật Phone provider trên

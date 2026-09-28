@@ -94,8 +94,9 @@ render.yaml      cấu hình Render (staging)
 ## Thêm một endpoint
 
 1. Thêm một dòng vào `routes` trong `packages/contracts/src/routes.ts` (+ schema thân request
-   `body` và/hoặc tham số `query` nếu có, + schema phản hồi). Thân và query được kiểm tự động
-   trước khi vào handler; handler đọc query đã kiểm bằng `@ContractQuery()`.
+   `body`, tham số `query`, tham số đường dẫn `params` — `:id` trong `path` — nếu có, + schema
+   phản hồi). Tất cả được kiểm tự động trước khi vào handler; handler đọc bản đã kiểm bằng
+   `@Body()`, `@ContractQuery()`, `@ContractParams()`.
 2. `npm run openapi` → commit `openapi.json` cùng PR.
 3. Controller: `@Endpoint(routes.tenMoi)` — không tự gõ đường dẫn.
 4. SDK: thêm một hàm gọi `call('tenMoi')`.

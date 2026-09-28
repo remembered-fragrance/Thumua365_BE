@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE3 xong (`v0.4.0`), chạy trên staging (Render + Supabase) · OTP dời sang BE4 · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend đi trước**, frontend dựng lại theo hợp đồng · tiếp theo: BE4 |
+| Trạng thái sản phẩm | BE0–BE3 xong (`v0.4.0`), chạy trên staging (Render + Supabase) · **BE4 đang làm** (hợp đồng + API + test xong) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -630,6 +630,50 @@ và FRONTEND.md trỏ `v0.4.0`.
   (CGNAT); cân nhắc tính theo người dùng cho route sync.
 - Nghiệm thu trên hai thiết bị thật (điện thoại) cần thêm origin LAN vào `CORS_ORIGINS` của
   staging — làm khi frontend mới có bản chạy.
+
+---
+
+## BE4 — Kết nối + nông dân · 🟡 đang làm · 28/09/2026
+
+**Quyết định của Tài (28/09): frontend làm SAU backend.** Backend làm lần lượt các bước; mỗi bước
+nghiệm thu bằng trang thử `tools/login-test`, không chờ app. Hợp đồng `sync` (BE3) và `links` (BE4)
+chưa có người làm frontend duyệt — duyệt khi tới lượt frontend.
+
+**Kết quả đến giờ:** hợp đồng + API + migration + test xong; chưa lên staging. Staging chưa bật
+Phone provider (`/auth/v1/settings`: `external.phone = false`) ⇒ OTP chưa chạy trên staging.
+
+### Làm gì
+
+- Contracts: `RouteDef.params` (tham số đường dẫn — interceptor, `@ContractParams()`, SDK điền
+  `:id`, openapi `{id}` + `in: path`, test bắt `:ten` khớp schema). Sáu route: `linksList`,
+  `linksInvite`, `linksAccept`, `linksRevoke`, `linkedReceipts`, `linkedBalance`. `LinkedReceipt`
+  chỉ trường in trên biên nhận (đọc từ `receiptText.ts` của core + KH "cân, giá, tổng, các lần
+  trả, còn nợ"). SDK: `links.*`, `linked.*`.
+- Migration `20260928120000_be4_ket_noi` (không đổi bảng): trigger `partner_links_guard`,
+  `discover_links` nhận lời mời của vựa, `my_links()`, `linked_receipts()`.
+- API `LinksService`: đồng ý kiểm lại số đã xác thực TRÙNG `invited_phone` ngay lúc bấm; huỷ theo
+  phía; tổng/còn nợ tính bằng `@mambo/core`; audit `link.invited/accepted/revoked`; sự kiện
+  `link.accepted/revoked`.
+- Trang thử: trang đồng bộ lập phiếu cho người bán có SĐT + "Mời kết nối"; trang tài khoản có mục
+  "Kết nối" (đồng ý, huỷ, xem phiếu, công nợ).
+
+### Chạy thật đã kiểm (máy dev)
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 75 · core 315 · sdk 10 · api 42 |
+| `npm run test:db` | **91/91** — thêm 10 test kết nối + 3 test luật ở database |
+| Luồng nghiệm thu (test) | Vựa ghi phiếu nợ 938.000 → cô Mai xác thực, dò, đồng ý → đúng 1 phiếu (không phiếu đã xoá, không phiếu người khác, không khách lẻ), `total 1.438.000 · paid 500.000 · debt 938.000`; không lọt ghi chú nội bộ / người lập / id mặt hàng → vựa huỷ → `LINK_REQUIRED` ngay, công nợ rỗng |
+| Chống giả số | Số đã xác thực khác số được mời → `PHONE_NOT_VERIFIED`. Thử bỏ kiểm tra này → test đỏ |
+| Luật ở database | Bên sổ tự bật `active` → bị chặn; tạo thẳng `active`, đổi bên được liên kết, mở lại `revoked` → bị chặn |
+| `schema.prisma` ↔ migration | `No difference detected` |
+
+### Còn lại của BE4
+
+- [ ] **Bật Phone provider trên Supabase staging** (việc của Tài ở dashboard) + số thử OTP.
+- [ ] Chọn nhà cung cấp SMS thật cho "OTP tới máy thật" (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send
+      SMS Hook).
+- [ ] Merge, `prisma migrate deploy` lên staging, nghiệm thu bằng trang thử, phát hành `0.5.0`.
 
 ---
 

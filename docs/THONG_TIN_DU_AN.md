@@ -16,7 +16,7 @@
 | Hướng mới (09/2026) | **Nền tảng ba vai trò** trên một chuỗi, backend **NestJS** theo sơ đồ kiến trúc |
 | Nông sản trọng tâm | Cao su · điều · cà phê · tiêu |
 | Nền tảng | Web (React + TS, PWA offline) · Android (lên CH Play) |
-| Tình trạng một câu | Nghiệp vụ tính tiền **đã có và có test** (`@mambo/core`). Backend xong **BE0–BE3** (`v0.4.0`): API staging trên Render, database ba vai trò có RLS, đăng ký thật cả ba loại tổ chức, **đồng bộ sổ qua API** đã nghiệm thu hai máy trên staging. Tiếp theo: BE4. Chỉ có tài khoản thử, **chưa có dữ liệu thật**. **Backend đi trước** — frontend dựng lại app từ đầu theo hợp đồng ([FRONTEND.md](FRONTEND.md)). Nhật ký: [MEMORY.md](../MEMORY.md) |
+| Tình trạng một câu | Nghiệp vụ tính tiền **đã có và có test** (`@mambo/core`). Backend xong **BE0–BE3** (`v0.4.0`): API staging trên Render, database ba vai trò có RLS, đăng ký thật cả ba loại tổ chức, **đồng bộ sổ qua API** đã nghiệm thu hai máy trên staging. **BE4 (kết nối + nông dân) đang làm**. Chỉ có tài khoản thử, **chưa có dữ liệu thật**. **Backend làm trước, frontend làm sau** (chốt 28/09) — frontend dựng lại app từ đầu theo hợp đồng ([FRONTEND.md](FRONTEND.md)). Nhật ký: [MEMORY.md](../MEMORY.md) |
 
 ### Phân công
 
@@ -279,6 +279,7 @@ Chốt theo hướng đề xuất. Sơ đồ và bảng lý do: [so-do-kien-truc
 | 9 | Validation | **zod** trong `packages/contracts` | BE1 |
 | 10 | Duyệt PR `packages/core`, `packages/contracts` | Bắt buộc **cả backend lẫn frontend** | Khớp hai phía |
 | 11 | Realtime | Bản đầu hỏi mỗi 60 giây; Realtime giai đoạn 2 | BE5 |
+| 12 | Frontend làm lúc nào? (28/09/2026) | **Sau backend**: backend làm lần lượt các bước; frontend dựng lại app từ đầu theo `FRONTEND.md`, `openapi.json` và trang thử `tools/login-test` | Nghiệm thu từng bước BE bằng trang thử, không chờ app |
 
 **Còn mở** (cần người, không phải cần code): số tài khoản nhận tiền và người chịu trách
 nhiệm pháp lý trên trang chính sách — Nguyên, Linh. Ảnh hưởng R3, R4. Nhà cung cấp SMS
