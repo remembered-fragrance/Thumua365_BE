@@ -18,6 +18,9 @@ import { HealthController } from './health/health.controller';
 import { LinksController } from './links/links.controller';
 import { BootstrapService } from './me/bootstrap.service';
 import { MeController } from './me/me.controller';
+import { SyncController } from './sync/sync.controller';
+import { SyncPullService } from './sync/sync-pull.service';
+import { SyncPushService } from './sync/sync-push.service';
 
 /** Những phụ thuộc chạm ra ngoài — main.ts nối bản thật, test nối bản giả (hoặc Postgres ở máy). */
 export interface AppDeps {
@@ -38,7 +41,7 @@ export class AppModule {
         ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: env.RATE_LIMIT_PER_MINUTE }] }),
         EventEmitterModule.forRoot(),
       ],
-      controllers: [HealthController, MeController, AuthController, LinksController],
+      controllers: [HealthController, MeController, AuthController, LinksController, SyncController],
       providers: [
         { provide: ENV, useValue: env },
         { provide: JWKS, useValue: deps.jwks },
@@ -50,6 +53,8 @@ export class AppModule {
         DatabaseShutdown,
         DomainEvents,
         BootstrapService,
+        SyncPushService,
+        SyncPullService,
         // Thứ tự đăng ký = thứ tự chạy.
         { provide: APP_GUARD, useClass: ClientIpThrottlerGuard },
         { provide: APP_GUARD, useClass: JwtAuthGuard },

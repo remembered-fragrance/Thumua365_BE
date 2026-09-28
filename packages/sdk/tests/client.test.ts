@@ -95,5 +95,30 @@ describe('@mambo/sdk', () => {
     const headers = calls[0]?.init?.headers as Record<string, string>;
     expect(headers['content-type']).toBe('application/json');
   });
+
+  const emptyPull = {
+    cursor: 'c2',
+    hasMore: false,
+    resetRequired: false,
+    changes: { suppliers: [], buyers: [], products: [], pricingRules: [], notes: [], drafts: [], transactions: [], payments: [] },
+  };
+
+  it('sync.pull: tham số thành query string, bỏ tham số trống', async () => {
+    const { calls, fetchFn } = recorder(json(200, emptyPull));
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+
+    await client.sync.pull({ cursor: 'a+b/c', limit: 200 });
+    expect(calls[0]?.url).toBe('https://api.test/v1/sync/pull?cursor=a%2Bb%2Fc&limit=200');
+    expect(calls[0]?.init?.method).toBe('GET');
+    expect(calls[0]?.init?.body).toBeUndefined();
+  });
+
+  it('sync.pull lần đầu: không có query string', async () => {
+    const { calls, fetchFn } = recorder(json(200, emptyPull));
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+
+    await client.sync.pull();
+    expect(calls[0]?.url).toBe('https://api.test/v1/sync/pull');
+  });
 });
 

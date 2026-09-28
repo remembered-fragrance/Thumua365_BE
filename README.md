@@ -62,7 +62,8 @@ npm run dev
 apps/
 └── api/         NestJS 11 — guard JWT/tổ chức/quyền, định dạng lỗi, Dockerfile
     ├── prisma/  schema.prisma + migrations (Prisma Migrate là nơi duy nhất sửa schema)
-    └── src/db/  cửa duy nhất vào Postgres: mỗi request một transaction có ngữ cảnh RLS
+    ├── src/db/  cửa duy nhất vào Postgres: mỗi request một transaction có ngữ cảnh RLS
+    └── src/sync/ đồng bộ sổ offline: /sync/push (mỗi op một transaction), /sync/pull (cursor)
 packages/
 ├── core/        nghiệp vụ tính tiền thuần — 0 import ra ngoài; chạy ở trình duyệt và Node
 ├── contracts/   hợp đồng API bằng zod: mã lỗi, vai trò, ma trận quyền, danh bạ routes, openapi.json
@@ -85,11 +86,16 @@ render.yaml      cấu hình Render (staging)
   test:db`. CI đỏ nếu `schema.prisma` và migration lệch nhau.
 - **Bảng mới** phải có trong cùng migration: `enable row level security`, policy, và `grant`
   cho `api_service` — mặc định không ai đọc được.
+- **Khoá ngoại giữa hai bảng của cùng tổ chức là khoá GHÉP** `(x_id, organization_id)`: khoá
+  ngoại được Postgres kiểm không qua RLS, khoá một cột để tổ chức này trỏ vào bản ghi của tổ
+  chức khác.
+- Bản ghi sổ đã xoá mềm **không khôi phục được** (trigger `keep_soft_deleted`, BE3).
 
 ## Thêm một endpoint
 
 1. Thêm một dòng vào `routes` trong `packages/contracts/src/routes.ts` (+ schema thân request
-   nếu có, + schema phản hồi). Thân request được kiểm tự động trước khi vào handler.
+   `body` và/hoặc tham số `query` nếu có, + schema phản hồi). Thân và query được kiểm tự động
+   trước khi vào handler; handler đọc query đã kiểm bằng `@ContractQuery()`.
 2. `npm run openapi` → commit `openapi.json` cùng PR.
 3. Controller: `@Endpoint(routes.tenMoi)` — không tự gõ đường dẫn.
 4. SDK: thêm một hàm gọi `call('tenMoi')`.

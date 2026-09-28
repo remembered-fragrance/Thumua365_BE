@@ -101,6 +101,23 @@ describe('POST /v1/me/bootstrap', () => {
     expect(m?.permissions).not.toContain('book:sync');
     const { rows } = await admin.query('select id from subscriptions');
     expect(rows).toEqual([]);
+    const products = await admin.query('select id from products');
+    expect(products.rows).toEqual([]);
+  });
+
+  it('vựa: sổ có sẵn 4 mặt hàng mặc định của core, id UUID do server sinh (BE3)', async () => {
+    await bootstrap({ orgType: 'trader', orgName: 'Vựa Tư Hùng', name: 'Tư Hùng' }).expect(200);
+    const { rows } = await admin.query<{ id: string; name: string; formula_type: string; is_suggested: boolean }>(
+      // Sắp theo crop (ASCII) — sắp theo tên có dấu thì thứ tự tuỳ collation của máy.
+      'select id, name, formula_type, is_suggested from products order by crop',
+    );
+    expect(rows.map((r) => [r.name, r.formula_type, r.is_suggested])).toEqual([
+      ['Điều', 'netAfterTare', true],
+      ['Cà phê', 'netAfterTare', true],
+      ['Hồ tiêu', 'netAfterTare', true],
+      ['Cao su', 'rubberLatex', true],
+    ]);
+    expect(rows.every((r) => /^[0-9a-f-]{36}$/.test(r.id))).toBe(true);
   });
 
   it('idempotent: gọi lại (kể cả cùng lúc) không tạo tổ chức thứ hai', async () => {

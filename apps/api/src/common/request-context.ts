@@ -11,6 +11,8 @@ export interface ApiRequest extends Request {
   clientIp: string;
   user?: AuthUser;
   membership?: MembershipContext;
+  /** Query string đã kiểm bằng `route.query` (ContractInterceptor). */
+  contractQuery?: unknown;
 }
 
 /** Nhận `X-Request-Id` từ client nếu hợp lệ — để nối log hai phía khi hỗ trợ từ xa. */

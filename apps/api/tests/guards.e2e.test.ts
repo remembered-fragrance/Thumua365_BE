@@ -9,6 +9,7 @@ import { Controller } from '@nestjs/common';
 import request from 'supertest';
 import { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ContractQuery } from '../src/common/contract-query';
 import { Endpoint } from '../src/common/endpoint';
 import { FakeMemberships, ORG_ID, buildTestApp, makeSigner } from './helpers';
 
@@ -31,6 +32,15 @@ const leaky = {
 
 const broken = { ...leaky, path: '/v1/test/broken' } as const satisfies RouteDef;
 
+const listing = {
+  method: 'GET',
+  path: '/v1/test/listing',
+  summary: 'test',
+  auth: 'public',
+  query: z.strictObject({ limit: z.coerce.number().int().min(1).max(10).optional() }),
+  response: z.object({ limit: z.number().nullable() }),
+} as const satisfies RouteDef;
+
 @Controller()
 class TestController {
   @Endpoint(deleteReceipt)
@@ -48,6 +58,11 @@ class TestController {
   @Endpoint(broken)
   broken() {
     return { name: 42 };
+  }
+
+  @Endpoint(listing)
+  listing(@ContractQuery() query: { limit?: number }) {
+    return { limit: query.limit ?? null };
   }
 }
 
@@ -122,5 +137,18 @@ describe('ContractInterceptor', () => {
     const body = ErrorBody.parse(res.body);
     expect(body.error.code).toBe('INTERNAL');
     expect(body.error.details).toBeUndefined();
+  });
+
+  it('query string: handler nhận bản đã kiểm, số đã ép kiểu', async () => {
+    const res = await request(app.getHttpServer()).get('/v1/test/listing?limit=5').expect(200);
+    expect(res.body).toEqual({ limit: 5 });
+    await request(app.getHttpServer()).get('/v1/test/listing').expect(200, { limit: null });
+  });
+
+  it('query sai, thừa hoặc lặp tham số → 422 chỉ đúng trường', async () => {
+    const tooBig = await request(app.getHttpServer()).get('/v1/test/listing?limit=50').expect(422);
+    expect(Object.keys(ErrorBody.parse(tooBig.body).error.details?.fields as object)).toEqual(['limit']);
+    await request(app.getHttpServer()).get('/v1/test/listing?since=2026-09-28').expect(422);
+    await request(app.getHttpServer()).get('/v1/test/listing?limit=1&limit=2').expect(422);
   });
 });

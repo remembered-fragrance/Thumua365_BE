@@ -3,6 +3,34 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.4.0 — chưa phát hành (BE3)
+
+- `routes.syncPush` — `POST /v1/sync/push` (`book:sync`), thân `SyncPushRequest`
+  `{ deviceId, ops: SyncOp[] }` (1–`SYNC_PUSH_MAX_OPS` = 200 op, `seq` tăng dần, `opId` không
+  trùng), trả `SyncPushResult` `{ results: [{ opId, status, error?, warning? }] }`. `status`:
+  `applied | duplicate | rejected`; dừng ở op `rejected` đầu tiên — op sau không có trong
+  `results`. `warning`: `RECORD_DELETED | ORDER_NOT_OPEN` (op đã nhận, không phải lỗi). Lỗi riêng
+  `PLAN_EXPIRED` (402) cho cả lượt. Cổng chỉ kiểm vỏ (`SyncPushInput`); `data` kiểm theo từng op.
+- `routes.syncPull` — `GET /v1/sync/pull?cursor=&limit=` (`book:sync`, `limit` 1–1000, mặc định
+  500), trả `SyncPullResult` `{ cursor, hasMore, resetRequired, changes }`. `changes` có 8 danh
+  sách `*Record`, gồm cả bản ghi đã xoá mềm.
+- Hình dạng từng bản ghi (`sync-records.ts`): `PartyInsert/Patch/Record` (người bán, người mua),
+  `Product*`, `PricingRule*`, `Note*`, `Draft*`, `Transaction*` (dòng phải đóng băng —
+  `FrozenTransactionLine`), `PaymentInsert/Record` (không có patch). Khách lẻ =
+  `counterpartyId: null`. Kiểu được kiểm lúc biên dịch là trùng `@mambo/core/types`.
+- `SyncOp` (hình dạng đầy đủ), `SyncOpEnvelope`, `SYNC_ENTITIES` (cũng là thứ tự kéo về — lần
+  trả tiền cuối), `SYNC_OP_DATA`, `SYNC_CHANGE_KEY`, `parseSyncOp` (kiểm một op — app dùng được
+  trước khi đưa vào hàng đợi).
+- `SYNC_PERMISSION` + `syncOpPermission(op)`: quyền của từng op ngoài `book:sync`. Tạo người
+  bán/người mua/mặt hàng mới và sửa CHỈ giá gần nhất của mặt hàng cần `receipt:create` (người
+  cân làm được); xoá phiếu `receipt:delete`; huỷ lần trả `payment:void`.
+- `RouteDef` thêm `query?` (tham số query string, kiểm như thân request) và `docBody?` (thân như
+  tài liệu mô tả khi `body` cố ý lỏng hơn). Kiểu tiện ích `RouteWithQuery`, `RouteQuery<N>`.
+  `openapi.json`: tham số `in: query`.
+- `@mambo/sdk`: `sync.push(input)`, `sync.pull({ cursor?, limit? })`; `call` dựng query string.
+- `/v1/me/bootstrap`: vựa và doanh nghiệp mới có sẵn 4 mặt hàng mặc định (id UUID do server
+  sinh). Hình dạng không đổi.
+
 ## 0.3.0 — 22/09/2026 (BE2)
 
 - `routes.meBootstrap` — `POST /v1/me/bootstrap`, thân `MeBootstrapInput`

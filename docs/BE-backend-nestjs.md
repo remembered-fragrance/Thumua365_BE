@@ -2,7 +2,10 @@
 
 Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
-Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · tiếp theo BE3 — nhật ký ở [MEMORY.md](../MEMORY.md)
+Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · **BE3 🟡** hợp đồng + API + test xong, còn
+staging và nghiệm thu hai máy — nhật ký ở [MEMORY.md](../MEMORY.md)
+Hướng làm (28/09/2026): **backend đi trước**, frontend dựng lại app từ đầu theo hợp đồng
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
 Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
@@ -118,7 +121,7 @@ Sổ của vựa vẫn là **của vựa**. Nông dân chỉ **nhìn** phần s�
 
 **Gửi SMS:** Supabase Auth phone provider. Nhà cung cấp Supabase hỗ trợ sẵn (Twilio,
 Vonage, MessageBird…) hoặc **Send SMS Hook** trỏ sang nhà cung cấp trong nước (eSMS,
-SpeedSMS…) nếu giá/tỉ lệ tới máy tốt hơn — chọn ở BE2. Rate limit OTP bật ở dashboard Auth.
+SpeedSMS…) nếu giá/tỉ lệ tới máy tốt hơn — chọn ở BE4 (dời từ BE2). Rate limit OTP bật ở dashboard Auth.
 
 Cùng cơ chế áp cho **vựa ↔ doanh nghiệp**.
 
@@ -274,8 +277,9 @@ mambo365_deploymentphase (repo frontend hiện tại)                     [Front
   cũ ở bản sau. Không migration nào vừa thêm vừa xoá.
 - **Tính năng mới:** bật theo tổ chức qua `features` trong `/v1/me` (bảng
   `organization_features`), để pilot trên vài vựa trước khi bật cho tất cả.
-- **Frontend:** trước BE3 vẫn chạy cục bộ bằng "tài khoản của máy này" (`deviceAccount.ts`
-  — đã có). Từ BE3, có tài khoản thì đồng bộ qua API.
+- **Frontend:** dựng lại app từ đầu theo hợp đồng (chốt 28/09/2026); giữ chế độ "tài khoản của
+  máy này" (chưa đăng nhập vẫn ghi cục bộ) và mang logic hàng đợi/hợp nhất của repo cũ sang.
+  Có tài khoản thì đồng bộ qua API.
 
 ---
 
@@ -292,23 +296,36 @@ Tổ chức `farmer` gọi sync → `403 FORBIDDEN`.
       "data": { /* Transaction wire; có thể có orderId, branchId */ } },
     { "opId": "uuid", "seq": 42, "kind": "insert", "entity": "payment", "recordId": "uuid",
       "data": { "transactionId": "uuid", "amount": 1438000, "date": "..." } } ] }
-// 200
-{ "results": [ { "opId": "...", "status": "applied" | "duplicate" | "rejected", "error"?: {...}, "warning"?: "ORDER_NOT_OPEN" } ] }
+// 200 — dừng ở op rejected đầu tiên; op sau không có trong results
+{ "results": [ { "opId": "...", "status": "applied" | "duplicate" | "rejected", "error"?: {...},
+                 "warning"?: "RECORD_DELETED" | "ORDER_NOT_OPEN" } ] }
 ```
 
-1. Tuần tự theo `seq`, **mỗi op một transaction DB** (có `set_config('app.org_id')`, §5).
+Hợp đồng chính xác: `packages/contracts/src/sync.ts`, `sync-records.ts`, `sync-parse.ts`; tối đa
+200 op một lô. Cổng chỉ kiểm vỏ op; `data` kiểm theo từng op để lỗi trả về đúng op, đúng trường.
+
+1. Tuần tự theo `seq`, **mỗi op một transaction DB** (có `set_config('app.org_id')`, §5), mở
+   đầu bằng khoá advisory theo tổ chức — hai máy của một vựa đẩy cùng lúc thì lần lượt.
    Gặp `rejected` là dừng; client xoá op `applied`/`duplicate`.
-2. Chống trùng: `sync_ops(op_id pk)` ghi cùng transaction + insert trùng `recordId` = `duplicate`.
-3. Không tin `organizationId`/`createdBy` từ client. `data` là `z.strictObject`.
-4. Kiểm quyền từng op theo §1.6; staff chỉ ghi chi nhánh mình.
+2. Chống trùng: `sync_ops(op_id pk)` ghi cùng transaction + insert trùng `recordId` **trong tổ
+   chức** = `duplicate`. Id đã thuộc tổ chức khác (RLS giấu) = `rejected`, không phải
+   `duplicate` — không thì máy xoá op và mất phiếu.
+3. Không tin `organizationId`/`createdBy` từ client. `data` là `z.strictObject`. Id luôn UUID.
+4. Kiểm quyền từng op theo `SYNC_PERMISSION` (contracts): việc phụ của lập phiếu (người bán,
+   người mua, mặt hàng mới; sửa **chỉ** giá gần nhất) cần `receipt:create`, nên người cân làm
+   được. Người gắn chi nhánh chỉ ghi, sửa, trả tiền cho phiếu chi nhánh mình.
 5. `payment`: chỉ `insert`/`softDelete`.
-6. `update` là vá một phần, ghi sau thắng theo thời điểm server nhận.
+6. `update` là vá một phần, ghi sau thắng theo thời điểm server nhận. `update` bản ghi đã xoá
+   = nhận op, không đổi gì, `warning: RECORD_DELETED` (xoá thắng). Phiếu đã chốt chỉ sửa được
+   chứng từ và ghi chú.
 7. `transaction` insert: tính lại tổng bằng `packages/core`; lệch → `VALIDATION_FAILED`.
 8. Phiếu có `orderId` hợp lệ → đơn sang `fulfilled` + `order_events` trong **cùng**
    transaction; sau commit phát `order.fulfilled`. Đơn đã huỷ → phiếu vẫn ghi, gỡ `orderId`,
    `warning: ORDER_NOT_OPEN`.
 9. Xoá phiếu, huỷ lần trả → ghi `audit_log` trong cùng transaction.
-10. Vựa/DN hết gói → `PLAN_EXPIRED` ở op đầu tiên, không ghi gì.
+10. Vựa/DN hết gói → `402 PLAN_EXPIRED` cho cả request, không ghi gì.
+11. Lần trả cho phiếu đã bị xoá ở máy khác: vẫn lưu (tiền đã trả ngoài đời), `warning:
+    RECORD_DELETED`. Phiếu cha chưa có → `PARENT_MISSING` (thử lại được).
 
 ### 4.2 `GET /v1/sync/pull?cursor=<opaque>&limit=500`
 
@@ -318,9 +335,14 @@ Tổ chức `farmer` gọi sync → `403 FORBIDDEN`.
                "pricingRules": [], "notes": [], "transactions": [], "payments": [] } }
 ```
 
-1. Cursor do server cấp (giờ server − 5 giây chồng lấn).
+1. Cursor do server cấp. Một **lượt** kéo dùng chung mốc `until` lấy từ đồng hồ **database**,
+   đi qua tám bảng theo thứ tự cố định (lần trả cuối cùng), mỗi bảng phân trang theo
+   `(updated_at, id)`. Xong lượt, lượt sau bắt đầu từ `until − 15 giây` — lớn hơn hẳn thời gian
+   sống tối đa của một transaction ghi (5 giây). `updated_at` của 8 bảng sổ là
+   `timestamptz(3)` (mili-giây, bằng JS Date) để so sánh phân trang không sai.
 2. Trả cả bản ghi đã xoá mềm.
-3. 🔴 Mỗi `payment` trong trang thì phiếu cha có ở trang này hoặc trang trước.
+3. 🔴 Mỗi `payment` trong trang thì phiếu cha có ở trang này hoặc trang trước: bảng lần trả đi
+   sau bảng phiếu; phiếu cha đổi sau `until` thì được kèm vào trang có lần trả của nó.
 4. 🔴 `payments.updated_at` + trigger — sửa lỗi huỷ lần trả không lan sang máy khác.
 5. Phạm vi: owner kéo cả tổ chức; manager/staff kéo phiếu chi nhánh mình + danh mục chung.
 6. Đổi chi nhánh → `resetRequired: true`; client xoá sổ cục bộ **sau khi xả hết hàng đợi**.
@@ -480,10 +502,14 @@ chưa đạt.
   thật~~ → **dời sang BE4** (22/09/2026): BE4 là bước đầu tiên cần số đã xác thực; code API
   đã sẵn (`PHONE_NOT_VERIFIED`).
 
-### BE3 — Đồng bộ sổ qua API (3–4 buổi) · quan trọng nhất về tiền
+### BE3 — Đồng bộ sổ qua API (3–4 buổi) · quan trọng nhất về tiền · 🟡 đang làm
 
 - **Backend:** `SyncModule` đúng §4; mapper 8 thực thể; audit xoá phiếu / huỷ lần trả;
-  e2e năm quy tắc + ba test vai trò/RLS + bảy kịch bản VAN_HANH §6.
+  e2e năm quy tắc + ba test vai trò/RLS + bảy kịch bản VAN_HANH §6. Thêm khi làm (28/09):
+  khoá ngoại ghép `(x_id, organization_id)` (khoá ngoại không đi qua RLS), trigger cấm khôi
+  phục bản ghi đã xoá, 4 mặt hàng mặc định do server tạo (id `prod-…` của core không phải
+  UUID), `RouteDef.query`. Nghiệm thu hai máy bằng một trang thử trong `tools/` như BE2 —
+  frontend đang dựng lại.
 - **Frontend:** bảng §4.3.
 - **Xong khi:** hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả — sau
   đồng bộ khớp từng đồng; e2e xanh trong CI. **Đạt R1.**
@@ -659,6 +685,7 @@ Nhịp: 15 phút đầu tuần chốt contract của tuần; đổi contract gi�
    không ELK, không Kubernetes ở giai đoạn này.
 7. **Duyệt PR** vào `packages/core`, `packages/contracts`: bắt buộc cả hai người.
 
-Còn chờ: frontend xác nhận quy ước §3 (việc BE0 của frontend); nhà cung cấp SMS (BE2);
-Docker Desktop trên máy dev (BE2); quyền DNS `thumua365.vn`; số tài khoản nhận tiền và
-người chịu trách nhiệm pháp lý (Nguyên, Linh). Nơi chạy container: **Render**, Singapore (chốt ở BE1).
+Còn chờ: nhà cung cấp SMS (BE4); quyền DNS `thumua365.vn`; số tài khoản nhận tiền và người
+chịu trách nhiệm pháp lý (Nguyên, Linh). Nơi chạy container: **Render**, Singapore (chốt ở BE1).
+Đã xong: Docker Desktop trên máy dev (22/09). Quy ước §3: frontend dựng lại theo hợp đồng
+(28/09) nên theo đúng §3 từ đầu.

@@ -4,8 +4,10 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **28/09/2026** · Hợp đồng hiện tại **`v0.3.0`** (BE0–BE2) · Bước tiếp theo: BE3
-> (đồng bộ sổ).
+> Cập nhật **28/09/2026** · Hợp đồng đã phát hành **`v0.3.0`** (BE0–BE2) · Đang làm: BE3 — hợp
+> đồng đồng bộ sổ **đã có** (mục 7), chưa phát hành.
+> **Backend đi trước:** frontend dựng lại app theo hợp đồng ở đây; hợp đồng mỗi bước ra trước,
+> có mock, frontend làm song song.
 > File này được sửa **cùng PR** với mọi thay đổi hợp đồng. Nếu thấy lệch với code thì code
 > là đúng — báo backend sửa file này.
 
@@ -370,78 +372,131 @@ const { created, pending } = await api.discoverLinks();                     // c
 
 ---
 
-## 7. Sổ offline và đồng bộ — BE3 (hợp đồng sắp ra)
+## 7. Sổ offline và đồng bộ — BE3 (hợp đồng đã có, chưa phát hành)
 
-**Trạng thái:** `v0.3.0` **chưa có** phần này. Hình dạng dưới đây lấy từ kế hoạch
-([§4](BE-backend-nestjs.md)); tên chính xác sẽ chốt trong `packages/contracts` ở BE3 và ghi vào
-CHANGELOG. Toàn bộ phần chạy cục bộ thì frontend làm trước được.
+**Trạng thái:** hợp đồng nằm trong `packages/contracts` (`sync.ts`, `sync-records.ts`,
+`sync-parse.ts`); API chạy được và có test trên Postgres thật. **Chưa phát hành** — vào
+`v0.4.0` khi BE3 nghiệm thu. Làm trước trên mock: `npm run mock` (`openapi.json` đã có hai
+route, mô tả đủ từng loại op). Kiểu dữ liệu import từ `@mambo/contracts`, không tự khai.
 
 ### 7.1 Ghi: luôn ghi cục bộ trước
 
-Mỗi thao tác ghi sổ gồm hai việc: (1) sửa IndexedDB, rồi (2) thêm một op vào hàng đợi. Hàng
-đợi cũng nằm trong IndexedDB, không nằm trong bộ nhớ React. Giao diện không bao giờ đợi mạng.
+Mỗi thao tác ghi sổ gồm hai việc: (1) sửa IndexedDB, rồi (2) thêm một op vào hàng đợi (cũng
+nằm trong IndexedDB, không nằm trong bộ nhớ React). Giao diện không bao giờ đợi mạng.
 
-```jsonc
-{ "opId": "uuid",         // id của thao tác — dùng để chống gửi trùng
-  "seq": 42,              // tăng dần trên máy; BẮT BUỘC giữ đúng thứ tự
-  "kind": "insert",       // insert | update | softDelete
-  "entity": "payment",    // supplier · buyer · product · draft · pricingRule · note · transaction · payment
-  "recordId": "uuid",     // id bản ghi — máy khách sinh bằng newId()
-  "data": { } }           // camelCase, đúng kiểu trong @mambo/core/types
+```ts
+import { parseSyncOp, type SyncOp } from '@mambo/contracts';
+
+const op: SyncOp = {
+  opId: newId(),       // id của THAO TÁC — chống gửi trùng
+  seq: 42,             // tăng dần trên máy; KHÔNG BAO GIỜ đổi thứ tự
+  entity: 'payment',   // supplier · buyer · product · pricingRule · note · draft · transaction · payment
+  kind: 'insert',      // insert · update · softDelete
+  recordId: newId(),   // id BẢN GHI — máy khách sinh, luôn là UUID
+  data: { transactionId, date: new Date().toISOString(), amount: 500_000 },
+};
+// Bắt lỗi ngay ở máy, trước khi op vào hàng đợi:
+const check = parseSyncOp(op); // { ok: true, op } | { ok: false, fields }
 ```
 
-- Ở máy, mỗi op lưu kèm `organizationId`. Hàng đợi, cache và cursor đều **tách theo tổ chức**.
-- `payment` chỉ có `insert` hoặc `softDelete`. Huỷ một lần trả = `softDelete`. Không bao giờ
-  sửa số tiền, không có cột "đã trả" — số đã trả luôn là tổng các `payment`.
-- `update` là vá một phần. Các `update` chưa gửi của cùng một bản ghi được gộp lại.
-- Tổng tiền phiếu tính bằng `@mambo/core`. Server tính lại; lệch thì trả `VALIDATION_FAILED`.
-- **Không** gửi `organizationId` hay `createdBy` trong `data` — server tự điền. `data` là
-  schema chặt: gửi trường lạ là bị từ chối.
-- Phiếu lập theo đơn mang `orderId` (BE5). Phiếu của doanh nghiệp mang `branchId`.
+Luật của `data` (schema ở `sync-records.ts`):
 
-### 7.2 Đẩy lên: `POST /v1/sync/push`
+- `insert` dùng `*Insert`; `update` dùng `*Patch` — vá một phần: chỉ trường gửi lên bị đổi,
+  `null` là để trống, patch rỗng bị từ chối; `softDelete` **không có** `data`.
+- **Không** gửi `organizationId`, `createdBy`, `createdAt`, `updatedAt`, `deletedAt` — server tự
+  điền. Trường lạ bị từ chối.
+- **Khách lẻ** là `counterpartyId: null`. Core dùng `'guest'` / `'guest-buyer'` — đổi ở `data/`
+  khi gửi và khi nhận.
+- **Phiếu (`transaction`)** không có `amountPaid`, không có `payments`: số đã trả luôn là tổng các
+  `payment`. Mỗi dòng phải đã đóng băng bằng `freezeLineTotals` (có `rawTotal`,
+  `roundedTotal`). Server tính lại bằng đúng hàm đó; lệch thì bị `VALIDATION_FAILED` chỉ đúng
+  dòng (`data.lines.1.roundedTotal`). Phiếu đã chốt chỉ `update` được `attachmentIds` và
+  `note`; sai cân, sai giá thì xoá phiếu, lập phiếu mới.
+- **Lần trả (`payment`)** chỉ có `insert` và `softDelete`. Huỷ lần trả = `softDelete`.
+- Thời gian là ISO 8601 có múi giờ (`toISOString()`); `'2026-09-28'` bị từ chối.
+- **Id luôn là UUID.** Bốn mặt hàng mặc định của core (`prod-rubber`, `prod-cashew`…) **không**
+  đồng bộ được. Server đã tạo sẵn bốn mặt hàng này cho mọi vựa và doanh nghiệp, id là UUID; lần
+  kéo đầu tiên sẽ có chúng. Gộp theo **tên** như `normalize()` vẫn làm, rồi dùng id của server.
+  Đừng đưa op có id `prod-…` vào hàng đợi: server trả `VALIDATION_FAILED` ở `recordId` và hàng
+  đợi dừng ở đó.
+- Sửa mặt hàng: chỉ gửi trường thực sự đổi. Lập phiếu kéo theo đổi giá gần nhất thì gửi riêng
+  patch `{ lastPricePerUnit }` — người cân làm được. Gửi cả bản ghi thì cần `pricing:manage`, và
+  người cân bị từ chối.
+- Doanh nghiệp: phiếu và nháp có `branchId`. Người gắn với một chi nhánh để trống, server tự điền
+  chi nhánh của họ; gửi chi nhánh khác → `FORBIDDEN`.
+- Hàng đợi, cache, cursor đều **tách theo tổ chức**: ở máy, mỗi op lưu kèm `organizationId`.
 
-```jsonc
-// gửi — header X-Organization-Id = tổ chức sở hữu các op
-{ "deviceId": "uuid", "ops": [ /* theo seq */ ] }
-// nhận — `error` chỉ có khi rejected, `warning` chỉ có khi cần báo
-{ "results": [ { "opId": "…", "status": "applied" | "duplicate" | "rejected", "error": { }, "warning": "ORDER_NOT_OPEN" } ] }
-```
+### 7.2 Quyền của từng op
 
-- Server xử lý theo `seq` và dừng ở op `rejected` đầu tiên. Client **xoá** các op `applied` và
-  `duplicate`. Op `rejected` thì đánh dấu `conflict` và cho người dùng xem.
-- Gặp `PLAN_EXPIRED` thì dừng cả lượt, **giữ nguyên** hàng đợi, không tính là một lần thử.
-- Lỗi mạng, `INTERNAL`, `RATE_LIMITED`, `PARENT_MISSING` thì thử lại theo lịch giãn cách
-  (bản cũ dùng 1 giây, 5 giây, 30 giây, 5 phút).
-- Thân request tối đa 1MB, nên phải giới hạn số op mỗi lô. Gặp `PAYLOAD_TOO_LARGE` thì chia nhỏ lô.
-- `warning: ORDER_NOT_OPEN` nghĩa là đơn đã bị huỷ: phiếu vẫn được ghi nhưng bị gỡ khỏi đơn.
-  Chỉ cần báo nhẹ.
-- Nông dân gọi sync sẽ bị `FORBIDDEN` — đừng gọi.
+Route cần `book:sync`. Mỗi op cần thêm một quyền; `syncOpPermission(op)` trả đúng quyền đó.
+Dùng nó cùng `membership.permissions` để ẩn nút.
 
-### 7.3 Kéo về: `GET /v1/sync/pull?cursor=…&limit=500`
+| Op | Quyền | Người cân của vựa |
+|---|---|:-:|
+| Tạo phiếu, nháp; tạo người bán, người mua, mặt hàng mới; sửa **chỉ** giá gần nhất | `receipt:create` | ✅ |
+| Ghi lần trả | `payment:record` | ✅ |
+| Ghi chú | `book:sync` | ✅ |
+| Xoá phiếu | `receipt:delete` | ❌ |
+| Huỷ lần trả | `payment:void` | ❌ |
+| Sửa, xoá người bán / người mua | `partner:manage` | ❌ |
+| Sửa (không chỉ giá), xoá mặt hàng; mọi thao tác với quy tắc giá | `pricing:manage` | ❌ |
+
+### 7.3 Đẩy lên: `sdk.sync.push({ deviceId, ops })`
+
+- Tối đa `SYNC_PUSH_MAX_OPS` (200) op một lô, `seq` tăng dần, `opId` không trùng. Thân tối đa
+  1MB: gặp `PAYLOAD_TOO_LARGE` thì chia nhỏ lô.
+- `deviceId`: UUID sinh một lần cho mỗi máy, lưu cục bộ.
+- `results` theo đúng thứ tự op, **dừng ở op `rejected` đầu tiên**. Op sau nó không có trong
+  `results` và chưa được xử lý — giữ nguyên trong hàng đợi.
+
+| Nhận được | App làm gì |
+|---|---|
+| `applied` | Xoá op khỏi hàng đợi |
+| `duplicate` | Xoá op — server đã có (gửi lại vì mất phản hồi, bấm hai lần) |
+| `applied` kèm `warning: 'RECORD_DELETED'` | Xoá op. Bản ghi (hoặc phiếu cha của lần trả) đã bị xoá ở máy khác — xoá thắng; lần trả vẫn được lưu. Báo nhẹ |
+| `rejected`, `isRetryable(error.code)` đúng (`PARENT_MISSING`, `RATE_LIMITED`, `INTERNAL`) | Giữ op, thử lại theo lịch giãn cách (1 giây, 5 giây, 30 giây, 5 phút) |
+| `rejected`, mã khác (`VALIDATION_FAILED`, `FORBIDDEN`) | Giữ op, đánh dấu `conflict`, cho người dùng xem. Op sau nó chờ |
+| Cả request lỗi `402 PLAN_EXPIRED` | Dừng lượt, **giữ nguyên** hàng đợi, không tính lần thử; báo gói hết hạn |
+| Lỗi mạng | Thử lại theo lịch giãn cách |
+
+- `warning: 'ORDER_NOT_OPEN'` (từ BE5): đơn đã huỷ; phiếu vẫn được ghi nhưng bị gỡ khỏi đơn.
+- Nông dân gọi sync sẽ bị `403 FORBIDDEN` — đừng gọi.
+
+### 7.4 Kéo về: `sdk.sync.pull({ cursor, limit })`
 
 ```jsonc
 { "cursor": "opaque", "hasMore": false, "resetRequired": false,
-  "changes": { "suppliers": [], "buyers": [], "products": [], "drafts": [],
-               "pricingRules": [], "notes": [], "transactions": [], "payments": [] } }
+  "changes": { "suppliers": [], "buyers": [], "products": [], "pricingRules": [], "notes": [],
+               "drafts": [], "transactions": [], "payments": [] } }
 ```
 
-- `cursor` do server cấp. Lưu theo tổ chức và gửi lại nguyên văn. Lần đầu để trống.
-  **Không** dùng giờ của máy làm mốc: máy lệch giờ là mất thay đổi — lỗi thật của bản cũ.
-- Gọi liên tục tới khi `hasMore: false`.
-- Hợp nhất theo `id`, kể cả bản ghi đã xoá mềm. Xoá thắng cập nhật đến sau.
-- Hợp nhất `payments` vào sổ đã có (gồm cả các trang trước), không chỉ trong trang hiện tại.
-  Không bỏ qua payment nào (lỗi thật của bản cũ: `if (!tx) continue` làm mất khoản trả).
-- `resetRequired: true` (ví dụ khi đổi chi nhánh): **xả hết hàng đợi trước**, rồi mới xoá sổ
-  cục bộ của tổ chức đó và kéo lại từ đầu.
+- `cursor` do server cấp. Lưu **theo tổ chức**, gửi lại nguyên văn; lần đầu để trống. Không tự
+  đọc, không dùng giờ máy làm mốc.
+- Gọi liên tục tới khi `hasMore: false`. `limit` 1–1000, mặc định 500, tính cộng mọi loại.
+- Mỗi bản ghi có `id`, `createdBy`, `createdAt`, `updatedAt` (giờ server), `deletedAt`. Bản ghi
+  đã xoá mềm vẫn về: `deletedAt` khác null thì xoá khỏi sổ cục bộ. Xoá thắng cập nhật đến sau.
+- Hợp nhất theo `id`. Bản ghi còn op chưa gửi trong hàng đợi thì giữ bản cục bộ.
+- **Phiếu kéo về không mang lần trả.** Đừng thay danh sách lần trả của phiếu bằng rỗng; hợp nhất
+  `payments` theo id vào sổ đã có (như `unionPayments` của bản cũ).
+- Server luôn trả phiếu cha **trước hoặc cùng trang** với lần trả của nó (bảng lần trả đi cuối).
+  App vẫn nên giữ lần trả chưa thấy phiếu cha sang trang sau thay vì bỏ — lỗi thật của bản cũ là
+  `if (!tx) continue`.
+- Có thể nhận lại bản ghi đã nhận ở lượt trước: server kéo chồng lấn 15 giây để không sót thay
+  đổi đang ghi dở. Hợp nhất theo id nên vô hại.
+- `resetRequired: true` (khi đổi chi nhánh): **xả hết hàng đợi trước**, rồi xoá sổ cục bộ của tổ
+  chức đó và kéo lại từ `cursor` vừa nhận. `changes` lúc này rỗng.
+- Cursor hỏng hoặc của tổ chức khác → `422 VALIDATION_FAILED` (`details.fields.cursor`): bỏ
+  cursor, kéo lại từ đầu.
+- Người gắn chi nhánh chỉ nhận phiếu, nháp, lần trả của chi nhánh mình. Danh mục (người bán,
+  người mua, mặt hàng, quy tắc giá, ghi chú) là chung của tổ chức.
 
-### 7.4 Khi chưa đăng nhập
+### 7.5 Khi chưa đăng nhập
 
 Kế hoạch giữ chế độ "tài khoản của máy này": chưa đăng nhập vẫn ghi sổ cục bộ được; đăng nhập
 xong thì đẩy sổ của máy lên tài khoản qua `/sync/push`. Nếu bản mới bỏ chế độ này thì báo
 backend để sửa kế hoạch.
 
-### 7.5 Năm quy tắc chống mất tiền — phần việc của frontend
+### 7.6 Năm quy tắc chống mất tiền — phần việc của frontend
 
 | # | Quy tắc | Frontend phải |
 |---|---|---|
@@ -451,9 +506,11 @@ backend để sửa kế hoạch.
 | 4 | Xử lý theo `seq` | Không bao giờ đổi thứ tự hàng đợi; đẩy theo `seq` tăng dần |
 | 5 | Không có payment mồ côi khi phân trang | Hợp nhất qua nhiều trang, không bỏ payment chưa thấy phiếu cha |
 
-**Đừng viết lại từ số 0.** Repo frontend cũ đã có phần hàng đợi (`queue.ts`, `localDb.ts`),
-`mergeChanges` trong `pullChanges.ts` và `deviceAccount.ts`, kèm test, và đã giữ đúng năm quy
-tắc này. Dựng lại giao diện thì vẫn nên mang phần này sang, chỉ đổi chỗ gọi mạng sang SDK.
+**Dựng lại giao diện, nhưng mang logic sổ sang.** Repo frontend cũ đã có hàng đợi (`queue.ts`,
+`localDb.ts`), `mergeChanges` trong `pullChanges.ts` và `deviceAccount.ts`, kèm test, và đã
+giữ đúng năm quy tắc này. Khi mang sang, đổi ba chỗ cho khớp hợp đồng mới: op dùng `entity`
+số ít và `data` camelCase (không phải `table` + hàng snake_case); `softDelete` không mang
+`data`, server tự đặt mốc xoá; kéo về theo `cursor` thay cho mốc giờ máy.
 
 ---
 
