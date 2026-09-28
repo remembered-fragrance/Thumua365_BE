@@ -54,7 +54,7 @@ npm run dev
 | `npm run mock` | Server giả từ `openapi.json` (Prism) cho frontend làm trước khi API xong |
 | `npm run dev` | API chạy lại khi sửa code |
 | `npm run smoke:me` | Kiểm `/v1/me` trên staging bằng một tài khoản thật — bạn tự gõ email/mật khẩu, không in ra đâu cả |
-| `npm run login-test` | Trang thử ở http://localhost:5174 — đủ luồng tài khoản trên staging: đăng ký, "Bác là ai?", đăng nhập một ô, OTP, dò kết nối, qua `@mambo/sdk` (cần `build:packages` trước) |
+| `npm run login-test` | Trang thử ở http://localhost:5174 — đủ luồng tài khoản trên staging: đăng ký, "Bác là ai?", đăng nhập một ô, OTP, dò kết nối, qua `@mambo/sdk` (cần `build:packages` trước). `/sync.html?may=A` và `?may=B`: thử đồng bộ sổ hai máy |
 
 ## Cấu trúc
 
@@ -112,9 +112,9 @@ khoá đúng phiên bản:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.3.0/mambo-core-0.3.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.3.0/mambo-contracts-0.3.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.3.0/mambo-sdk-0.3.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-core-0.4.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-contracts-0.4.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-sdk-0.4.0.tgz",
     "zod": "^4.1.0"
   }
 }
@@ -148,7 +148,7 @@ tính tiền phải cho ra đúng một con số ở cả trình duyệt lẫn s
 
 1. Nâng `version` của **mọi** gói (`packages/*`, `apps/api`, gốc) lên cùng một số.
 2. Ghi thay đổi vào `packages/contracts/CHANGELOG.md`.
-3. `git tag v0.3.0 && git push origin v0.3.0` — workflow `release.yml` kiểm, build, đóng
+3. `git tag vX.Y.Z && git push origin vX.Y.Z` — workflow `release.yml` kiểm, build, đóng
    gói và tạo release. Tag không khớp version thì workflow dừng.
 
 ## Luật

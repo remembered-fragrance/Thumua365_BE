@@ -1,7 +1,7 @@
 # THÔNG TIN DỰ ÁN — Mambo365 / THUMUA365
 
 > **Đọc file này đầu tiên.** Nó tổng hợp mọi thứ đã chốt và chưa chốt tính đến
-> **28/09/2026** (BE3 đang làm): sản phẩm là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ
+> **28/09/2026** (sau BE3): sản phẩm là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ
 > tự nào, và nhóm còn phải quyết gì. Chi tiết kỹ thuật nằm ở các file được dẫn tới.
 
 ---
@@ -16,7 +16,7 @@
 | Hướng mới (09/2026) | **Nền tảng ba vai trò** trên một chuỗi, backend **NestJS** theo sơ đồ kiến trúc |
 | Nông sản trọng tâm | Cao su · điều · cà phê · tiêu |
 | Nền tảng | Web (React + TS, PWA offline) · Android (lên CH Play) |
-| Tình trạng một câu | Nghiệp vụ tính tiền **đã có và có test** (`@mambo/core`). Backend xong **BE0–BE2**: API staging trên Render, database ba vai trò có RLS, đăng ký thật cả ba loại tổ chức. **BE3 (đồng bộ sổ) đang làm**: hợp đồng, API, test xong; còn staging và nghiệm thu hai máy. Chỉ có tài khoản thử, **chưa có dữ liệu thật**. **Backend đi trước** — frontend dựng lại app từ đầu theo hợp đồng ([FRONTEND.md](FRONTEND.md)). Nhật ký: [MEMORY.md](../MEMORY.md) |
+| Tình trạng một câu | Nghiệp vụ tính tiền **đã có và có test** (`@mambo/core`). Backend xong **BE0–BE3** (`v0.4.0`): API staging trên Render, database ba vai trò có RLS, đăng ký thật cả ba loại tổ chức, **đồng bộ sổ qua API** đã nghiệm thu hai máy trên staging. Tiếp theo: BE4. Chỉ có tài khoản thử, **chưa có dữ liệu thật**. **Backend đi trước** — frontend dựng lại app từ đầu theo hợp đồng ([FRONTEND.md](FRONTEND.md)). Nhật ký: [MEMORY.md](../MEMORY.md) |
 
 ### Phân công
 
@@ -116,7 +116,7 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 |---|---|---|
 | IndexedDB (offline cache) | Giữ; khoá cache theo `organizationId` | ✅ |
 | Queue (sync) | Giữ nguyên hàng đợi (seq, thử lại giãn cách, gộp lần sửa) | ✅ |
-| Đồng bộ | `POST /v1/sync/push` + `GET /v1/sync/pull` qua NestJS (đã chốt, §8 mục 2) | 🟡 API xong ở repo BE (BE3); app đang dựng lại |
+| Đồng bộ | `POST /v1/sync/push` + `GET /v1/sync/pull` qua NestJS (đã chốt, §8 mục 2) | ✅ API `v0.4.0`, nghiệm thu hai máy trên staging; app đang dựng lại |
 | Hỗ trợ PWA và Mobile | Cùng một code chạy trong PWA và TWA | ✅ |
 
 ### 3.6 Dịch vụ bên ngoài
@@ -194,7 +194,7 @@ safety khớp với R5, `assetlinks.json` cho TWA.
 | BE0 ✅ | Repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE): `packages/core`, `packages/contracts`, CI, release `.tgz` | Chốt quy ước; `@/core/` → `@mambo/core/` từ release | 1–2 |
 | BE1 ✅ | Khung NestJS, Guard, định dạng lỗi, `/v1/me`, Docker, staging Render | `/lien-he`, link pháp lý (R4); khung chọn vỏ | 2 |
 | BE2 ✅ | Prisma + schema ba vai trò, tổ chức, chi nhánh, `/me/bootstrap` (OTP dời sang BE4) | Bước "Bác là ai?" khi đăng ký | 3 |
-| BE3 🟡 | Đồng bộ sổ qua API, giới hạn theo chi nhánh | Sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức (FRONTEND.md §7) | 3–4 |
+| BE3 ✅ | Đồng bộ sổ qua API, giới hạn theo chi nhánh | Sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức (FRONTEND.md §7) | 3–4 |
 | BE4 | Kết nối tổ chức + phần xem của nông dân + **OTP xác thực SĐT** (dời từ BE2) | Vỏ Nông dân (phần xem), nút "Mời kết nối", màn OTP | 2–3 |
 | BE5 | Đơn hàng, đặt lịch, thông báo trong app | Đơn bán, danh sách đơn, hẹn lịch, ô "Theo đơn" | 3 |
 | BE6 | Tài khoản, gói, webhook ngân hàng, quản trị | `billing.ts`, `account.ts` | 2–3 |
