@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE2 xong, chạy trên staging (Render + Supabase) · OTP dời sang BE4 · chỉ có tài khoản thử, **chưa có dữ liệu thật** · tiếp theo: BE3 |
+| Trạng thái sản phẩm | BE0–BE2 xong, chạy trên staging (Render + Supabase) · OTP dời sang BE4 · **BE3 đang làm** (hợp đồng + API + test xong, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend đi trước**, frontend dựng lại theo hợp đồng |
 
 ---
 
@@ -512,13 +512,99 @@ BE0 → BE10 frontend phải làm gì. README và `THONG_TIN_DU_AN.md` trỏ t�
 
 ---
 
+## BE3 — Đồng bộ sổ qua API · 🟡 đang làm · 28/09/2026
+
+**Kết quả đến giờ:** hợp đồng `sync` trong contracts, `SyncModule` (push + pull), migration BE3,
+78 test trên Postgres thật xanh. Chưa lên staging, chưa nghiệm thu hai máy. Nhánh
+`be3/hop-dong-dong-bo` xếp chồng lên PR #5 (`docs/FRONTEND.md`, chưa merge).
+
+### Soát trước khi làm
+
+- Repo BE khớp `origin`; `npm run verify` xanh; `test:db` 47/47; staging `/v1/health` 200 đúng
+  commit `91e1345`. Repo frontend không có gì mới từ 22/09.
+- **Hướng mới (người dùng chốt 28/09):** frontend dựng lại app từ đầu ⇒ **backend đi trước**,
+  frontend dựng theo hợp đồng + mock. Nghiệm thu BE3 không chờ app thật.
+
+### Làm gì
+
+- Contracts: `RouteDef.query` (+ interceptor kiểm query, `@ContractQuery()`, SDK dựng query
+  string, openapi `in: query`) và `RouteDef.docBody`. `sync-records.ts` (Insert/Patch/Record
+  cho 8 thực thể, kiểu được kiểm lúc biên dịch là trùng `@mambo/core/types` — đã thử làm lệch
+  để chắc phép kiểm có tác dụng), `sync.ts` (`SyncOp`, push/pull, `SYNC_PERMISSION`),
+  `sync-parse.ts` (`parseSyncOp`). SDK: `sync.push`, `sync.pull`.
+- API `src/sync/`: push — kiểm gói → mỗi op một transaction (khoá advisory theo tổ chức, chống
+  trùng bằng `sync_ops`, quyền từng op, chi nhánh, tính lại tổng dòng bằng `freezeLineTotals`,
+  audit xoá phiếu / huỷ lần trả) → dừng ở op bị từ chối đầu tiên. Pull — cursor base64url, mốc
+  `until` theo đồng hồ DB, 8 bảng theo thứ tự cố định, phân trang `(updated_at, id)`, chồng lấn
+  15 giây, kèm phiếu cha đổi sau `until`, `resetRequired` khi đổi chi nhánh.
+- Migration `20260928000000_be3_dong_bo`: khoá ngoại ghép, `updated_at` `timestamptz(3)` cho 8
+  bảng sổ, trigger `keep_soft_deleted`, 4 mặt hàng mặc định cho tổ chức đã có.
+  `/me/bootstrap` tạo 4 mặt hàng đó cho vựa/DN mới.
+
+### Quyết định
+
+1. **Cổng chỉ kiểm vỏ op, `data` kiểm theo từng op** — một op sai thành `rejected` kèm đúng
+   trường, không làm 422 cả lô (cả lô 422 thì app không biết op nào hỏng, hàng đợi kẹt).
+2. **Quyền của op ≠ quyền của màn.** Lập phiếu kéo theo tạo người bán, mặt hàng mới, sửa giá
+   gần nhất; người cân không có `partner:manage`/`pricing:manage` ⇒ những việc phụ đó cần
+   `receipt:create`. Sửa mặt hàng mà CHỈ đổi `lastPricePerUnit` cũng vậy.
+3. **Mặt hàng mặc định do server tạo** (id UUID), app gộp theo tên như `normalize()` vẫn làm.
+   Id `prod-…` của core bị từ chối có giải thích. Không sửa core.
+4. **Id thuộc tổ chức khác = `rejected`, không phải `duplicate`** — `duplicate` làm máy xoá op
+   ⇒ mất phiếu âm thầm.
+5. `update` bản ghi đã xoá = nhận op + `warning: RECORD_DELETED`. Lần trả cho phiếu đã xoá vẫn
+   lưu (tiền đã trả ngoài đời) + cảnh báo. Hết gói = `402` cả request.
+6. Phiếu đã chốt chỉ sửa được `attachmentIds`, `note`. `orderId` để BE5 (chỉ thêm).
+7. Cursor không ký: sửa cursor chỉ đọc lại dữ liệu của chính tổ chức (RLS); phạm vi chi nhánh
+   lấy từ membership.
+8. Khoá chi nhánh cũ `ON DELETE SET NULL` → khoá ghép `RESTRICT` (SET NULL sẽ đặt null cả
+   `organization_id`); chi nhánh chỉ xoá mềm nên không đổi hành vi.
+
+### Lỗi thật tìm ra (đã sửa, có test)
+
+- 🔴 **Tổ chức A gắn được lần trả vào phiếu của tổ chức B**: khoá ngoại một cột được Postgres
+  kiểm **không qua RLS**. Thử được trên Postgres ở máy (transaction, rollback). Sửa: khoá ngoại
+  ghép `(transaction_id, organization_id)`; chi nhánh cũng vậy.
+- 🔴 **`api_service` khôi phục được bản ghi đã xoá** (`deleted_at = null`) — quy tắc "xoá thắng"
+  chỉ nằm ở code. Sửa: trigger `keep_soft_deleted` (chặn cả role `postgres`).
+- 🔴 **Mặt hàng mặc định `prod-rubber` không phải UUID**: phiếu đầu tiên sinh op sửa giá mặt hàng
+  đó → bị từ chối → theo luật "gặp rejected là dừng", **cả hàng đợi kẹt**.
+- **Phân trang theo `updated_at` micro-giây với JS Date mili-giây**: nhiều bản ghi cùng mili-giây
+  (một transaction ghi hàng loạt có cùng `now()`) làm trang sau lặp mãi. Sửa: cột
+  `timestamptz(3)`.
+- Chồng lấn 5 giây của kế hoạch **bằng đúng** thời gian sống tối đa của transaction Prisma
+  (5 giây) — sát mép. Nâng lên 15 giây.
+- Test mặt hàng mặc định đỏ vì `order by name` với chữ có dấu tuỳ collation — sắp theo `crop`.
+
+### Chạy thật đã kiểm
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 73 · core 315 · sdk 9 · api 42; ranh giới 0 vi phạm (111 module) |
+| `npm run test:db` | **78/78**: RLS 31 (thêm khoá ngoại chéo tổ chức, khôi phục bản ghi xoá) · push 17 · pull 11 · API 19 |
+| Năm quy tắc | #1 hai máy trả song song 3tr + 5tr = 8tr · #2 gửi lại lô → duplicate, bấm hai lần → một phiếu · #3 xoá rồi sửa → vẫn xoá · #4 phiếu + lần trả cùng lô → cả hai; lần trả trước phiếu → `PARENT_MISSING`, dừng lô · #5 limit 1/2/3 → không lần trả nào mồ côi, không mất, không trùng |
+| Test có bắt lỗi thật không | Tắt phần "kèm phiếu cha đến muộn" → test tương ứng đỏ; bật lại → xanh |
+| `schema.prisma` ↔ migration | `No difference detected` |
+
+### Còn lại của BE3
+
+- [ ] Review + merge (PR #5 trước, rồi PR BE3); hợp đồng cần **cả frontend** duyệt.
+- [ ] `prisma migrate deploy` lên staging — kiểm đúng project trước, như BE2.
+- [ ] Trang thử đồng bộ trong `tools/` (như `login-test`) để nghiệm thu "hai máy thật, một máy
+      tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → khớp từng đồng".
+- [ ] Phát hành `v0.4.0` khi nghiệm thu xong.
+- Để sau (không chặn pilot): hạn mức 120 request/phút tính theo IP — mạng di động dùng chung IP
+  (CGNAT); cân nhắc tính theo người dùng cho route sync.
+
+---
+
 ## Bốn số phải giữ trong tầm
 
 | Chỉ số | Ngưỡng | Cuối BE0 |
 |---|---|---|
 | Phủ test `core` | ≥ 80% dòng | **97,7%** |
 | Vi phạm ranh giới | 0 | **0** |
-| File dài nhất trong `packages/*/src` | ≤ 300 dòng | 285 (`sheetImport.ts`, bê từ frontend) |
+| File dài nhất trong `packages/*/src` | ≤ 300 dòng | 285 (`sheetImport.ts`, bê từ frontend) · BE3: 300 (`contracts/src/sync-records.ts`) |
 | Thời gian phản hồi p95 API | ≤ 300ms ở staging | `/v1/health` ~300ms từ máy dev (gồm mạng VN → Singapore); đo p95 thật từ BE9 |
 
 ---
