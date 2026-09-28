@@ -81,6 +81,8 @@ model Branch {
   drafts       Draft[]
   orders       Order[]
 
+  /// Đích của khoá ngoại ghép: bản ghi chỉ trỏ được tới chi nhánh CÙNG tổ chức.
+  @@unique([id, organizationId])
   @@index([organizationId])
   @@map("branches")
 }
@@ -100,7 +102,7 @@ model Membership {
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  branch       Branch?      @relation(fields: [branchId], references: [id])
+  branch       Branch?      @relation(fields: [branchId, organizationId], references: [id, organizationId])
 
   @@unique([userId, organizationId])
   @@index([organizationId])
@@ -254,7 +256,7 @@ model Supplier {
   location       String?
   note           String?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
@@ -272,7 +274,7 @@ model Buyer {
   location       String?
   note           String?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
@@ -298,7 +300,7 @@ model Product {
   qualityGrades    String[]  @map("quality_grades")
   trackInventory   Boolean?  @map("track_inventory")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
@@ -330,14 +332,16 @@ model Transaction {
   attachmentIds  String[]  @map("attachment_ids")
   note           String?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  branch       Branch?      @relation(fields: [branchId], references: [id])
+  branch       Branch?      @relation(fields: [branchId, organizationId], references: [id, organizationId])
   order        Order?       @relation(fields: [orderId], references: [id])
   payments     Payment[]
 
+  /// Đích của khoá ngoại ghép từ payments: lần trả chỉ gắn được vào phiếu CÙNG tổ chức.
+  @@unique([id, organizationId])
   @@index([organizationId, date(sort: Desc)])
   @@index([organizationId, updatedAt])
   @@index([organizationId, counterpartyId])
@@ -355,11 +359,13 @@ model Payment {
   note           String?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// Có từ BE2: huỷ một lần trả phải lan sang máy khác khi kéo theo updated_at.
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  transaction  Transaction  @relation(fields: [transactionId], references: [id])
+  /// Khoá ngoại GHÉP (phiếu, tổ chức): khoá ngoại được kiểm không qua RLS, nên khoá một cột
+  /// để tổ chức A gắn lần trả vào phiếu của tổ chức B (BE3 — đã thử được trên Postgres).
+  transaction  Transaction  @relation(fields: [transactionId, organizationId], references: [id, organizationId])
 
   @@index([transactionId])
   @@index([organizationId, updatedAt])
@@ -384,11 +390,11 @@ model Draft {
   note           String?
   attachmentIds  String[]  @map("attachment_ids")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  branch       Branch?      @relation(fields: [branchId], references: [id])
+  branch       Branch?      @relation(fields: [branchId, organizationId], references: [id, organizationId])
   order        Order?       @relation(fields: [orderId], references: [id])
 
   @@index([organizationId, updatedAt])
@@ -409,7 +415,7 @@ model PricingRule {
   appliesOnPickup Boolean?  @map("applies_on_pickup")
   active          Boolean   @default(true)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
@@ -426,7 +432,7 @@ model Note {
   pinned         Boolean   @default(false)
   done           Boolean   @default(false)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])

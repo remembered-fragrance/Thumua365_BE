@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_PRODUCTS } from '@mambo/core/catalog';
 import { normalizePhone } from '@mambo/core/identifier';
 import { type MeBootstrapInput, hasBook } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
@@ -45,7 +46,8 @@ const uniqueViolation = (err: unknown): ApiException | null => {
 };
 
 /**
- * Bước "Bác là ai?" — hồ sơ + tổ chức + chủ + (vựa, DN) gói dùng thử, MỘT transaction.
+ * Bước "Bác là ai?" — hồ sơ + tổ chức + chủ + (vựa, DN) gói dùng thử và mặt hàng mặc định,
+ * MỘT transaction.
  *
  * Idempotent: người đã thuộc một tổ chức gọi lại thì không tạo gì thêm. Khoá
  * advisory theo user chặn hai lần bấm cùng lúc tạo ra hai tổ chức.
@@ -93,6 +95,22 @@ export class BootstrapService {
           await tx.subscription.create({
             data: { organizationId, status: 'trialing', trialEndsAt: new Date(Date.now() + TRIAL_DAYS * DAY_MS) },
             select: { id: true },
+          });
+          // Mặt hàng mặc định của sổ, id do server sinh: `prod-rubber`… của core không phải
+          // UUID nên không đồng bộ được. App kéo về rồi gộp theo tên như normalize() vẫn làm.
+          await tx.product.createMany({
+            data: DEFAULT_PRODUCTS.map((p) => ({
+              id: randomUUID(),
+              organizationId,
+              createdBy: user.id,
+              name: p.name,
+              unit: p.unit,
+              formulaType: p.formulaType,
+              isSuggested: true,
+              isActive: true,
+              crop: p.crop ?? null,
+              qualityGrades: [],
+            })),
           });
         }
         await recordAudit(tx, {

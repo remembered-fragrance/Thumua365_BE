@@ -147,6 +147,27 @@ describe('quyền của api_service — năm quy tắc chống mất tiền ở 
     expect(row.after?.updated_at.getTime()).toBeGreaterThan(row.before?.updated_at.getTime() ?? Infinity);
   });
 
+  it('🔴 lần trả KHÔNG gắn được vào phiếu của tổ chức khác (khoá ngoại không đi qua RLS)', async () => {
+    const { txId } = await createTransactionWithPayment(orgB);
+    const message = await serviceError(
+      { userId: alice, orgId: orgA },
+      `insert into payments (id, organization_id, transaction_id, created_by, date, amount)
+       values ($1, $2, $3, $4, now(), 1000)`,
+      [newId(), orgA, txId, alice],
+    );
+    expect(message).toMatch(/payments_transaction_id_organization_id_fkey/);
+  });
+
+  it('🔴 xoá thắng ngay ở database: bản ghi đã xoá mềm không sống lại, mốc xoá không đổi', async () => {
+    const id = await createSupplier(orgA, null, 'Đã xoá');
+    await admin.query('update suppliers set deleted_at = now() where id = $1', [id]);
+    for (const sql of ['update suppliers set deleted_at = null where id = $1', 'update suppliers set deleted_at = now() where id = $1']) {
+      expect(await serviceError({ userId: alice, orgId: orgA }, sql, [id])).toMatch(/không khôi phục được/);
+    }
+    // Admin (role postgres) cũng không lách được.
+    await expect(admin.query('update suppliers set deleted_at = null where id = $1', [id])).rejects.toThrow(/không khôi phục được/);
+  });
+
   it('audit_log chỉ ghi thêm: không sửa được', async () => {
     await asService({ userId: alice, orgId: orgA }, (c) =>
       c.query(`insert into audit_log (organization_id, actor_user_id, action, entity) values ($1, $2, 'x', 'y')`, [
