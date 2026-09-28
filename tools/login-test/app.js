@@ -136,7 +136,8 @@ const render = (session) => {
   $('signed-in').hidden = !session;
   $('who').textContent = session?.user.email ?? session?.user.phone ?? '';
   if (!session) {
-    for (const id of ['bootstrap-box', 'org-box', 'otp-box']) $(id).hidden = true;
+    for (const id of ['bootstrap-box', 'org-box', 'otp-box', 'links-box']) $(id).hidden = true;
+    $('links').replaceChildren();
     // Xoá sạch lựa chọn của người trước — không thì tài khoản sau "thừa hưởng" loại tổ
     // chức cũ và bấm "Xong" là tạo nhầm loại (đã gặp khi nghiệm thu BE2).
     for (const id of ['bootstrap', 'signup', 'otp-send', 'otp-verify']) $(id).reset();
@@ -153,6 +154,7 @@ const renderMe = (me) => {
   $('bootstrap-box').hidden = hasOrg;
   $('org-box').hidden = !hasOrg;
   $('otp-box').hidden = !hasOrg;
+  $('links-box').hidden = !hasOrg;
 
   const select = $('org-select');
   select.replaceChildren(
@@ -338,6 +340,70 @@ $('discover-btn').addEventListener('click', () =>
     show('POST /v1/links/discover — 200', res);
     say(`Tạo ${res.created} lời mời mới · đang chờ ${res.pending}.`, 'ok');
     await refreshMe();
+    await loadLinks();
+  }),
+);
+
+// ─── Kết nối (BE4) ───────────────────────────────────────────────────────────
+
+const el = (tag, props = {}, ...children) => {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+};
+
+const STATUS = { pending: 'chờ đồng ý', active: 'đang kết nối', revoked: 'đã huỷ' };
+
+const renderLinks = (links) => {
+  $('links').replaceChildren(
+    ...(links.length === 0 ? [el('p', { className: 'hint', textContent: 'Chưa có kết nối nào.' })] : []),
+    ...links.map((l) => {
+      const who = l.side === 'linked' ? `Sổ của ${l.counterpart?.name ?? '—'} (ghi bác là "${l.partner.name}")` : `Sổ của mình → ${l.partner.name}`;
+      const buttons = [];
+      if (l.side === 'linked' && l.status === 'pending') buttons.push(['Đồng ý', () => act(`POST /v1/links/${l.id}/accept`, () => api.links.accept(l.id))]);
+      if (l.side === 'linked' && l.status === 'active' && l.counterpart) {
+        const orgId = l.counterpart.id;
+        buttons.push(['Xem phiếu', () => act('GET /v1/linked/receipts', () => api.linked.receipts({ orgId }), false)]);
+      }
+      if (l.status !== 'revoked') buttons.push(['Huỷ kết nối', () => act(`POST /v1/links/${l.id}/revoke`, () => api.links.revoke(l.id))]);
+      return el(
+        'p',
+        {},
+        `${who} · ${STATUS[l.status]} `,
+        ...buttons.map(([text, onclick]) => el('button', { type: 'button', className: 'secondary', textContent: text, onclick })),
+      );
+    }),
+  );
+};
+
+const loadLinks = async () => {
+  const { links } = await api.links.list();
+  renderLinks(links);
+  return links;
+};
+
+/** Gọi một việc về kết nối, hiện kết quả, rồi (nếu đổi trạng thái) tải lại danh sách. */
+const act = (title, work, reload = true) =>
+  run($('links-btn'), title, async () => {
+    const res = await work();
+    show(`${title} — 200`, res);
+    say(`${title}: xong.`, 'ok');
+    if (reload) await loadLinks();
+    await refreshMe();
+  });
+
+$('links-btn').addEventListener('click', () =>
+  run($('links-btn'), 'GET /v1/links', async () => {
+    const links = await loadLinks();
+    say(`${links.length} kết nối.`, 'ok');
+  }),
+);
+
+$('balance-btn').addEventListener('click', () =>
+  run($('balance-btn'), 'GET /v1/linked/balance', async () => {
+    const res = await api.linked.balance();
+    show('GET /v1/linked/balance — 200', res);
+    say(res.items.map((i) => `${i.organization.name}: họ nợ ${i.theyOwe.toLocaleString('vi-VN')}đ · bác nợ ${i.youOwe.toLocaleString('vi-VN')}đ`).join(' | ') || 'Chưa kết nối với ai.', 'ok');
   }),
 );
 

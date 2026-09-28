@@ -12,6 +12,7 @@
         "@mambo/sdk": "/pkg/sdk/index.js",
         "@mambo/contracts": "/pkg/contracts/index.js",
         "@mambo/core/calc": "/pkg/core/calc.js",
+        "@mambo/core/identifier": "/pkg/core/identifier.js",
         "zod": "/pkg/zod/index.js"
       }
     }
@@ -51,6 +52,7 @@
       <h2>Lập phiếu mua</h2>
       <form id="receipt-form">
         <label>Người bán <input id="r-seller" value="Khách lẻ" required></label>
+        <label>SĐT người bán (để kết nối — để trống nếu là khách lẻ) <input id="r-phone" inputmode="tel"></label>
         <label>Mặt hàng <select id="r-product" required></select></label>
         <label>Khối lượng (kg) <input id="r-weight" inputmode="decimal" value="100" required></label>
         <label id="r-extra-label">Hàm lượng (%) <input id="r-extra" inputmode="decimal" value="30"></label>
@@ -67,6 +69,13 @@
       <h2>Sổ của máy này</h2>
       <pre id="totals"></pre>
       <p class="hint">Hai máy đã đồng bộ xong thì dòng "Dấu sổ" phải giống hệt nhau.</p>
+    </section>
+
+    <section id="parties-box" hidden>
+      <h2>Người bán &amp; kết nối</h2>
+      <p class="hint">Người bán có số điện thoại thì mời được. Nông dân xác thực đúng số đó bằng OTP rồi đồng ý
+        mới xem được phiếu của mình (BE4).</p>
+      <div id="parties"></div>
     </section>
 
     <section id="receipts-box" hidden>
