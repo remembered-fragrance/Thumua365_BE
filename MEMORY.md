@@ -1091,6 +1091,28 @@ vận hành **`ops/PRODUCTION.md`** (gom mọi "còn lại" của BE4–BE10, th
 
 ### Còn lại — xem `ops/PRODUCTION.md`
 
+
+### Gom về repo BE · nhánh `be10/production` · 03/10/2026
+
+Cherry-pick `a4d0643` giữ tác giả (giữ lệnh `security:check`, bỏ phần `verify` của web). Sửa khi gom:
+
+- **Phục hồi backup vào một Postgres mới bị hỏng** — đính chính dòng "Backup → phục hồi … khớp" ở trên: lần thử đó
+  phục hồi trong CÙNG cluster, nơi role có sẵn. Policy RLS ghi `TO api_service`, role là của cả cluster nên bản dump
+  không mang theo ⇒ phục hồi vào cluster / project mới dừng ngay ở policy đầu tiên (job thử phục hồi Chủ nhật của
+  `backup.yml` sẽ luôn đỏ). Sửa: `restore-check.sh` tạo role trước khi phục hồi; `ops/backup/roundtrip-check.sh`
+  sao lưu Postgres của docker compose rồi phục hồi vào một cluster mới tinh — đỏ trước khi sửa, xanh sau; **CI job
+  `db` chạy nó sau `test:db`**.
+- Chưa thêm service production vào `render.yaml` (Blueprint sẽ tạo ngay service trả phí khi chưa có bí mật) — thêm lúc
+  làm mục 6 của `ops/PRODUCTION.md`. `security:check` soi `tools/login-test` thay `apps/web/src`.
+  `ops/PRODUCTION.md` theo mã kết nối (Phone provider để tắt) và repo chỉ backend.
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 83 · core 315 · sdk 13 · api 46; không lộ bí mật |
+| `npm run test:db` (database dựng lại từ đầu, 8 migration) | **164/164** |
+| `schema.prisma` ↔ migration | `No difference detected` |
+| `bash ops/backup/roundtrip-check.sh` | Phục hồi vào cluster trống, số dòng khớp |
+
 ---
 
 ## Bốn số phải giữ trong tầm
