@@ -3,6 +3,17 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.10.0 — chưa phát hành (BE9)
+
+- `routes.eventsTrack` — `POST /v1/events` (công khai, `optionalAuth`), thân `{ events: TrackedEvent[] }`
+  (≤ 50) → `{ accepted, dropped }`. Sự kiện sai bị bỏ riêng, không 422 cả lô.
+- `TrackedEvent` — `discriminatedUnion('name')`, 17 sự kiện của app, thuộc tính `strictObject` (không
+  tên, SĐT, email, số tiền). `SERVER_EVENT_NAMES`: `plan_activated`, `order_fulfilled`, `link_accepted`
+  — server tự bắn, app gửi bị bỏ.
+- `RouteDef.optionalAuth` — route công khai mà client gửi token NẾU có (chỉ `eventsTrack`).
+- `routes.adminFunnel` — `GET /v1/admin/funnel?from=&to=` (quản trị viên) → `AdminFunnel`.
+- `@mambo/sdk`: `events.track`; route có `optionalAuth` gửi token nếu `getAccessToken` trả được.
+
 ## 0.9.0 — chưa phát hành (BE8)
 
 - `routes.attachmentsUploadUrl` — `POST /v1/attachments/upload-url` (`receipt:create`), thân

@@ -13,6 +13,7 @@ import {
   ErrorBody,
   routes,
   type ErrorCode,
+  type EventsTrackRequest,
   type RouteBody,
   type RouteName,
   type RouteQuery,
@@ -80,6 +81,10 @@ export const createClient = (options: ClientOptions) => {
       const token = await options.getAccessToken();
       if (!token) throw new ApiError('UNAUTHENTICATED', 401, 'Chưa đăng nhập');
       headers.authorization = `Bearer ${token}`;
+    } else if ('optionalAuth' in route && route.optionalAuth) {
+      // Route công khai nhận token NẾU có (đo lường — để gắn đúng tổ chức). Không có thì thôi.
+      const token = await Promise.resolve(options.getAccessToken()).catch(() => null);
+      if (token) headers.authorization = `Bearer ${token}`;
     }
     const orgId = options.getOrganizationId?.();
     if (orgId) headers['x-organization-id'] = orgId;
@@ -181,6 +186,13 @@ export const createClient = (options: ClientOptions) => {
       schedule: (id: string, input: RouteBody<'orderSchedule'>) => call('orderSchedule', input, undefined, { id }),
       /** Bên nào cũng được, khi đơn chưa hoàn thành. */
       cancel: (id: string, input: RouteBody<'orderCancel'>) => call('orderCancel', input, undefined, { id }),
+    },
+    /**
+     * Đo lường (BE9). Gọi từ hàng đợi `track()` của app, lô ≤ 50; token và tổ chức gửi nếu có. Sự
+     * kiện sai hình dạng bị bỏ riêng (`dropped`), không làm hỏng lô — đừng gửi lại chúng.
+     */
+    events: {
+      track: (input: EventsTrackRequest) => call('eventsTrack', input),
     },
     /** Ảnh chứng từ (BE8) — ảnh đi thẳng giữa app và Storage, API chỉ ký URL. */
     attachments: {

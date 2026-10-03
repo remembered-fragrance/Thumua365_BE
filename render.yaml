@@ -39,6 +39,9 @@ services:
       # Id tài khoản quản trị viên, cách nhau bằng dấu phẩy.
       - key: ADMIN_USER_IDS
         sync: false
+      # BE9 — token cho Prometheus đọc /metrics (≥ 24 ký tự). Trống = /metrics trả 404.
+      - key: METRICS_TOKEN
+        sync: false
       - key: CORS_ORIGINS
         sync: false
       - key: LOG_LEVEL

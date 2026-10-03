@@ -57,6 +57,12 @@ const EnvSchema = z
       .optional()
       .transform((v) => (v ? v : undefined))
       .pipe(z.string().min(24, 'ít nhất 24 ký tự').optional()),
+    /** Token cho Prometheus đọc `GET /metrics` (BE9). Trống = /metrics trả 404. */
+    METRICS_TOKEN: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v : undefined))
+      .pipe(z.string().min(24, 'ít nhất 24 ký tự').optional()),
     /** Id tài khoản (auth.users) của quản trị viên, cách nhau bằng dấu phẩy. Trống = không ai. */
     ADMIN_USER_IDS: csv.pipe(z.array(z.uuid())),
     CORS_ORIGINS: csv,

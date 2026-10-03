@@ -8223,6 +8223,1311 @@
         }
       }
     },
+    "/v1/events": {
+      "post": {
+        "operationId": "eventsTrack",
+        "summary": "Một lô sự kiện đo lường (≤ 50). Đăng nhập là tuỳ chọn: có token + X-Organization-Id thì gắn tổ chức. Sự kiện sai bị bỏ riêng, không 422 cả lô",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "events": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "app_opened"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "sign_up_completed"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "orgType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "farmer",
+                                    "trader",
+                                    "enterprise"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "orgType"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "login_succeeded"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "method": {
+                                  "type": "string",
+                                  "enum": [
+                                    "phone",
+                                    "username",
+                                    "email"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "method"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "login_failed"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "reason": {
+                                  "type": "string",
+                                  "enum": [
+                                    "wrong_credentials",
+                                    "network",
+                                    "other"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "reason"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "order_created"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "seller",
+                                    "buyer"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "role"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "order_accepted"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "order_scheduled"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "receipt_created"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "purchase",
+                                    "sale"
+                                  ]
+                                },
+                                "lines": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000
+                                },
+                                "offline": {
+                                  "type": "boolean"
+                                },
+                                "fromOrder": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "lines",
+                                "offline",
+                                "fromOrder"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "receipt_shared"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "channel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "zalo",
+                                    "image",
+                                    "pdf",
+                                    "other"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "channel"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "debt_payment_recorded"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "offline": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "offline"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "import_completed"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "receipts",
+                                    "partners"
+                                  ]
+                                },
+                                "rows": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "rows"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "quota_wall_shown"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "feature": {
+                                  "type": "string",
+                                  "enum": [
+                                    "sync",
+                                    "branches",
+                                    "other"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "feature"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "plans_viewed"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "checkout_started"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "months": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "const": 1
+                                    },
+                                    {
+                                      "type": "number",
+                                      "const": 12
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "months"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "member_invited"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "manager",
+                                    "staff"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "role"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "contact_clicked"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "channel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "zalo",
+                                    "phone",
+                                    "email"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "channel"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "account_deleted"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "events"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-rate-limit-per-minute": 60,
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000
+                    },
+                    "dropped": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000
+                    }
+                  },
+                  "required": [
+                    "accepted",
+                    "dropped"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/funnel": {
+      "get": {
+        "operationId": "adminFunnel",
+        "summary": "Phễu đo lường theo loại tổ chức và tên sự kiện trong khoảng thời gian",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "to": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "orgType": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "farmer",
+                                  "trader",
+                                  "enterprise"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "events": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000
+                          },
+                          "organizations": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000
+                          },
+                          "devices": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000
+                          },
+                          "firstAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "lastAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          }
+                        },
+                        "required": [
+                          "orgType",
+                          "name",
+                          "events",
+                          "organizations",
+                          "devices",
+                          "firstAt",
+                          "lastAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/attachments/upload-url": {
       "post": {
         "operationId": "attachmentsUploadUrl",
