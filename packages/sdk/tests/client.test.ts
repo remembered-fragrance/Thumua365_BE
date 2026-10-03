@@ -157,6 +157,41 @@ describe('@mambo/sdk', () => {
     expect(calls[0]?.init?.body).toBe(JSON.stringify({ code: 'k7m2-qx9p' }));
   });
 
+  it('orders.schedule: :id vào đường dẫn, version + lịch vào thân; list bỏ tham số trống', async () => {
+    const order = {
+      id: '0b9e4c1a-2d3f-4a5b-9c6d-7e8f9a0b1c2d',
+      status: 'scheduled',
+      version: 3,
+      role: 'buyer',
+      createdByMe: false,
+      counterpart: { id: '6f1c1d2e-3b4a-4c5d-8e9f-0a1b2c3d4e5f', name: 'Hộ cô Mai', type: 'farmer' },
+      crop: 'rubber',
+      productId: null,
+      estQuantity: 1000,
+      unit: 'kg',
+      offeredPrice: 47_940,
+      pickupAt: '2026-10-05T01:00:00.000Z',
+      pickupAddress: null,
+      branchId: null,
+      partnerId: null,
+      createdAt: '2026-10-03T03:00:00.000Z',
+      updatedAt: '2026-10-03T03:05:00.000Z',
+    };
+    const { calls, fetchFn } = recorder(json(200, order));
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+
+    const input = { version: 2, pickupAt: '2026-10-05T01:00:00.000Z' };
+    await expect(client.orders.schedule(order.id, input)).resolves.toEqual(order);
+    expect(calls[0]?.url).toBe(`https://api.test/v1/orders/${order.id}/schedule`);
+    expect(calls[0]?.init?.method).toBe('POST');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual(input);
+
+    const list = recorder(json(200, { orders: [order], cursor: null }));
+    const listing = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: list.fetchFn });
+    await listing.orders.list({ role: 'buyer' });
+    expect(list.calls[0]?.url).toBe('https://api.test/v1/orders?role=buyer');
+  });
+
   it('sync.pull lần đầu: không có query string', async () => {
     const { calls, fetchFn } = recorder(json(200, emptyPull));
     const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });

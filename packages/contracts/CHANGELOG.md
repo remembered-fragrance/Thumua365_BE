@@ -3,6 +3,32 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.6.0 — chưa phát hành (BE5)
+
+- `routes.ordersList` — `GET /v1/orders?role=&status=&cursor=&limit=` → `OrdersListResult
+  { orders: OrderSummary[], cursor }`, mới tạo trước. Cần `order:create` hoặc `order:respond`.
+- `routes.ordersCreate` — `POST /v1/orders` (`order:create`), thân `OrderCreateInput { role,
+  counterpartOrgId, crop?, productId?, estQuantity, unit = 'kg', offeredPrice?, pickupAt?,
+  pickupAddress?, note? }` → `OrderSummary`. Chưa kết nối đúng chiều → `LINK_REQUIRED`.
+- `routes.orderGet` — `GET /v1/orders/:id` → `OrderDetail` (= `OrderSummary` + `events`).
+- `routes.orderAccept` · `orderReject` — `POST /v1/orders/:id/{accept,reject}` (`order:respond`, bên
+  nhận đơn), thân `OrderTransitionInput { version, note? }`.
+- `routes.orderSchedule` — `POST /v1/orders/:id/schedule` (`order:respond`, bên mua), thân
+  `OrderScheduleInput { version, pickupAt, pickupAddress?, note? }`. Hẹn lại được.
+- `routes.orderCancel` — `POST /v1/orders/:id/cancel`, bên nào cũng được. Mọi bước chuyển: version
+  lệch hoặc trạng thái không cho → 409 `ORDER_STATE_CHANGED` kèm `details { status, version }` mới.
+- `routes.notificationsList` — `GET /v1/notifications?cursor=&limit=` → `NotificationsResult
+  { notifications, unread, cursor }`. `routes.notificationsRead` — `POST /v1/notifications/read
+  { ids? }` → `{ unread }`; bỏ `ids` = tất cả.
+- `NotificationKind` liệt kê sẵn cả loại của BE6/BE7 (`member.*`, `plan.activated`).
+- Sync: `orderId` (tuỳ chọn) trong `TransactionInsert`, `DraftInsert`/`DraftPatch`; `orderId` trong
+  `TransactionRecord`, `DraftRecord`. Phiếu theo đơn còn mở → đơn `fulfilled`; đơn đã huỷ → phiếu
+  vẫn ghi, `orderId` bị gỡ, `warning: ORDER_NOT_OPEN`; đơn không có / sai bên → `rejected`
+  `VALIDATION_FAILED` (`details.fields.orderId`).
+- Tổ chức lại file (không đổi export): `RouteDef` ở `route-def.ts`, route BE5 ở
+  `routes-orders.ts`, phép kiểm khớp kiểu với core ở `sync-records-core.ts`.
+- `@mambo/sdk`: `orders.list/create/get/accept/reject/schedule/cancel`, `notifications.list/read`.
+
 ## 0.5.0 — 03/10/2026 (BE4)
 
 - `RouteDef.params` — tham số trên đường dẫn (`/v1/links/:id/accept`): server kiểm như thân

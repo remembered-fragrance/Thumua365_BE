@@ -15,6 +15,7 @@ import {
   type ErrorCode,
   type RouteBody,
   type RouteName,
+  type RouteQuery,
   type RouteResponse,
   type RouteWithBody,
   type SyncPushRequest,
@@ -153,6 +154,40 @@ export const createClient = (options: ClientOptions) => {
         call('linkedReceipts', undefined, { orgId: params.orgId, cursor: params.cursor, limit: params.limit }),
       /** Công nợ với từng tổ chức đang kết nối. */
       balance: () => call('linkedBalance'),
+    },
+    /**
+     * Đơn hàng & đặt lịch (BE5) — cần mạng. Mọi bước chuyển gửi kèm `version` đang thấy; bên kia
+     * vừa đổi → `ApiError` `ORDER_STATE_CHANGED`: tải lại đơn (`get`) rồi làm lại.
+     */
+    orders: {
+      /** Mới tạo trước. Gọi lại với `cursor` tới khi null. */
+      list: (
+        params: {
+          readonly role?: RouteQuery<'ordersList'>['role'];
+          readonly status?: RouteQuery<'ordersList'>['status'];
+          readonly cursor?: string;
+          readonly limit?: number;
+        } = {},
+      ) => call('ordersList', undefined, { role: params.role, status: params.status, cursor: params.cursor, limit: params.limit }),
+      /** Chỉ với tổ chức đã kết nối đúng chiều — không thì `LINK_REQUIRED`. */
+      create: (input: RouteBody<'ordersCreate'>) => send('ordersCreate', input),
+      /** Một đơn kèm lịch sử. */
+      get: (id: string) => call('orderGet', undefined, undefined, { id }),
+      /** Bên nhận đơn. */
+      accept: (id: string, input: RouteBody<'orderAccept'>) => call('orderAccept', input, undefined, { id }),
+      /** Bên nhận đơn. */
+      reject: (id: string, input: RouteBody<'orderReject'>) => call('orderReject', input, undefined, { id }),
+      /** Bên mua; gọi lại khi đã hẹn để đổi lịch. */
+      schedule: (id: string, input: RouteBody<'orderSchedule'>) => call('orderSchedule', input, undefined, { id }),
+      /** Bên nào cũng được, khi đơn chưa hoàn thành. */
+      cancel: (id: string, input: RouteBody<'orderCancel'>) => call('orderCancel', input, undefined, { id }),
+    },
+    /** Thông báo trong app (BE5). Hỏi khi mở app và mỗi 60 giây. */
+    notifications: {
+      list: (params: { readonly cursor?: string; readonly limit?: number } = {}) =>
+        call('notificationsList', undefined, { cursor: params.cursor, limit: params.limit }),
+      /** Bỏ trống `ids` = đánh dấu tất cả. Trả số còn chưa đọc. */
+      read: (input: RouteBody<'notificationsRead'> = {}) => send('notificationsRead', input),
     },
     /** Sổ offline — chỉ vựa và doanh nghiệp. Cần `getOrganizationId` = tổ chức sở hữu sổ. */
     sync: {
