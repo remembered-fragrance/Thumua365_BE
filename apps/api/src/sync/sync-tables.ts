@@ -163,6 +163,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       note: row.note,
       attachmentIds: list(row.attachmentIds),
       branchId: row.branchId,
+      orderId: row.orderId,
     }),
   },
 
@@ -183,6 +184,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       attachmentIds: list(row.attachmentIds),
       note: row.note,
       branchId: row.branchId,
+      orderId: row.orderId,
     }),
   },
 

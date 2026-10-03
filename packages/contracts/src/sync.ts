@@ -185,7 +185,8 @@ export type SyncOpStatus = z.infer<typeof SyncOpStatus>;
  * Cảnh báo kèm op ĐÃ nhận (không phải lỗi — app xoá op khỏi hàng đợi như thường):
  *   RECORD_DELETED — bản ghi (hoặc phiếu cha của lần trả) đã bị xoá. Xoá thắng: sửa đến sau
  *                    không làm bản ghi sống lại; lần trả vẫn được lưu nhưng không hiện.
- *   ORDER_NOT_OPEN — (BE5) đơn đã huỷ: phiếu vẫn ghi nhưng bị gỡ khỏi đơn.
+ *   ORDER_NOT_OPEN — (BE5) đơn đã huỷ, không còn hay không đúng bên: phiếu / nháp vẫn ghi nhưng bị
+ *                    gỡ khỏi đơn.
  */
 export const SyncWarning = z.enum(['RECORD_DELETED', 'ORDER_NOT_OPEN']);
 export type SyncWarning = z.infer<typeof SyncWarning>;
