@@ -19,6 +19,11 @@ import { LinksController } from './links/links.controller';
 import { LinksService } from './links/links.service';
 import { BootstrapService } from './me/bootstrap.service';
 import { MeController } from './me/me.controller';
+import { NotificationsController } from './notifications/notifications.controller';
+import { NotificationsListener } from './notifications/notifications.listener';
+import { NotificationsService } from './notifications/notifications.service';
+import { OrdersController } from './orders/orders.controller';
+import { OrdersService } from './orders/orders.service';
 import { SyncController } from './sync/sync.controller';
 import { SyncPullService } from './sync/sync-pull.service';
 import { SyncPushService } from './sync/sync-push.service';
@@ -42,7 +47,15 @@ export class AppModule {
         ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: env.RATE_LIMIT_PER_MINUTE }] }),
         EventEmitterModule.forRoot(),
       ],
-      controllers: [HealthController, MeController, AuthController, LinksController, SyncController],
+      controllers: [
+        HealthController,
+        MeController,
+        AuthController,
+        LinksController,
+        OrdersController,
+        NotificationsController,
+        SyncController,
+      ],
       providers: [
         { provide: ENV, useValue: env },
         { provide: JWKS, useValue: deps.jwks },
@@ -55,6 +68,9 @@ export class AppModule {
         DomainEvents,
         BootstrapService,
         LinksService,
+        OrdersService,
+        NotificationsService,
+        NotificationsListener,
         SyncPushService,
         SyncPullService,
         // Thứ tự đăng ký = thứ tự chạy.

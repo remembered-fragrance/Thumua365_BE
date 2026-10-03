@@ -8,6 +8,10 @@
  *      thắng" theo đúng thứ tự server nhận;
  *   2. `opId` đã có trong `sync_ops` → `duplicate` (máy gửi lại vì mất phản hồi);
  *   3. làm op; 4. ghi `sync_ops` — CÙNG transaction, nên op hoặc đã làm và đã ghi, hoặc chưa gì.
+ *
+ * Phiếu lập theo đơn (`orderId`, BE5): đơn sang `fulfilled` + `order_events` trong CÙNG transaction
+ * với phiếu; sau commit phát `order.fulfilled`. Đơn đã huỷ → phiếu vẫn ghi, gỡ `orderId`, cảnh báo
+ * `ORDER_NOT_OPEN` — phiếu là việc đã cân thật ngoài đời, không bao giờ bị từ chối vì đơn.
  */
 
 import { computeReceiptTotal, freezeLineTotals, totalAdjustments } from '@mambo/core/calc';
@@ -33,12 +37,16 @@ import type { MembershipContext } from '../auth/membership';
 import { planSummary } from '../auth/prisma-memberships';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
-import { LOGGER } from '../events/domain-events';
+import { DomainEvents, LOGGER, type OrderChanged } from '../events/domain-events';
 import { Prisma } from '../generated/prisma/client';
+import { changeOf, logStep } from '../orders/order-records';
 import { type BranchRule, delegateOf, SYNC_TABLES } from './sync-tables';
 
 type Input = z.output<typeof SyncPushInput>;
-type Outcome = Pick<SyncOpResult, 'status' | 'warning'>;
+type Outcome = Pick<SyncOpResult, 'status' | 'warning'> & {
+  /** Đơn vừa hoàn thành nhờ op này — phát sự kiện SAU KHI transaction commit. */
+  readonly fulfilled?: OrderChanged;
+};
 
 /** Op bị từ chối — ném trong transaction để rollback, bắt lại thành kết quả `rejected`. */
 class OpRejected extends Error {
@@ -66,10 +74,12 @@ const DUPLICATE: Outcome = { status: 'duplicate' };
 export class SyncPushService {
   private readonly db: Database;
   private readonly logger: Logger;
+  private readonly events: DomainEvents;
 
-  constructor(@Inject(DATABASE) db: Database, @Inject(LOGGER) logger: Logger) {
+  constructor(@Inject(DATABASE) db: Database, @Inject(LOGGER) logger: Logger, events: DomainEvents) {
     this.db = db;
     this.logger = logger;
+    this.events = events;
   }
 
   async push(user: AuthUser, membership: MembershipContext, input: Input, requestId: string): Promise<SyncPushResult> {
@@ -122,9 +132,11 @@ export class SyncPushService {
     }
 
     try {
-      const outcome = await this.db.scoped({ userId: ctx.user.id, orgId: ctx.membership.organizationId }, (tx) =>
-        this.inTransaction(tx, ctx, op),
+      const { fulfilled, ...outcome } = await this.db.scoped(
+        { userId: ctx.user.id, orgId: ctx.membership.organizationId },
+        (tx) => this.inTransaction(tx, ctx, op),
       );
+      if (fulfilled) this.events.emit('order.fulfilled', fulfilled);
       return { opId: op.opId, ...outcome };
     } catch (err) {
       return this.toRejection(op, err, ctx.requestId);
@@ -168,7 +180,7 @@ export class SyncPushService {
       // Id đã có TRONG tổ chức này = gửi lại. Id của tổ chức khác thì RLS giấu, và insert
       // bên dưới vỡ khoá chính → rejected (không phải duplicate — không thì máy xoá op, mất phiếu).
       if (existing) return DUPLICATE;
-      const { data, warning } = await this.prepareInsert(tx, ctx, op);
+      const { data, warning, fulfilled } = await this.prepareInsert(tx, ctx, op);
       await model.create({
         data: {
           ...table.defaults,
@@ -179,7 +191,7 @@ export class SyncPushService {
         },
         select: { id: true },
       });
-      return warning ? { status: 'applied', warning } : APPLIED;
+      return { status: 'applied', ...(warning ? { warning } : {}), ...(fulfilled ? { fulfilled } : {}) };
     }
 
     if (!existing) {
@@ -191,6 +203,9 @@ export class SyncPushService {
     if (op.kind === 'update') {
       // Xoá thắng: sửa đến sau không làm bản ghi sống lại (quy tắc số 3).
       if (deletedAt) return { status: 'applied', warning: 'RECORD_DELETED' };
+      if (op.entity === 'draft' && typeof op.data?.orderId === 'string') {
+        await findOrderFor(tx, ctx, op.data.orderId, (op.data.kind ?? null) as string | null);
+      }
       await model.update({ where: { id: op.recordId }, data: table.toDb(op.data ?? {}), select: { id: true } });
       return APPLIED;
     }
@@ -206,7 +221,7 @@ export class SyncPushService {
     tx: Tx,
     ctx: PushContext,
     op: ParsedSyncOp,
-  ): Promise<{ data: Record<string, unknown>; warning?: SyncWarning }> {
+  ): Promise<{ data: Record<string, unknown>; warning?: SyncWarning; fulfilled?: OrderChanged }> {
     const data = { ...(op.data ?? {}) };
 
     if (op.entity === 'transaction' || op.entity === 'draft') {
@@ -215,6 +230,11 @@ export class SyncPushService {
 
     if (op.entity === 'transaction') {
       data.lines = verifyLineTotals(data.lines as TransactionLine[]);
+      if (typeof data.orderId === 'string') return this.fulfil(tx, ctx, data);
+    }
+
+    if (op.entity === 'draft' && typeof data.orderId === 'string') {
+      await findOrderFor(tx, ctx, data.orderId, (data.kind ?? null) as string | null);
     }
 
     if (op.entity === 'payment') {
@@ -229,6 +249,24 @@ export class SyncPushService {
     }
 
     return { data };
+  }
+
+  /** Phiếu theo đơn (KH §4.1 mục 8). Đơn còn mở → `fulfilled`; đã huỷ → gỡ khỏi đơn; đã xong → chỉ gắn. */
+  private async fulfil(
+    tx: Tx,
+    ctx: PushContext,
+    data: Record<string, unknown>,
+  ): Promise<{ data: Record<string, unknown>; warning?: SyncWarning; fulfilled?: OrderChanged }> {
+    const order = await findOrderFor(tx, ctx, data.orderId as string, data.kind as string);
+    if (order.status === 'cancelled') return { data: { ...data, orderId: null }, warning: 'ORDER_NOT_OPEN' };
+    if (order.status === 'fulfilled') return { data };
+
+    const done = await tx.order.update({
+      where: { id: order.id },
+      data: { status: 'fulfilled', version: { increment: 1 } },
+    });
+    await logStep(tx, order.id, order.status, 'fulfilled', ctx.user.id, ctx.membership.organizationId, null);
+    return { data, fulfilled: changeOf(done, ctx.user, ctx.membership.organizationId) };
   }
 
   /** Xoá phiếu, huỷ lần trả → nhật ký trong CÙNG transaction. */
@@ -339,4 +377,29 @@ const verifyLineTotals = (lines: TransactionLine[]): TransactionLine[] => {
     });
   }
   return frozen;
+};
+
+/**
+ * Đơn mà tổ chức là ĐÚNG bên: phiếu mua ↔ bên mua, phiếu bán ↔ bên bán, nháp chưa chọn chiều ↔ bên
+ * nào cũng được. Sai thì từ chối op có giải thích (app đang gắn nhầm đơn) — trigger
+ * `book_order_guard` giữ cùng luật ở database.
+ */
+const findOrderFor = async (tx: Tx, ctx: PushContext, orderId: string, kind: string | null) => {
+  const orgId = ctx.membership.organizationId;
+  const order = await tx.order.findFirst({
+    where: {
+      id: orderId,
+      OR: [
+        ...(kind !== 'sale' ? [{ buyerOrgId: orgId }] : []),
+        ...(kind !== 'purchase' ? [{ sellerOrgId: orgId }] : []),
+      ],
+    },
+    select: { id: true, status: true },
+  });
+  if (!order) {
+    throw new OpRejected('VALIDATION_FAILED', 'Không có đơn này, hoặc tổ chức không phải đúng bên của đơn', {
+      fields: { orderId: 'Không có đơn này cho phía mua/bán của phiếu' },
+    });
+  }
+  return order;
 };
