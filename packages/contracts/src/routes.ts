@@ -24,6 +24,7 @@ import {
 } from './links.js';
 import { Me, MeBootstrapInput } from './me.js';
 import type { RouteDef } from './route-def.js';
+import { accountRoutes } from './routes-account.js';
 import { orderRoutes } from './routes-orders.js';
 import { orgRoutes } from './routes-org.js';
 import { SyncPullQuery, SyncPullResult, SyncPushInput, SyncPushRequest, SyncPushResult } from './sync.js';
@@ -142,6 +143,7 @@ export const routes = {
   },
   ...orderRoutes,
   ...orgRoutes,
+  ...accountRoutes,
   syncPush: {
     method: 'POST',
     path: '/v1/sync/push',

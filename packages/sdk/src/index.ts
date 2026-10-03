@@ -182,6 +182,25 @@ export const createClient = (options: ClientOptions) => {
       /** Bên nào cũng được, khi đơn chưa hoàn thành. */
       cancel: (id: string, input: RouteBody<'orderCancel'>) => call('orderCancel', input, undefined, { id }),
     },
+    /** Hồ sơ, mã giới thiệu, xoá tài khoản (BE6). */
+    account: {
+      profile: () => call('meProfile'),
+      updateProfile: (patch: RouteBody<'meProfileUpdate'>) => send('meProfileUpdate', patch),
+      /** Luôn trả `{ claimed }` — không cho biết vì sao mã không dùng được. */
+      claimReferral: (input: RouteBody<'referralsClaim'>) => send('referralsClaim', input),
+      /**
+       * Xoá THẬT. Còn người khác trong tổ chức mình là chủ → `VALIDATION_FAILED`,
+       * `details.reason: 'ORG_HAS_MEMBERS'`. Xong thì xoá dấu vết trên máy và đăng xuất.
+       */
+      delete: () => call('meDelete'),
+    },
+    /** Gói và chuyển khoản (BE6) — chỉ màn của chủ (`billing:manage`). */
+    billing: {
+      subscription: () => call('meSubscription'),
+      intents: () => call('billingIntentsList'),
+      /** Chủ vựa định chuyển khoản: trả mã đối soát + nội dung chuyển khoản cho mã QR. */
+      createIntent: (input: RouteBody<'billingIntentsCreate'>) => send('billingIntentsCreate', input),
+    },
     /** Nhân viên và chi nhánh (BE7) — màn của chủ vựa / doanh nghiệp. */
     org: {
       members: {

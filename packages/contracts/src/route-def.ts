@@ -9,8 +9,10 @@ import type { Permission } from './permissions.js';
  *   public — không cần đăng nhập
  *   user   — cần JWT của Supabase
  *   org    — cần JWT + header `X-Organization-Id` của tổ chức người đó là thành viên
+ *   admin  — cần JWT của một quản trị viên (id nằm trong `ADMIN_USER_IDS` của API); không ai khác
+ *            gọi được, kể cả chủ tổ chức (BE6)
  */
-export type RouteAuth = 'public' | 'user' | 'org';
+export type RouteAuth = 'public' | 'user' | 'org' | 'admin';
 
 export interface RouteDef {
   readonly method: 'GET' | 'POST' | 'PATCH' | 'DELETE';

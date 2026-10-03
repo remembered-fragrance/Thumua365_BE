@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5, BE7 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5, BE7, BE6 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -905,6 +905,57 @@ chủ: tổng = hai chi nhánh cộng lại; chi nhánh thứ 3 với gói 2 →
 
 **Gom về repo BE** (nhánh `be7/doanh-nghiep`, 03/10): cherry-pick `e6f746a` giữ tác giả, không sửa code. `verify`
 xanh; `test:db` **134/134** trên database dựng lại từ đầu; schema khớp migration.
+
+---
+
+## BE6 — Tài khoản, gói, thanh toán · 🟡 · nhánh `be6/goi-thanh-toan` · 03/10/2026
+
+**Kết quả:** hợp đồng + migration + API + test xong (`test:db` **137/137**). VAN_HANH §7.3 (bản cũ,
+`apps/web/supabase/VAN_HANH.md`) chạy trên API: #1 tự mua → tiền vào → gói mở → đẩy sổ được; #2 ba
+lần (cả song song) cùng mã → một lần; #3 sai bí mật → 401; #4 thiếu tiền → không mở; #5 quản trị viên
+mở tay, chạy lại → "đã xử lý"; #7 hết gói → 402; #8 api_service không tự mở gói (database chặn).
+
+### Làm gì
+
+- Contracts `account.ts` + `routes-account.ts` (10 route); `RouteAuth` thêm `admin`. SDK
+  `account.*`, `billing.*` (không đưa admin / webhook vào SDK của app).
+- Hạ tầng: `PrivilegedDatabase` (role `api_privileged`, `PRIVILEGED_DATABASE_URL` — tuỳ chọn, thiếu
+  thì ba việc đặc quyền báo lỗi), `BANK_WEBHOOK_SECRET`, `ADMIN_USER_IDS`; `PermissionGuard` kiểm quản
+  trị viên; `StorageAdmin` (xoá thư mục ảnh của tổ chức); `SupabaseAdmin.setPassword`.
+- Migration `20261003020000_be6_goi_thanh_toan`: `claim_referral()` (bản cũ, `app_user_id()`),
+  trigger `billing_guard` trên `subscriptions` + `payment_intents`, `find_login_user` cho api_privileged.
+- API: `BankWebhookService` (thay Edge Function `payment-webhook`), `plan-activation.ts` (dùng chung với
+  quản trị), `BillingService`, `ProfileService`, `AccountDeletionService`, `AdminService`.
+
+### Quyết định
+
+1. **Một transaction cho cả ghi sổ đối soát và gia hạn.** Bản cũ (REST, không có transaction) cố ý ghi
+   sổ trước để hỏng giữa chừng thì "tiền đã ghi, gói chưa mở". Có transaction thì hoặc cả hai hoặc không
+   — Casso / SePay gửi lại là xong. Vẫn giữ thứ tự ghi sổ trước.
+2. **Quản trị viên xác thực bằng chính tài khoản** (JWT + `ADMIN_USER_IDS`) thay vì một khoá dùng
+   chung: nhật ký ghi được ai bấm, ngoài người duyệt gõ tay.
+3. **`billing_guard` ở database** — endpoint thường lỗi code cũng không thành đường tự gia hạn miễn
+   phí. Bootstrap chỉ tạo được gói `trialing` không có kỳ trả tiền.
+4. **Xoá tài khoản xoá hẳn tổ chức chủ duy nhất, kể cả đơn và kết nối với bên kia** (phiếu của bên kia
+   còn, `order_id` về null). Giữ `bank_transactions` (không thì xoá tài khoản thành cách dùng lại một
+   mã giao dịch), `audit_log`, `admin_access_log`. Tổ chức còn người làm → phải gỡ họ trước.
+5. Mua trong lúc dùng thử: kỳ tính từ hôm nay (`extendPeriod` của core, như bản cũ) — ngày dùng thử còn
+   lại không cộng dồn. **Cần nhóm quyết** có cộng dồn không.
+6. Doanh nghiệp không tự mua: `selfServe: false`, quản trị viên kích hoạt kèm `branchLimit`.
+
+### Lỗi bắt được trong lúc làm
+
+- Test chọn số `0999…` và mã giao dịch 2 ký tự — 422 vì lý do khác lý do định kiểm. Sửa để mỗi ca
+  422 đúng là vì luật đang kiểm.
+- Thử bỏ chốt "mã giao dịch đã có → dừng": ba lời gọi song song gia hạn hai lần — test đỏ.
+
+### Còn lại của BE6
+
+- [ ] **Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý** (Nguyên, Linh) → điền config của app.
+- [ ] Đặt mật khẩu `api_privileged` trên Supabase (như `db:role-password`), điền
+      `PRIVILEGED_DATABASE_URL`, `BANK_WEBHOOK_SECRET`, `ADMIN_USER_IDS` trên Render; khai URL webhook ở
+      Casso / SePay.
+- [ ] Một lần chuyển khoản thật; một lần hoàn tiền thật (#6). Sau đó gỡ Edge Function `payment-webhook`.
 
 ---
 

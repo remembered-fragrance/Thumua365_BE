@@ -7,10 +7,12 @@ import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWTPayload
 import { AppModule } from '../src/app.module';
 import { type MembershipContext, type MembershipLookup, NoMembershipsYet } from '../src/auth/membership';
 import type { NewAccount, SupabaseAdmin } from '../src/auth/supabase-admin';
+import type { StorageAdmin } from '../src/storage/storage-admin';
 import type { SupabaseAccount, SupabaseUsers } from '../src/auth/supabase-users';
 import { configureApp } from '../src/bootstrap';
 import { type Env, loadEnv } from '../src/config/env';
 import { Database } from '../src/db/database';
+import type { PrivilegedDatabase } from '../src/db/privileged-database';
 import { buildLogger } from '../src/logger';
 
 export const SUPABASE_URL = 'https://testref.supabase.co';
@@ -100,6 +102,24 @@ export class FakeSupabaseAdmin implements SupabaseAdmin {
     this.deleted.push(userId);
     this.emails.delete(userId);
   }
+
+  async setPassword(userId: string, password: string): Promise<void> {
+    if (!this.emails.has(userId)) throw new Error(`Không có tài khoản ${userId}`);
+    this.passwords.set(userId, password);
+  }
+}
+
+/** Storage giả: ghi lại thư mục nào bị xoá, theo thứ tự. */
+export class FakeStorageAdmin implements StorageAdmin {
+  readonly removed: string[] = [];
+  /** Đặt true để giả Storage hỏng. */
+  failing = false;
+
+  async removeFolder(bucket: string, folder: string): Promise<number> {
+    if (this.failing) throw new Error('Storage hỏng');
+    this.removed.push(`${bucket}/${folder}`);
+    return 0;
+  }
 }
 
 /**
@@ -127,6 +147,9 @@ export interface TestAppOptions {
   readonly supabaseAdmin?: SupabaseAdmin;
   readonly memberships?: MembershipLookup;
   readonly db?: Database;
+  /** Role api_privileged — chỉ test của webhook, quản trị, xoá tài khoản cần. */
+  readonly privilegedDb?: PrivilegedDatabase | null;
+  readonly storage?: StorageAdmin;
   /** Controller chỉ có trong test — để thử guard và interceptor với route giả. */
   readonly extraControllers?: Type[];
 }
@@ -143,6 +166,8 @@ export const buildTestApp = async (options: TestAppOptions): Promise<INestApplic
         supabaseAdmin: options.supabaseAdmin ?? new FakeSupabaseAdmin(),
         memberships: options.memberships ?? new NoMembershipsYet(),
         db: options.db ?? new Database(env.DATABASE_URL),
+        privilegedDb: options.privilegedDb ?? null,
+        storage: options.storage ?? new FakeStorageAdmin(),
         logger,
       }),
     ],

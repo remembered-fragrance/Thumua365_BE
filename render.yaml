@@ -29,6 +29,16 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      # BE6 — bí mật. Role api_privileged (webhook ngân hàng, quản trị, xoá tài khoản), cùng cách
+      # lấy như DATABASE_URL. Trống thì ba việc đó báo lỗi, phần còn lại của API vẫn chạy.
+      - key: PRIVILEGED_DATABASE_URL
+        sync: false
+      # Bí mật dùng chung với Casso / SePay (≥ 24 ký tự ngẫu nhiên).
+      - key: BANK_WEBHOOK_SECRET
+        sync: false
+      # Id tài khoản quản trị viên, cách nhau bằng dấu phẩy.
+      - key: ADMIN_USER_IDS
+        sync: false
       - key: CORS_ORIGINS
         sync: false
       - key: LOG_LEVEL

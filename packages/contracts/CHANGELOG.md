@@ -3,6 +3,24 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.8.0 — chưa phát hành (BE6)
+
+- `RouteAuth` thêm `'admin'`: JWT của tài khoản có id trong `ADMIN_USER_IDS` của API; người khác → 403.
+- `routes.meProfile` · `meProfileUpdate` — `GET/PATCH /v1/me/profile` (`MeProfile`, `MeProfilePatch
+  { name?, username?, recoveryEmail? }`). Tên đăng nhập trùng → 422 `fields.username`.
+- `routes.meDelete` — `DELETE /v1/me` → `AccountDeleteResult { deletedOrganizations, leftOrganizations }`.
+  Xoá thật; tổ chức còn người làm → 422 `details.reason: 'ORG_HAS_MEMBERS'`.
+- `routes.meSubscription` — `GET /v1/me/subscription` (`billing:manage`) → `SubscriptionView { plan,
+  trialEndsAt, currentPeriodEnd, selfServe, prices }`.
+- `routes.billingIntentsList` · `billingIntentsCreate` — `GET/POST /v1/billing/intents` (`billing:manage`,
+  chỉ vựa tự mua), thân `{ months: 1 | 12 }` → `PaymentIntentView { id, amount, months, code,
+  transferContent, status, createdAt }`. Gọi lại trong 24 giờ → cùng ý định.
+- `routes.referralsClaim` — `POST /v1/referrals/claim { code }` → `{ claimed }`, luôn 200.
+- `routes.webhooksBank` — `POST /v1/webhooks/bank` (Casso / SePay; bí mật ở header) → `{ handled, skipped }`.
+- `routes.adminActivatePlan` — `POST /v1/admin/plans/activate`; `routes.adminResetPassword` —
+  `POST /v1/admin/users/reset-password`. Cả hai bắt buộc `approvedBy`, ghi `admin_access_log`.
+- `@mambo/sdk`: `account.profile/updateProfile/claimReferral/delete`, `billing.subscription/intents/createIntent`.
+
 ## 0.7.0 — chưa phát hành (BE7)
 
 - `routes.orgMembersList` — `GET /v1/org/members` (`staff:manage`) → `OrgMembersList { members: OrgMember[] }`.

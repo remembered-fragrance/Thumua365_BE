@@ -485,6 +485,38 @@ const report = await api.reports.summary({ from, to, branchId }); // report:view
   `{ count, netWeight, amount, paid, debt }`. Người gắn chi nhánh chỉ thấy chi nhánh mình. Nông dân
   cũng gọi được: số là phiếu các vựa ghi về mình, nhìn từ phía mình (`sale` = mình bán).
 
+### 5.10 Gói, chuyển khoản, hồ sơ, xoá tài khoản — BE6 (hợp đồng đã có, chưa phát hành)
+
+**Màn Gói** — chỉ hiện với người có `billing:manage`; nông dân không có màn này:
+
+```ts
+const sub = await api.billing.subscription();        // { plan, trialEndsAt, currentPeriodEnd, selfServe, prices }
+if (sub.selfServe) {                                  // vựa: tự mua
+  const intent = await api.billing.createIntent({ months: 12 });
+  // Mã QR VietQR: số tài khoản / ngân hàng từ config của app, số tiền intent.amount,
+  // nội dung intent.transferContent ("TM365 K7M2P9") — người dùng KHÔNG được sửa nội dung.
+}
+const { intents } = await api.billing.intents();     // lịch sử: pending → paid
+```
+
+- Tiền vào → Casso / SePay báo server → gói tự gia hạn (thường vài giây đến vài phút). App không
+  gọi gì để "xác nhận đã trả": sau khi người dùng bấm "Tôi đã chuyển", hỏi lại `/v1/me` (hoặc
+  `billing.subscription`) mỗi 10–15 giây trong vài phút, và có thông báo `plan.activated`.
+- Bấm "Mua" lại trong 24 giờ trả **cùng** mã — không lo sinh nhiều mã.
+- Doanh nghiệp: `selfServe: false`, `prices` rỗng → hiện "Liên hệ để kích hoạt" (Zalo hỗ trợ).
+  `createIntent` của doanh nghiệp / nông dân → `FORBIDDEN`.
+- Chuyển thiếu hoặc gõ sai nội dung: gói **không** tự mở; người dùng liên hệ, quản trị viên mở tay.
+
+**Hồ sơ**: `api.account.profile()`, `api.account.updateProfile({ name, username, recoveryEmail })`.
+Số điện thoại là khoá đăng nhập, không đổi ở đây. Mã giới thiệu của mình: `profile.referralCode`;
+nhập mã của người mời (một lần): `api.account.claimReferral({ code })` → `{ claimed }` — `false`
+thì báo chung "Mã không dùng được", không nói vì sao.
+
+**Xoá tài khoản** (`api.account.delete()`) là xoá THẬT: ảnh, sổ, đơn, kết nối của tổ chức mình là
+chủ duy nhất, hồ sơ, rồi tài khoản đăng nhập. Hỏi xác nhận hai lần, nêu hậu quả bằng số (bao nhiêu
+phiếu). `ORG_HAS_MEMBERS` → "Gỡ nhân viên trước". Xong thì xoá sổ, hàng đợi, ảnh trong IndexedDB
+và đăng xuất — máy có thể là máy mượn. Nhân viên xoá tài khoản chỉ rời tổ chức.
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu và mọi form
@@ -668,7 +700,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 | **BE3 ✅** | `v0.4.0`: `sync.push` · `sync.pull`, hình dạng 8 loại bản ghi, quyền từng op | Mục 7: sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức | Hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → sau khi đồng bộ khớp từng đồng |
 | **BE4 ✅** | `v0.5.0` (mục 5.6): `GET /v1/links` · `POST /v1/links/invite { partnerKind, partnerId }` (trả `inviteCode`) · `POST /v1/links/claim { code }` · `POST /v1/links/:id/revoke` · `GET /v1/linked/receipts?orgId=&cursor=&limit=` · `GET /v1/linked/balance`. OTP (`discover`, `accept`) tạm ẩn | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); ô "Nhập mã kết nối"; nút "Mời kết nối" hiện mã trên trang nông hộ của vựa. Không làm màn OTP | Vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, nhập mã → thấy đúng phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền xem ngay |
 | **BE5** 🟡 | Hợp đồng đã có (mục 5.8): `api.orders.*` (list/create/get/accept/reject/schedule/cancel, kèm `version`) · `api.notifications.list/read` · `orderId` trong op phiếu/nháp | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |
-| **BE6** | `GET/PATCH /v1/me/profile` · `GET /v1/me/subscription` · `GET/POST /v1/billing/intents` · `POST /v1/referrals/claim` · `DELETE /v1/me` | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
+| **BE6** 🟡 | Hợp đồng đã có (mục 5.10): `api.account.*` (hồ sơ, mã giới thiệu, xoá tài khoản), `api.billing.*` (gói, chuyển khoản) | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
 | **BE7** 🟡 | Hợp đồng đã có (mục 5.9): `api.org.members.*`, `api.org.branches.*`, `api.reports.summary` | Vỏ Doanh nghiệp: nhân viên, chi nhánh, báo cáo tổng; `BRANCH_LIMIT` | DN hai chi nhánh: mỗi nhân viên chỉ thấy phiếu chi nhánh mình; owner thấy tổng khớp; tạo chi nhánh vượt gói → `BRANCH_LIMIT` |
 | **BE8** | `POST /v1/attachments/upload-url` · `GET /v1/attachments/:id/url` | Ảnh chụp lúc mất mạng xếp hàng; có mạng thì xin URL rồi `PUT` thẳng lên Storage; xem ảnh bằng URL có hạn | Ảnh chụp offline lên được khi có mạng; máy thứ hai xem được; URL hết hạn thì không mở được |
 | **BE9** | `POST /v1/events` (danh mục sự kiện có kiểu trong contracts) | `track()` đi qua hàng đợi; Sentry cho web; sửa trang Quyền riêng tư cùng PR; TWA + CH Play thử nghiệm kín | Một vòng luồng BE5 trên staging → phễu có đủ sự kiện đúng thứ tự, tách được theo `orgType` |
