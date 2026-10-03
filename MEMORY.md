@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE3 xong (`v0.4.0`), chạy trên staging (Render + Supabase) · **BE4 đang làm** (hợp đồng + API + test xong) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE3 xong (`v0.4.0`), chạy trên staging (Render + Supabase) · **BE4 đang làm** (hợp đồng + API + test xong; kết nối bằng **mã kết nối**, OTP tạm ẩn — 01/10) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -633,7 +633,7 @@ và FRONTEND.md trỏ `v0.4.0`.
 
 ---
 
-## BE4 — Kết nối + nông dân · 🟡 đang làm · 28/09/2026
+## BE4 — Kết nối + nông dân · 🟡 đang làm · 28/09/2026 → 01/10/2026
 
 **Quyết định của Tài (28/09): frontend làm SAU backend.** Backend làm lần lượt các bước; mỗi bước
 nghiệm thu bằng trang thử `tools/login-test`, không chờ app. Hợp đồng `sync` (BE3) và `links` (BE4)
@@ -668,12 +668,62 @@ Phone provider (`/auth/v1/settings`: `external.phone = false`) ⇒ OTP chưa ch�
 | Luật ở database | Bên sổ tự bật `active` → bị chặn; tạo thẳng `active`, đổi bên được liên kết, mở lại `revoked` → bị chặn |
 | `schema.prisma` ↔ migration | `No difference detected` |
 
+### Mã kết nối thay OTP · 01/10/2026
+
+**Quyết định của Tài:** bỏ OTP SMS khỏi luồng kết nối; dùng **mã kết nối** vựa trao tận tay (sau
+này QR chứa đúng mã). OTP **giữ trong code, ẩn đi** — mở lại khi **> 100 tổ chức trả phí**. Cần báo
+cả nhóm: đây là sửa quyết định #4 của 21/09 (THONG_TIN §9 #3, thêm #13).
+
+Vì sao không chỉ tắt kiểm OTP: số lúc đăng ký do người dùng tự gõ, không ai xác minh ⇒ ai đăng ký
+trước bằng số cô Mai sẽ nhận lời mời và xem công nợ của cô. Mã do chính vựa — người biết mặt cô
+Mai — trao tận tay nên chứng minh đúng điều cần; không tốn SMS, không cần brandname.
+
+#### Làm gì
+
+- Contracts: `LinkCode` (chuẩn hoá `k7m2-qx9p` → `K7M2QX9P`), `LINK_CODE_ALPHABET` (31 ký tự, bỏ
+  0/O/1/I/L), `LINK_CODE_LENGTH` 8, `LINK_CODE_TTL_DAYS` 7; `LinkSummary.inviteCode`; route
+  `linksClaim` (`POST /v1/links/claim`, `linked:read`, 10/phút/IP). SDK `links.claim`.
+- Migration `20261001000000_be4_ma_ket_noi` (chỉ thêm): cột `invite_code` (duy nhất) +
+  `invite_code_expires_at`; CHECK hình dạng + đi cặp; trigger — chỉ bên sổ cấp mã, mã bị xoá khi
+  rời `pending`; `my_links()` trả mã chỉ cho bên sổ (drop + tạo lại vì đổi kiểu trả về);
+  `claim_link(code)` security definer.
+- API: `invite` cấp mã (mã còn hạn → trả lại đúng mã; hết / sắp hết < 1 giờ → mã mới; trùng mã →
+  làm lại cả transaction, tối đa 3 lần), dòng danh bạ không cần SĐT; `claim` (mã của mình → 422;
+  sai / đã dùng / hết hạn → cùng một câu 404; audit `link.accepted` kèm `via: 'code'`, mã không vào
+  audit). `discover`/`accept` giữ nguyên, ghi chú "tạm ẩn".
+- Trang thử: `sync.html` — "Mời kết nối" hiện mã + hạn, "Lấy mã mới" khi hết hạn, người bán không
+  cần SĐT; `index.html` — ô "Nhập mã kết nối", OTP gập vào mục "tạm ẩn".
+- Tài liệu: KH §1.4 viết lại (hai đường), §6, BE4, §9 thêm "Mở lại OTP" kèm điều kiện, §11, §12 ·
+  THONG_TIN §1, §3, §6, §8, §9 (#3 sửa, #13 mới), §10 · FRONTEND §5.5 (không làm màn OTP), §5.6 (mã,
+  QR), bảng BE4 · CHANGELOG 0.5.0 · README.
+
+#### Quyết định
+
+1. **Mã lưu nguyên văn, không băm** — bên sổ mở lại là thấy đúng mã / QR cũ. Ai đọc được bảng thì
+   đã đọc được chính phần sổ mà mã mở ra; băm không che thêm gì.
+2. **8 ký tự** (≈ 8,5 × 10¹¹ mã) chứ không 6: 6 ký tự với vài nghìn mã đang sống và nhiều IP thì
+   xác suất đoán trúng trong một tuần không còn nhỏ. QR sau này gánh việc gõ.
+3. **Nhập mã = đồng ý**, một bước — không có màn "xem trước rồi đồng ý".
+4. Lời mời đã có bên được liên kết (dò bằng OTP) thì chỉ chính bên đó nhập mã được.
+5. Mở lại OTP **không cần sửa backend**: bật Phone provider + nhà cung cấp SMS + màn OTP + sửa
+   trang Quyền riêng tư.
+
+#### Chạy thật đã kiểm (máy dev)
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 78 · core 315 · sdk 11 · api 42; ranh giới 0 vi phạm (113 module) |
+| `npm run test:db` | **103/103** — links 19 (luồng mã, dùng một lần, hai người nhập cùng lúc → đúng một, hết hạn, mời lại, không SĐT, mã của mình, 429 ở lần 11, vai trò, đường OTP, hai đường gặp nhau) · RLS +3 (trigger mã, `claim_link`) |
+| Test có bắt lỗi thật không | Cho `my_links()` trả mã cả hai phía → 1 test đỏ; bỏ đoạn trigger xoá mã → 4 test đỏ; dựng lại DB → xanh |
+| `schema.prisma` ↔ migration | `No difference detected` |
+| Trang thử (preview) | Hai trang tải không lỗi console; có ô nhập mã, OTP nằm trong mục gập |
+
 ### Còn lại của BE4
 
-- [ ] **Bật Phone provider trên Supabase staging** (việc của Tài ở dashboard) + số thử OTP.
-- [ ] Chọn nhà cung cấp SMS thật cho "OTP tới máy thật" (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send
-      SMS Hook).
-- [ ] Merge, `prisma migrate deploy` lên staging, nghiệm thu bằng trang thử, phát hành `0.5.0`.
+- [x] ~~Bật Phone provider + chọn nhà cung cấp SMS~~ → không cần: OTP tạm ẩn (01/10).
+- [ ] Merge, `prisma migrate deploy` lên staging (hai migration BE4), nghiệm thu bằng trang thử:
+      vựa mời lấy mã → tài khoản nông dân nhập mã → đúng phiếu, đúng nợ → huỷ → mất quyền. Phát hành
+      `0.5.0`.
 
 ---
 
@@ -694,7 +744,7 @@ Phone provider (`/auth/v1/settings`: `external.phone = false`) ⇒ OTP chưa ch�
 |---|---|---|
 | Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | Không chặn — tạm dùng `*.onrender.com` |
 | ~~Docker Desktop trên máy dev~~ | ✅ đã cài 22/09/2026 (Docker 29.8, WSL2) | — |
-| Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | BE4 (dời từ BE2) |
+| Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | Không chặn — OTP tạm ẩn tới khi > 100 tổ chức trả phí |
 | Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh | BE6 |
 
 ---
