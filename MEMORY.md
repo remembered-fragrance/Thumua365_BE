@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE3 xong (`v0.4.0`), chạy trên staging (Render + Supabase) · **BE4 đang làm** (hợp đồng + API + test xong; kết nối bằng **mã kết nối**, OTP tạm ẩn — 01/10) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **tiếp: BE5** · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -633,7 +633,7 @@ và FRONTEND.md trỏ `v0.4.0`.
 
 ---
 
-## BE4 — Kết nối + nông dân · 🟡 đang làm · 28/09/2026 → 01/10/2026
+## BE4 — Kết nối + nông dân · `a4e5edd` · tag `v0.5.0` · 28/09 → 03/10/2026 · ✅ đóng
 
 **Quyết định của Tài (28/09): frontend làm SAU backend.** Backend làm lần lượt các bước; mỗi bước
 nghiệm thu bằng trang thử `tools/login-test`, không chờ app. Hợp đồng `sync` (BE3) và `links` (BE4)
@@ -721,9 +721,50 @@ Mai — trao tận tay nên chứng minh đúng điều cần; không tốn SMS,
 ### Còn lại của BE4
 
 - [x] ~~Bật Phone provider + chọn nhà cung cấp SMS~~ → không cần: OTP tạm ẩn (01/10).
-- [ ] Merge, `prisma migrate deploy` lên staging (hai migration BE4), nghiệm thu bằng trang thử:
-      vựa mời lấy mã → tài khoản nông dân nhập mã → đúng phiếu, đúng nợ → huỷ → mất quyền. Phát hành
-      `0.5.0`.
+- [x] Merge, `prisma migrate deploy` lên staging, nghiệm thu, phát hành `0.5.0` — xem bên dưới (03/10).
+
+### Lên staging · PR #8 `a4e5edd` · 03/10/2026
+
+| Việc | Kết quả |
+|---|---|
+| `prisma migrate deploy` lên staging | ✅ Trước khi chạy: `.env` đúng project `bldlrkmszjmhifubxjvl` (in user/host, không in mật khẩu); `20260928120000_be4_ket_noi` đã có trên staging từ 28/09, chỉ còn `20261001000000_be4_ma_ket_noi`; staging 2 vựa · 2 DN · 1 nông dân, chưa có kết nối nào. Chạy TRƯỚC khi merge — chỉ thêm, image BE3 không đụng tới |
+| Staging sau migration | `No difference detected` · cột `invite_code` + hạn · `claim_link()` có; `anon`/`authenticated` không gọi được `claim_link`, `my_links` |
+| CI PR #8 | `verify`, `db`, `docker` xanh trên `ed28f41`; merge (Tài bấm — PR có `packages/contracts`) |
+| Render | Deploy `a4e5edd` sau CI `master`; `/v1/links/claim`, `/v1/links/invite`, `/v1/links`, `/v1/linked/balance` không token → 401 đúng định dạng; preflight CORS từ `localhost:5174` cho qua |
+
+### ✅ Nghiệm thu — `npm run smoke:links` · 03/10/2026
+
+Script mới (như `smoke:me`): Tài tự chạy, tự gõ hai tài khoản thử (vựa + nông dân) — mật khẩu không
+hiện, không in. Chạy đủ "Xong khi" của BE4 trên staging: **22/22 mục đạt**.
+
+| Bước | Kết quả |
+|---|---|
+| Vựa ghi phiếu mua cho người bán **không SĐT** qua `/sync/push` | 3 op `applied` · Cao su 120 kg · tổng 1.726.000 · trả 575.000 · còn nợ 1.151.000 |
+| Mời → mã; mời lại | Mã 8 ký tự, hạn 7 ngày; mời lại → đúng kết nối, đúng mã cũ |
+| Vựa nhập mã của mình | 422 `VALIDATION_FAILED` |
+| Nông dân gõ mã chữ thường có gạch | `active`, đúng sổ vựa; bên được mời không thấy mã |
+| Nông dân xem | Đúng 1 phiếu, tổng / đã trả / còn nợ khớp từng đồng, dòng hàng khớp, không lộ trường nội bộ; công nợ có vựa đó (1.151.000) |
+| Mã đã dùng · mã bịa | Cùng 404 `NOT_FOUND`, cùng một câu |
+| Vựa huỷ | `revoked` → nông dân `LINK_REQUIRED` ngay; công nợ không còn vựa đó |
+| Database staging (chỉ đọc) | Kết nối `pending → active → revoked`, `invite_code` đã xoá, `invited_phone` null; `audit_log` đủ `link.invited` · `link.accepted` (`via: code`, không có mã trong audit) · `link.revoked` (`side: owner`), đều có `requestId`; phiếu 1.726.000 − 575.000 = 1.151.000 |
+
+Dữ liệu thử để lại trong sổ vựa: người bán "Nghiệm thu BE4 22:27:57 3/10/2026", một phiếu, một lần trả,
+một kết nối đã huỷ.
+
+**Kèm theo:** PowerShell trên máy dev chặn `npm.ps1` (execution policy) — chạy bằng
+`node scripts/smoke-links.mjs` hoặc `npm.cmd run smoke:links`; không đổi chính sách của máy.
+
+### Phát hành `v0.5.0`
+
+Nâng mọi gói lên 0.5.0, CHANGELOG ngày 03/10, `openapi.json` sinh lại; URL cài gói trong README và
+FRONTEND.md trỏ `v0.5.0`; FRONTEND §5.6, bảng bước, THONG_TIN cập nhật BE4 ✅.
+
+### Còn treo, chuyển tiếp
+
+- Hợp đồng `links` (cùng `sync` của BE3) chưa có người làm frontend duyệt — duyệt khi tới lượt frontend.
+- **BE5 → BE10:** có bản làm sẵn trên nhánh `be/nestjs-be10` của repo frontend (03/10). Tài chốt:
+  **`Thumua365_BE` là repo chính, chỉ chứa backend** — gom phần backend về đây, soát và sửa trước, mỗi
+  bước một PR, nghiệm thu staging từng bước như BE3, BE4.
 
 ---
 

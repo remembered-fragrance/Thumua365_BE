@@ -1,7 +1,7 @@
 # THÔNG TIN DỰ ÁN — Mambo365 / THUMUA365
 
 > **Đọc file này đầu tiên.** Nó tổng hợp mọi thứ đã chốt và chưa chốt tính đến
-> **01/10/2026** (BE4 đang làm): sản phẩm là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ
+> **03/10/2026** (BE4 đã đóng): sản phẩm là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ
 > tự nào, và nhóm còn phải quyết gì. Chi tiết kỹ thuật nằm ở các file được dẫn tới.
 
 ---
@@ -16,7 +16,7 @@
 | Hướng mới (09/2026) | **Nền tảng ba vai trò** trên một chuỗi, backend **NestJS** theo sơ đồ kiến trúc |
 | Nông sản trọng tâm | Cao su · điều · cà phê · tiêu |
 | Nền tảng | Web (React + TS, PWA offline) · Android (lên CH Play) |
-| Tình trạng một câu | Nghiệp vụ tính tiền **đã có và có test** (`@mambo/core`). Backend xong **BE0–BE3** (`v0.4.0`): API staging trên Render, database ba vai trò có RLS, đăng ký thật cả ba loại tổ chức, **đồng bộ sổ qua API** đã nghiệm thu hai máy trên staging. **BE4 (kết nối + nông dân) đang làm** — kết nối bằng **mã kết nối** vựa trao tận tay, OTP tạm ẩn (chốt 01/10). Chỉ có tài khoản thử, **chưa có dữ liệu thật**. **Backend làm trước, frontend làm sau** (chốt 28/09) — frontend dựng lại app từ đầu theo hợp đồng ([FRONTEND.md](FRONTEND.md)). Nhật ký: [MEMORY.md](../MEMORY.md) |
+| Tình trạng một câu | Nghiệp vụ tính tiền **đã có và có test** (`@mambo/core`). Backend xong **BE0–BE4** (`v0.5.0`): API staging trên Render, database ba vai trò có RLS, đăng ký thật cả ba loại tổ chức, **đồng bộ sổ qua API** đã nghiệm thu hai máy trên staging, **kết nối bằng mã kết nối** (vựa trao tận tay, OTP tạm ẩn) đã nghiệm thu trên staging 03/10. Tiếp theo: BE5 (đơn, đặt lịch, thông báo). Chỉ có tài khoản thử, **chưa có dữ liệu thật**. **Backend làm trước, frontend làm sau** (chốt 28/09) — frontend dựng lại app từ đầu theo hợp đồng ([FRONTEND.md](FRONTEND.md)). Nhật ký: [MEMORY.md](../MEMORY.md) |
 
 ### Phân công
 
@@ -94,7 +94,7 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 | Transaction | Phiếu mua/bán, phiếu cân ✅ · **đơn mua/đơn bán, đặt lịch, trạng thái** ❌ · giao hàng ❌ | 🟡 | BE3 · BE5 · sau BE10 |
 | Inventory | Tồn kho (suy từ phiếu) ✅ · nhập/xuất kho tường minh, lô hàng ❌ | 🟡 | sau BE10 |
 | Debt & Finance | Công nợ phải thu/phải trả, thanh toán, báo cáo công nợ | ✅ | BE3 |
-| Partner | Nhà cung cấp / người mua, danh bạ không đăng nhập, **liên kết với tài khoản thật** bằng mã kết nối | 🟡 | BE4 |
+| Partner | Nhà cung cấp / người mua, danh bạ không đăng nhập, **liên kết với tài khoản thật** bằng mã kết nối | ✅ | BE4 |
 | Report | Báo cáo tổng hợp, Excel/PDF ✅ · tổng hợp nhiều chi nhánh phía server ❌ | 🟡 | BE7 |
 | Notification | Thông báo trong app → email → SMS/Zalo; **sự kiện hệ thống** qua event bus nội bộ | ❌ | BE5 |
 
@@ -195,7 +195,7 @@ safety khớp với R5, `assetlinks.json` cho TWA.
 | BE1 ✅ | Khung NestJS, Guard, định dạng lỗi, `/v1/me`, Docker, staging Render | `/lien-he`, link pháp lý (R4); khung chọn vỏ | 2 |
 | BE2 ✅ | Prisma + schema ba vai trò, tổ chức, chi nhánh, `/me/bootstrap` (OTP dời sang BE4) | Bước "Bác là ai?" khi đăng ký | 3 |
 | BE3 ✅ | Đồng bộ sổ qua API, giới hạn theo chi nhánh | Sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức (FRONTEND.md §7) | 3–4 |
-| BE4 | Kết nối tổ chức bằng **mã kết nối** + phần xem của nông dân (OTP tạm ẩn) | Vỏ Nông dân (phần xem), "Mời kết nối" hiện mã, ô "Nhập mã kết nối" | 2–3 |
+| BE4 ✅ | Kết nối tổ chức bằng **mã kết nối** + phần xem của nông dân (OTP tạm ẩn) | Vỏ Nông dân (phần xem), "Mời kết nối" hiện mã, ô "Nhập mã kết nối" | 2–3 |
 | BE5 | Đơn hàng, đặt lịch, thông báo trong app | Đơn bán, danh sách đơn, hẹn lịch, ô "Theo đơn" | 3 |
 | BE6 | Tài khoản, gói, webhook ngân hàng, quản trị | `billing.ts`, `account.ts` | 2–3 |
 | BE7 | Nhân viên, chi nhánh, báo cáo tổng | Vỏ Doanh nghiệp | 2–3 |
