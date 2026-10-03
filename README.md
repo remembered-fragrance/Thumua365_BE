@@ -113,9 +113,9 @@ khoá đúng phiên bản:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-core-0.4.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-contracts-0.4.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-sdk-0.4.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-core-0.5.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-contracts-0.5.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-sdk-0.5.0.tgz",
     "zod": "^4.1.0"
   }
 }
