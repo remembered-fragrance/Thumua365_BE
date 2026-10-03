@@ -3,7 +3,7 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
-## 0.5.0 — chưa phát hành (BE4)
+## 0.5.0 — 03/10/2026 (BE4)
 
 - `RouteDef.params` — tham số trên đường dẫn (`/v1/links/:id/accept`): server kiểm như thân
   request (`@ContractParams()`), SDK điền vào đường dẫn, openapi viết `{id}` + `in: path`. Kiểu

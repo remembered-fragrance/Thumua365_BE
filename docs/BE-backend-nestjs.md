@@ -4,8 +4,8 @@ Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu l�
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
 Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; OTP tạm ẩn tới khi > 100 tổ chức trả phí (§1.4)
-Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 🟡** hợp đồng + API + test xong (cả mã
-kết nối), còn nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 ✅** (`v0.5.0`, kết nối bằng mã kết
+nối, nghiệm thu trên staging 03/10) — nhật ký ở [MEMORY.md](../MEMORY.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
@@ -566,7 +566,7 @@ chưa đạt.
   (máy B mất mạng) ra cùng tổng, cùng số còn nợ, cùng "dấu sổ", khớp database; `test:db` 78/78
   trong CI.
 
-### BE4 — Kết nối + Nông dân (2–3 buổi) · 🟡 đang làm — hợp đồng + API + test xong (cả mã kết nối) 01/10
+### BE4 — Kết nối + Nông dân (2–3 buổi) · ✅ đóng 03/10/2026 (`v0.5.0`) — kết nối bằng mã kết nối, OTP tạm ẩn
 
 - **Backend:** `/links/*`, `/linked/*`, hàm `linked_receipts()`; schema `LinkedReceipt`
   riêng trong contracts; sự kiện `link.*`. **Mã kết nối** (01/10/2026): `inviteCode` khi mời,
@@ -576,6 +576,10 @@ chưa đạt.
   hiện mã (sau này QR). Không làm màn OTP.
 - **Xong khi:** vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, **nhập mã** → thấy đúng
   phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền ngay.
+  ✅ 03/10/2026: `npm run smoke:links` trên staging (vựa + nông dân thật) đạt 22/22 mục — phiếu
+  1.726.000 · đã trả 575.000 · còn nợ 1.151.000 khớp từng đồng; mã đã dùng và mã bịa cùng một 404;
+  huỷ → `LINK_REQUIRED` ngay; database: kết nối `pending → active → revoked`, mã đã xoá, đủ ba dòng
+  audit. `test:db` 103/103 trong CI.
 
 ### BE5 — Đơn, đặt lịch, thông báo (3–4 buổi) · luồng giá trị chính
 

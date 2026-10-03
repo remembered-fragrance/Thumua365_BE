@@ -54,6 +54,7 @@ npm run dev
 | `npm run mock` | Server giả từ `openapi.json` (Prism) cho frontend làm trước khi API xong |
 | `npm run dev` | API chạy lại khi sửa code |
 | `npm run smoke:me` | Kiểm `/v1/me` trên staging bằng một tài khoản thật — bạn tự gõ email/mật khẩu, không in ra đâu cả |
+| `npm run smoke:links` | Nghiệm thu BE4 trên staging bằng hai tài khoản thật (vựa + nông dân): ghi phiếu nợ → mời lấy mã → nông dân nhập mã → đúng phiếu, đúng nợ → mã dùng một lần → huỷ là mất quyền. Bạn tự gõ tài khoản; cần `build:packages` trước |
 | `npm run login-test` | Trang thử ở http://localhost:5174 — đủ luồng tài khoản trên staging: đăng ký, "Bác là ai?", đăng nhập một ô, nhập mã kết nối (OTP tạm ẩn), qua `@mambo/sdk` (cần `build:packages` trước). `/sync.html?may=A` và `?may=B`: thử đồng bộ sổ hai máy, mời kết nối lấy mã |
 
 ## Cấu trúc
@@ -113,9 +114,9 @@ khoá đúng phiên bản:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-core-0.4.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-contracts-0.4.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.4.0/mambo-sdk-0.4.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-core-0.5.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-contracts-0.5.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-sdk-0.5.0.tgz",
     "zod": "^4.1.0"
   }
 }
