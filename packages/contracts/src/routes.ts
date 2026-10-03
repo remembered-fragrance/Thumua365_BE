@@ -15,6 +15,7 @@ import {
   LinkedBalance,
   LinkedReceiptsQuery,
   LinkedReceiptsResult,
+  LinkClaimInput,
   LinkIdParams,
   LinkInviteInput,
   LinksDiscoverResult,
@@ -97,7 +98,8 @@ export const routes = {
   linksDiscover: {
     method: 'POST',
     path: '/v1/links/discover',
-    summary: 'Dò các sổ có đối tác mang số điện thoại đã xác thực của người gọi, tạo lời mời chờ đồng ý',
+    summary:
+      'Dò các sổ có đối tác mang số điện thoại đã xác thực OTP của người gọi, tạo lời mời chờ đồng ý. Tạm ẩn — OTP mở lại khi > 100 tổ chức trả phí',
     auth: 'org',
     permission: 'linked:read',
     response: LinksDiscoverResult,
@@ -113,17 +115,31 @@ export const routes = {
   linksInvite: {
     method: 'POST',
     path: '/v1/links/invite',
-    summary: 'Mời một dòng danh bạ (có số điện thoại) kết nối. Gọi lại trả kết nối đang có, không tạo thêm',
+    summary:
+      'Mời một dòng danh bạ kết nối — kèm mã kết nối (inviteCode) để đưa tận tay. Gọi lại trả kết nối đang có; mã hết hạn thì cấp mã mới',
     auth: 'org',
     permission: 'partner:manage',
     body: LinkInviteInput,
     response: LinkSummary,
     errors: ['NOT_FOUND'],
   },
+  linksClaim: {
+    method: 'POST',
+    path: '/v1/links/claim',
+    summary:
+      'Bên được mời nhập mã kết nối (gõ tay hoặc quét QR) → kết nối active ngay. Mã sai, đã dùng hay hết hạn đều trả cùng một lỗi',
+    auth: 'org',
+    permission: 'linked:read',
+    body: LinkClaimInput,
+    response: LinkSummary,
+    rateLimitPerMinute: 10,
+    errors: ['NOT_FOUND'],
+  },
   linksAccept: {
     method: 'POST',
     path: '/v1/links/:id/accept',
-    summary: 'Bên được liên kết đồng ý — cần số điện thoại đã xác thực OTP trùng số được mời. Gọi lại an toàn',
+    summary:
+      'Bên được liên kết đồng ý lời mời đã dò được — cần số điện thoại đã xác thực OTP trùng số được mời. Gọi lại an toàn. Tạm ẩn cùng OTP',
     auth: 'org',
     permission: 'linked:read',
     params: LinkIdParams,

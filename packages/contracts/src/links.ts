@@ -5,10 +5,17 @@
  * người mua) với một tổ chức có tài khoản thật bên `linked`. Bên linked chỉ NHÌN phần sổ nói về
  * mình — đúng những gì in trên biên nhận — và chỉ khi kết nối `active`.
  *
- *   pending  — có lời mời: bên owner mời (`/links/invite`) hoặc bên linked dò theo số điện thoại
- *              ĐÃ XÁC THỰC OTP (`/links/discover`). Chưa cho xem gì.
- *   active   — CHÍNH bên linked đồng ý, với số điện thoại đã xác thực trùng số được mời.
+ *   pending  — có lời mời: bên owner mời (`/links/invite`, kèm MÃ KẾT NỐI) hoặc bên linked dò theo
+ *              số điện thoại ĐÃ XÁC THỰC OTP (`/links/discover`). Chưa cho xem gì.
+ *   active   — CHÍNH bên linked nhập đúng mã kết nối (`/links/claim`), hoặc đồng ý với số điện
+ *              thoại đã xác thực OTP trùng số được mời (`/links/:id/accept`).
  *   revoked  — một trong hai bên huỷ. Mất quyền xem ngay; không mở lại được (mời lại = kết nối mới).
+ *
+ * Hai đường chứng minh "đúng người" (quyết định 01/10/2026):
+ *   - MÃ KẾT NỐI — đường chính từ pilot: bên owner đưa mã tận tay (lúc cân, qua Zalo; sau này
+ *     bằng QR chứa đúng mã này). Không cần SMS.
+ *   - OTP — giữ nguyên nhưng TẠM ẨN (Phone provider của Supabase tắt), mở lại khi > 100 tổ chức
+ *     trả phí. Lúc đó nông dân tự dò được các sổ có số của mình.
  *
  * Cùng cơ chế cho nông dân ↔ vựa và vựa ↔ doanh nghiệp.
  */
@@ -49,6 +56,30 @@ export type LinkSide = z.infer<typeof LinkSide>;
 export const OrgRef = z.object({ id: z.uuid(), name: z.string(), type: OrgType });
 export type OrgRef = z.infer<typeof OrgRef>;
 
+// ─── Mã kết nối ──────────────────────────────────────────────────────────────
+
+/** Bỏ 0/O, 1/I/L — đọc qua điện thoại hay chép tay không nhầm. */
+export const LINK_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+export const LINK_CODE_LENGTH = 8;
+/** Mã sống bao lâu kể từ lúc cấp. Hết hạn thì bên owner mời lại để lấy mã mới. */
+export const LINK_CODE_TTL_DAYS = 7;
+
+const LINK_CODE_PATTERN = new RegExp(`^[${LINK_CODE_ALPHABET}]{${LINK_CODE_LENGTH}}$`);
+
+/**
+ * Mã như người dùng gõ: chữ thường, khoảng trắng, gạch nối đều được (`k7m2-qx9p`) — chuẩn hoá
+ * về `K7M2QX9P`. App hiện mã theo nhóm 4 ký tự cho dễ đọc; QR chứa đúng mã này.
+ */
+export const LinkCode = z
+  .string()
+  .max(32)
+  .transform((raw) => raw.toUpperCase().replace(/[\s-]/g, ''))
+  .pipe(z.string().regex(LINK_CODE_PATTERN, `Mã kết nối gồm ${LINK_CODE_LENGTH} chữ và số`));
+
+/** Mã đang còn hạn của một lời mời — chỉ bên owner thấy, và chỉ khi kết nối còn `pending`. */
+export const LinkInviteCode = z.object({ code: z.string(), expiresAt: Time });
+export type LinkInviteCode = z.infer<typeof LinkInviteCode>;
+
 export const LinkSummary = z.object({
   id: z.uuid(),
   side: LinkSide,
@@ -58,8 +89,10 @@ export const LinkSummary = z.object({
   partner: z.object({ id: z.uuid(), name: z.string() }),
   /** Tổ chức bên kia. Phía owner: null khi lời mời chưa có ai nhận. */
   counterpart: OrgRef.nullable(),
-  /** Số điện thoại lời mời nhắm tới, dạng +84… */
+  /** Số điện thoại lời mời nhắm tới, dạng +84… — null khi dòng danh bạ không có số hợp lệ. */
   invitedPhone: z.string().nullable(),
+  /** Phía owner, kết nối `pending`: mã đang còn hạn để đưa cho bên kia. Còn lại luôn null. */
+  inviteCode: LinkInviteCode.nullable(),
   createdAt: Time,
   decidedAt: Time.nullable(),
 });
@@ -71,9 +104,13 @@ export type LinksList = z.infer<typeof LinksList>;
 export const LinkIdParams = z.strictObject({ id: z.uuid() });
 export type LinkIdParams = z.infer<typeof LinkIdParams>;
 
-/** Vựa / doanh nghiệp mời một dòng danh bạ — dòng đó phải có số điện thoại Việt Nam hợp lệ. */
+/** Vựa / doanh nghiệp mời một dòng danh bạ trong sổ của mình. Không bắt buộc có số điện thoại. */
 export const LinkInviteInput = z.strictObject({ partnerKind: PartnerKind, partnerId: z.uuid() });
 export type LinkInviteInput = z.infer<typeof LinkInviteInput>;
+
+/** Bên được mời nhập mã kết nối (gõ tay hoặc quét QR). */
+export const LinkClaimInput = z.strictObject({ code: LinkCode });
+export type LinkClaimInput = z.input<typeof LinkClaimInput>;
 
 // ─── Phần sổ bên kia cho mình xem ────────────────────────────────────────────
 

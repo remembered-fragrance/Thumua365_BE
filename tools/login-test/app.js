@@ -4,8 +4,9 @@
  *   1. Đăng ký / đăng nhập: trình duyệt ↔ Supabase Auth (supabase-js). Mật khẩu KHÔNG đi qua API.
  *      Đăng nhập một ô: `sdk.resolveIdentifier` đổi tên/SĐT/email thành email đăng nhập.
  *   2. "Bác là ai?": `sdk.meBootstrap` — tạo tổ chức, vai trò chủ, gói dùng thử.
- *   3. OTP: `supabase.auth.updateUser({ phone })` → `verifyOtp({ type: 'phone_change' })`,
- *      rồi `sdk.discoverLinks()` với header tổ chức.
+ *   3. Kết nối: vựa đưa mã kết nối → `sdk.links.claim({ code })` với header tổ chức.
+ *      OTP (tạm ẩn tới khi > 100 tổ chức trả phí): `supabase.auth.updateUser({ phone })` →
+ *      `verifyOtp({ type: 'phone_change' })`, rồi `sdk.discoverLinks()`.
  *   4. Lỗi: bắt ApiError và rẽ nhánh theo `code`, không theo câu chữ.
  */
 
@@ -140,7 +141,7 @@ const render = (session) => {
     $('links').replaceChildren();
     // Xoá sạch lựa chọn của người trước — không thì tài khoản sau "thừa hưởng" loại tổ
     // chức cũ và bấm "Xong" là tạo nhầm loại (đã gặp khi nghiệm thu BE2).
-    for (const id of ['bootstrap', 'signup', 'otp-send', 'otp-verify']) $(id).reset();
+    for (const id of ['bootstrap', 'signup', 'otp-send', 'otp-verify', 'claim']) $(id).reset();
     $('otp-verify').hidden = true;
     lastMe = null;
     currentOrgId = null;
@@ -334,6 +335,18 @@ $('otp-verify').addEventListener('submit', async (e) => {
   });
 });
 
+$('claim').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await run($('claim-btn'), 'POST /v1/links/claim', async () => {
+    const link = await api.links.claim({ code: $('claim-code').value });
+    $('claim-code').value = '';
+    show('POST /v1/links/claim — 200', link);
+    say(`Đã kết nối với sổ của ${link.counterpart?.name ?? '—'}. Bấm "Xem phiếu" hoặc "Công nợ với các bên".`, 'ok');
+    await loadLinks();
+    await refreshMe();
+  });
+});
+
 $('discover-btn').addEventListener('click', () =>
   run($('discover-btn'), 'POST /v1/links/discover', async () => {
     const res = await api.discoverLinks();
@@ -352,7 +365,10 @@ const el = (tag, props = {}, ...children) => {
   return node;
 };
 
-const STATUS = { pending: 'chờ đồng ý', active: 'đang kết nối', revoked: 'đã huỷ' };
+const STATUS = { pending: 'chờ nhận', active: 'đang kết nối', revoked: 'đã huỷ' };
+
+/** `K7M2QX9P` → `K7M2-QX9P`. */
+const showCode = (code) => `${code.slice(0, 4)}-${code.slice(4)}`;
 
 const renderLinks = (links) => {
   $('links').replaceChildren(
@@ -366,10 +382,11 @@ const renderLinks = (links) => {
         buttons.push(['Xem phiếu', () => act('GET /v1/linked/receipts', () => api.linked.receipts({ orgId }), false)]);
       }
       if (l.status !== 'revoked') buttons.push(['Huỷ kết nối', () => act(`POST /v1/links/${l.id}/revoke`, () => api.links.revoke(l.id))]);
+      const code = l.inviteCode ? ` · mã ${showCode(l.inviteCode.code)} (hết hạn ${new Date(l.inviteCode.expiresAt).toLocaleDateString('vi-VN')})` : '';
       return el(
         'p',
         {},
-        `${who} · ${STATUS[l.status]} `,
+        `${who} · ${STATUS[l.status]}${code} `,
         ...buttons.map(([text, onclick]) => el('button', { type: 'button', className: 'secondary', textContent: text, onclick })),
       );
     }),

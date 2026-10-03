@@ -2,6 +2,7 @@ import {
   type LinkedBalance,
   type LinkedReceiptsQuery,
   type LinkedReceiptsResult,
+  type LinkClaimInput,
   type LinkIdParams,
   type LinkInviteInput,
   type LinksDiscoverResult,
@@ -43,9 +44,10 @@ export class LinksController {
   }
 
   /**
-   * KH §1.4 bước 3. Số điện thoại lấy từ Supabase Auth NGAY LÚC GỌI và phải có
-   * `phone_confirmed_at` — không tin số nào client gửi lên. Không có bước này thì ai
-   * cũng đăng ký bằng số người khác để xem công nợ của họ.
+   * KH §1.4 bước 3 — đường OTP, TẠM ẨN tới khi > 100 tổ chức trả phí (Phone provider của
+   * Supabase tắt ⇒ không ai có số đã xác thực ⇒ luôn PHONE_NOT_VERIFIED). Số điện thoại lấy từ
+   * Supabase Auth NGAY LÚC GỌI và phải có `phone_confirmed_at` — không tin số nào client gửi lên.
+   * Không có bước này thì ai cũng đăng ký bằng số người khác để xem công nợ của họ.
    */
   @Endpoint(routes.linksDiscover)
   async discover(
@@ -81,6 +83,16 @@ export class LinksController {
     @RequestId() requestId: string,
   ): Promise<LinkSummary> {
     return this.links.invite(user, membership, input, requestId);
+  }
+
+  @Endpoint(routes.linksClaim)
+  claim(
+    @CurrentUser() user: AuthUser,
+    @CurrentMembership() membership: MembershipContext,
+    @Body() input: LinkClaimInput,
+    @RequestId() requestId: string,
+  ): Promise<LinkSummary> {
+    return this.links.claim(user, membership, input, requestId);
   }
 
   @Endpoint(routes.linksAccept)

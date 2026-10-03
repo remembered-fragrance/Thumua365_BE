@@ -291,11 +291,16 @@ const refreshLinks = async () => {
   }
 };
 
+/** `K7M2QX9P` → `K7M2-QX9P` — app thật hiện như vậy (và QR chứa đúng mã). */
+const showCode = (code) => `${code.slice(0, 4)}-${code.slice(4)}`;
+const codeLine = (code) => `mã ${showCode(code.code)} · hết hạn ${new Date(code.expiresAt).toLocaleString('vi-VN')}`;
+
+/** Mời / lấy lại mã: mã còn hạn thì trả đúng mã cũ, hết hạn thì cấp mã mới. */
 const invite = async (partnerId) => {
   try {
     const link = await api.links.invite({ partnerKind: 'supplier', partnerId });
     linksByPartner.set(partnerId, link);
-    say(`Đã mời — chờ ${link.invitedPhone} xác thực số và đồng ý.`, 'ok');
+    if (link.inviteCode) say(`Đưa cho người bán ${codeLine(link.inviteCode)} — họ nhập ở mục "Kết nối" của trang tài khoản.`, 'ok');
   } catch (err) {
     say(explain(err), 'error');
   }
@@ -310,14 +315,20 @@ const renderParties = () => {
     ...suppliers.map((sp) => {
       const link = linksByPartner.get(sp.id);
       const status = link
-        ? { pending: link.counterpart ? `chờ ${link.counterpart.name} đồng ý` : 'đã mời, chờ nhận', active: `đã kết nối với ${link.counterpart?.name}`, revoked: 'đã huỷ' }[link.status]
+        ? {
+            pending: link.inviteCode ? `đã mời · ${codeLine(link.inviteCode)}` : 'đã mời · mã hết hạn',
+            active: `đã kết nối với ${link.counterpart?.name}`,
+            revoked: 'đã huỷ',
+          }[link.status]
         : 'chưa kết nối';
-      const canInvite = sp.phone && !pending.has(sp.id) && (!link || link.status === 'revoked');
+      // Người bán phải lên server rồi mới mời được (dòng danh bạ còn trong hàng đợi thì chưa có).
+      const synced = !pending.has(sp.id);
+      const label = !link || link.status === 'revoked' ? 'Mời kết nối' : link.status === 'pending' && !link.inviteCode ? 'Lấy mã mới' : null;
       return el(
         'p',
         { className: 'payment' },
         `${sp.name}${sp.phone ? ` · ${sp.phone}` : ''} · ${status} `,
-        ...(canInvite ? [el('button', { type: 'button', className: 'secondary', textContent: 'Mời kết nối', onclick: () => invite(sp.id) })] : []),
+        ...(synced && label ? [el('button', { type: 'button', className: 'secondary', textContent: label, onclick: () => invite(sp.id) })] : []),
       );
     }),
   );

@@ -15,6 +15,7 @@ import {
   type LinkedReceipt,
   type LinkedReceiptsQuery,
   type LinkedReceiptsResult,
+  type LinkClaimInput,
   type LinkInviteInput,
   type LinkSummary,
   OrgType,
@@ -29,6 +30,7 @@ import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import { DomainEvents } from '../events/domain-events';
 import type { Prisma } from '../generated/prisma/client';
+import { freshLinkCode, needsFreshCode, withFreshCodeRetry } from './link-code';
 
 const RECEIPTS_DEFAULT_LIMIT = 50;
 
@@ -44,6 +46,8 @@ interface MyLinkRow {
   partner_id: string;
   partner_name: string;
   invited_phone: string | null;
+  invite_code: string | null;
+  invite_code_expires_at: Date | null;
   counterpart_id: string | null;
   counterpart_name: string | null;
   counterpart_type: string | null;
@@ -73,6 +77,10 @@ const toSummary = (row: MyLinkRow): LinkSummary => ({
       ? { id: row.counterpart_id, name: row.counterpart_name, type: OrgType.parse(row.counterpart_type) }
       : null,
   invitedPhone: row.invited_phone,
+  inviteCode:
+    row.invite_code && row.invite_code_expires_at
+      ? { code: row.invite_code, expiresAt: row.invite_code_expires_at.toISOString() }
+      : null,
   createdAt: row.created_at.toISOString(),
   decidedAt: row.decided_at ? row.decided_at.toISOString() : null,
 });
@@ -147,42 +155,77 @@ export class LinksService {
     return rows.map(toSummary);
   }
 
-  /** Bên sổ mời một dòng danh bạ. Kết nối đang sống thì trả lại nó — gọi lại không tạo thêm. */
+  /**
+   * Bên sổ mời một dòng danh bạ — kèm mã kết nối để đưa tận tay. Gọi lại không tạo thêm: kết nối
+   * đang sống được trả lại; còn chờ mà mã đã (sắp) hết hạn thì cấp mã mới, mã cũ hết dùng được.
+   * Số điện thoại của dòng danh bạ không bắt buộc — chỉ lưu lại cho đường dò bằng OTP (tạm ẩn).
+   */
   async invite(user: AuthUser, m: MembershipContext, input: LinkInviteInput, requestId: string): Promise<LinkSummary> {
     const orgId = m.organizationId;
-    const summary = await this.db.scoped({ userId: user.id, orgId }, async (tx) => {
-      const where = { id: input.partnerId, organizationId: orgId, deletedAt: null };
-      const partner =
-        input.partnerKind === 'supplier'
-          ? await tx.supplier.findFirst({ where, select: { phone: true } })
-          : await tx.buyer.findFirst({ where, select: { phone: true } });
-      if (!partner) throw new ApiException('NOT_FOUND', 'Không có dòng danh bạ này trong sổ');
-      const phone = normalizePhone(partner.phone ?? '');
-      if (!phone) {
-        throw new ApiException('VALIDATION_FAILED', 'Dòng danh bạ này chưa có số điện thoại Việt Nam hợp lệ', {
-          fields: { partnerId: 'Chưa có số điện thoại hợp lệ' },
+    return withFreshCodeRetry(() =>
+      this.db.scoped({ userId: user.id, orgId }, async (tx) => {
+        const where = { id: input.partnerId, organizationId: orgId, deletedAt: null };
+        const partner =
+          input.partnerKind === 'supplier'
+            ? await tx.supplier.findFirst({ where, select: { phone: true } })
+            : await tx.buyer.findFirst({ where, select: { phone: true } });
+        if (!partner) throw new ApiException('NOT_FOUND', 'Không có dòng danh bạ này trong sổ');
+        const ref = { partnerKind: input.partnerKind, partnerId: input.partnerId };
+
+        const live = await tx.partnerLink.findFirst({
+          where: { ownerOrgId: orgId, ...ref, status: { not: 'revoked' } },
+          select: { id: true, status: true, inviteCodeExpiresAt: true },
+        });
+        if (live) {
+          if (live.status === 'pending' && needsFreshCode(live.inviteCodeExpiresAt)) {
+            await tx.partnerLink.update({ where: { id: live.id }, data: freshLinkCode(), select: { id: true } });
+            await audit(tx, user, orgId, 'link.invited', live.id, requestId, { ...ref, renewed: true });
+          }
+          return findSummary(tx, live.id);
+        }
+
+        const created = await tx.partnerLink.create({
+          data: { ownerOrgId: orgId, ...ref, invitedPhone: normalizePhone(partner.phone ?? '') || null, ...freshLinkCode() },
+          select: { id: true },
+        });
+        await audit(tx, user, orgId, 'link.invited', created.id, requestId, ref);
+        return findSummary(tx, created.id);
+      }),
+    );
+  }
+
+  /**
+   * Bên được mời nhập mã kết nối → active ngay; nhập mã là bấm đồng ý. Mã sai, đã dùng, hết hạn
+   * đều ra cùng một câu — không dò được mã nào đang sống. Mã của chính mình thì nói rõ (bên sổ
+   * vốn thấy mã của mình, không lộ gì thêm).
+   */
+  async claim(user: AuthUser, m: MembershipContext, input: LinkClaimInput, requestId: string): Promise<LinkSummary> {
+    const orgId = m.organizationId;
+    const { summary, ownerOrgId } = await this.db.scoped({ userId: user.id, orgId }, async (tx) => {
+      const own = await tx.partnerLink.findFirst({ where: { ownerOrgId: orgId, inviteCode: input.code }, select: { id: true } });
+      if (own) {
+        throw new ApiException('VALIDATION_FAILED', 'Đây là mã do chính sổ này cấp — đưa mã cho người được mời nhập', {
+          fields: { code: 'Mã của chính sổ này' },
         });
       }
 
-      const live = await tx.partnerLink.findFirst({
-        where: { ownerOrgId: orgId, partnerKind: input.partnerKind, partnerId: input.partnerId, status: { not: 'revoked' } },
-        select: { id: true },
-      });
-      if (live) return findSummary(tx, live.id);
+      const rows = await tx.$queryRaw<{ id: string | null }[]>`select public.claim_link(${input.code}) as id`;
+      const linkId = rows[0]?.id;
+      if (!linkId) throw new ApiException('NOT_FOUND', 'Mã kết nối không đúng, đã dùng hoặc đã hết hạn — xin bên mời lấy mã mới');
 
-      const created = await tx.partnerLink.create({
-        data: { ownerOrgId: orgId, partnerKind: input.partnerKind, partnerId: input.partnerId, invitedPhone: phone },
-        select: { id: true },
-      });
-      await audit(tx, user, orgId, 'link.invited', created.id, requestId, { partnerKind: input.partnerKind, partnerId: input.partnerId });
-      return findSummary(tx, created.id);
+      const link = await findSummary(tx, linkId);
+      await audit(tx, user, orgId, 'link.accepted', linkId, requestId, { ownerOrgId: link.counterpart?.id ?? null, via: 'code' });
+      return { summary: link, ownerOrgId: link.counterpart?.id ?? '' };
     });
+
+    this.events.emit('link.accepted', { linkId: summary.id, ownerOrgId, linkedOrgId: orgId });
     return summary;
   }
 
   /**
-   * CHÍNH bên được liên kết đồng ý, với số điện thoại đã xác thực OTP TRÙNG số được mời — không
-   * thì ai đăng ký bằng số người khác cũng xem được công nợ của họ.
+   * Đường OTP (tạm ẩn): CHÍNH bên được liên kết đồng ý lời mời đã dò được, với số điện thoại đã
+   * xác thực OTP TRÙNG số được mời — không thì ai đăng ký bằng số người khác cũng xem được công
+   * nợ của họ.
    */
   async accept(user: AuthUser, m: MembershipContext, linkId: string, requestId: string): Promise<LinkSummary> {
     const phone = verifiedPhone(await this.users.fetch(user.token));

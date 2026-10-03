@@ -54,7 +54,7 @@ npm run dev
 | `npm run mock` | Server giả từ `openapi.json` (Prism) cho frontend làm trước khi API xong |
 | `npm run dev` | API chạy lại khi sửa code |
 | `npm run smoke:me` | Kiểm `/v1/me` trên staging bằng một tài khoản thật — bạn tự gõ email/mật khẩu, không in ra đâu cả |
-| `npm run login-test` | Trang thử ở http://localhost:5174 — đủ luồng tài khoản trên staging: đăng ký, "Bác là ai?", đăng nhập một ô, OTP, dò kết nối, qua `@mambo/sdk` (cần `build:packages` trước). `/sync.html?may=A` và `?may=B`: thử đồng bộ sổ hai máy |
+| `npm run login-test` | Trang thử ở http://localhost:5174 — đủ luồng tài khoản trên staging: đăng ký, "Bác là ai?", đăng nhập một ô, nhập mã kết nối (OTP tạm ẩn), qua `@mambo/sdk` (cần `build:packages` trước). `/sync.html?may=A` và `?may=B`: thử đồng bộ sổ hai máy, mời kết nối lấy mã |
 
 ## Cấu trúc
 

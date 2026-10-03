@@ -126,17 +126,22 @@ export const createClient = (options: ClientOptions) => {
     meBootstrap: (input: RouteBody<'meBootstrap'>) => send('meBootstrap', input),
     /** Trước `signInWithPassword`. Luôn trả một email — sai thì báo MỘT câu chung. */
     resolveIdentifier: (input: RouteBody<'resolveIdentifier'>) => send('resolveIdentifier', input),
-    /** Sau khi xác thực OTP số điện thoại. Cần `getOrganizationId`. */
+    /** Đường OTP — tạm ẩn tới khi > 100 tổ chức trả phí. Cần `getOrganizationId`. */
     discoverLinks: () => call('linksDiscover'),
     /** Kết nối giữa tổ chức (BE4). Cần `getOrganizationId`. */
     links: {
       /** Cả hai phía: sổ của mình (`side: 'owner'`) và sổ bên kia nhắc tới mình (`side: 'linked'`). */
       list: () => call('linksList'),
-      /** Sau khi xác thực OTP — tìm các sổ có số của mình, tạo / nhận lời mời chờ đồng ý. */
-      discover: () => call('linksDiscover'),
-      /** Bên sổ mời một dòng danh bạ có số điện thoại. Gọi lại trả kết nối đang có. */
+      /**
+       * Bên sổ mời một dòng danh bạ → `inviteCode` để đưa tận tay (hiện mã / QR). Gọi lại trả kết
+       * nối đang có, kèm mã đang còn hạn hoặc mã mới.
+       */
       invite: (input: RouteBody<'linksInvite'>) => send('linksInvite', input),
-      /** Bên được liên kết đồng ý. `PHONE_NOT_VERIFIED` → mở màn OTP. */
+      /** Bên được mời nhập mã (gõ tay hoặc quét QR) → kết nối active ngay. `NOT_FOUND` = mã không dùng được. */
+      claim: (input: RouteBody<'linksClaim'>) => send('linksClaim', input),
+      /** Đường OTP (tạm ẩn): tìm các sổ có số của mình, tạo / nhận lời mời chờ đồng ý. */
+      discover: () => call('linksDiscover'),
+      /** Đường OTP (tạm ẩn): bên được liên kết đồng ý lời mời đã dò. `PHONE_NOT_VERIFIED` → màn OTP. */
       accept: (id: string) => call('linksAccept', undefined, undefined, { id }),
       /** Một trong hai bên huỷ — mất quyền xem ngay. */
       revoke: (id: string) => call('linksRevoke', undefined, undefined, { id }),
