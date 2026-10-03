@@ -1,0 +1,114 @@
+# Sao lưu Postgres production mỗi ngày (KH backend BE10) — 02:00 giờ Việt Nam — và thử PHỤC HỒI bản
+# mới nhất mỗi Chủ nhật vào một Postgres trống trong runner. Script: ops/backup/. Hướng dẫn: ops/README.md.
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL   role postgres của Supabase production (Session pooler 5432)
+#   BACKUP_PASSPHRASE     ≥ 32 ký tự — CẤT THÊM MỘT BẢN NGOÀI GITHUB (mất là backup vô dụng)
+#   BACKUP_S3_BUCKET, BACKUP_S3_ENDPOINT, BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY
+#                         kho S3-compatible của nhà cung cấp KHÁC Supabase (Cloudflare R2, Backblaze B2)
+# Chưa đặt secrets thì job bỏ qua kèm cảnh báo — không đỏ mỗi ngày ở repo chưa lên production.
+
+name: Backup
+
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+    inputs:
+      restore_check:
+        description: 'Thử phục hồi bản mới nhất ngay sau khi sao lưu'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+env:
+  BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+  BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+  BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+  BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        run: |
+          if [ -z "$BACKUP_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ] || [ -z "$BACKUP_S3_BUCKET" ]; then
+            echo "::warning::Chưa đặt secrets sao lưu — bỏ qua. Xem ops/README.md."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.check.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
+      # Cùng bản lớn với Supabase (17) — pg_dump cũ hơn server thì từ chối dump.
+      - if: steps.check.outputs.configured == 'true'
+        name: Cài postgresql-client 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - if: steps.check.outputs.configured == 'true'
+        name: Sao lưu
+        run: bash ops/backup/backup.sh
+
+  restore-check:
+    needs: backup
+    # Chạy mỗi lần sao lưu xong; bước bên dưới tự dừng nếu không phải Chủ nhật (hoặc chạy tay có chọn).
+    if: needs.backup.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chỉ Chủ nhật (lịch hằng ngày) hoặc khi chạy tay có chọn
+        id: when
+        run: |
+          if [ "${{ inputs.restore_check }}" = "true" ] || [ "$(date -u +%u)" = "7" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
+
+      - if: steps.when.outputs.run == 'true'
+        name: Cài postgresql-client 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - if: steps.when.outputs.run == 'true'
+        name: Tải bản mới nhất và thử phục hồi
+        env:
+          RESTORE_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: |
+          mkdir -p out
+          latest="$(aws s3 ls "s3://$BACKUP_S3_BUCKET/daily/" --endpoint-url "$BACKUP_S3_ENDPOINT" | awk '{print $4}' | grep '\.counts\.txt$' | sort | tail -1)"
+          stamp="$(echo "$latest" | sed -E 's/^thumua365-(.*)\.counts\.txt$/\1/')"
+          echo "Bản mới nhất: $stamp"
+          aws s3 cp "s3://$BACKUP_S3_BUCKET/daily/" out/ --recursive --exclude '*' --include "thumua365-$stamp.*" \
+            --endpoint-url "$BACKUP_S3_ENDPOINT" --only-show-errors
+          bash ops/backup/restore-check.sh out "$stamp"

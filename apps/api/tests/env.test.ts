@@ -4,6 +4,12 @@ import { decoyEmail } from '../src/auth/auth.controller';
 import { phoneFromLoginEmail } from '../src/auth/login-email';
 import { meUserFrom } from '../src/me/me.controller';
 
+const prodSecrets = {
+  PRIVILEGED_DATABASE_URL: 'postgresql://api_privileged:p@localhost:5432/db',
+  BANK_WEBHOOK_SECRET: 'bi-mat-webhook-dai-it-nhat-24-ky-tu',
+  METRICS_TOKEN: 'token-prometheus-dai-it-nhat-24',
+};
+
 const base = {
   SUPABASE_URL: 'https://x.supabase.co/',
   SUPABASE_PUBLISHABLE_KEY: 'k',
@@ -20,11 +26,24 @@ describe('loadEnv', () => {
   });
 
   it('staging/production bắt buộc CORS_ORIGINS', () => {
-    expect(() => loadEnv({ ...base, APP_ENV: 'production' })).toThrow(/CORS_ORIGINS/);
-    expect(loadEnv({ ...base, APP_ENV: 'production', CORS_ORIGINS: 'https://a.vn, https://b.vn' }).CORS_ORIGINS).toEqual([
+    expect(() => loadEnv({ ...base, APP_ENV: 'production', ...prodSecrets })).toThrow(/CORS_ORIGINS/);
+    expect(() => loadEnv({ ...base, APP_ENV: 'staging' })).toThrow(/CORS_ORIGINS/);
+    expect(loadEnv({ ...base, APP_ENV: 'production', ...prodSecrets, CORS_ORIGINS: 'https://a.vn, https://b.vn' }).CORS_ORIGINS).toEqual([
       'https://a.vn',
       'https://b.vn',
     ]);
+  });
+
+  it('BE10: production chỉ domain https thật; bí mật thu tiền / quản trị / giám sát bắt buộc', () => {
+    const prod = { ...base, APP_ENV: 'production', CORS_ORIGINS: 'https://app.thumua365.vn', ...prodSecrets };
+    expect(() => loadEnv(prod)).not.toThrow();
+    expect(() => loadEnv({ ...prod, CORS_ORIGINS: 'https://app.thumua365.vn,http://localhost:5173' })).toThrow(/https/);
+    expect(() => loadEnv({ ...prod, CORS_ORIGINS: 'http://app.thumua365.vn' })).toThrow(/https/);
+    for (const key of ['PRIVILEGED_DATABASE_URL', 'BANK_WEBHOOK_SECRET', 'METRICS_TOKEN']) {
+      expect(() => loadEnv({ ...prod, [key]: '' })).toThrow(new RegExp(key));
+    }
+    // Staging vẫn chạy khi chưa điền — chỉ ba việc đặc quyền báo lỗi.
+    expect(() => loadEnv({ ...base, APP_ENV: 'staging', CORS_ORIGINS: 'http://localhost:5173' })).not.toThrow();
   });
 
   it('báo đúng tên biến thiếu', () => {

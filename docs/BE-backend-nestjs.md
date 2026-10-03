@@ -5,7 +5,7 @@ Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `C
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
 Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; OTP tạm ẩn tới khi > 100 tổ chức trả phí (§1.4)
 Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 ✅** (`v0.5.0`, kết nối bằng mã kết
-nối, nghiệm thu trên staging 03/10) · **BE5 🟡 · BE7 🟡 · BE6 🟡 · BE8 🟡 · BE9 🟡** hợp đồng + API + test xong (gom từ
+nối, nghiệm thu trên staging 03/10) · **BE5 🟡 · BE7 🟡 · BE6 🟡 · BE8 🟡 · BE9 🟡 · BE10 🟡 (phần code)** hợp đồng + API + test xong (gom từ
 nhánh `be/nestjs-be10` của repo frontend), còn email và nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
@@ -668,7 +668,13 @@ Chưa có pg-boss nên chưa có số đo job lỗi — thêm cùng kênh email.
 - **Xong khi:** một vòng luồng R2 trên staging → phễu đủ sự kiện đúng thứ tự, tách được
   theo `orgType`. **Đạt R5.**
 
-### BE10 — Lên production (1–2 buổi)
+### BE10 — Lên production (1–2 buổi) · 🟡 03/10 — phần code xong, bảng kiểm vận hành ở `ops/PRODUCTION.md`
+
+**Làm 03/10/2026:** `ops/backup/` (pg_dump mã hoá → kho S3-compatible, giữ 30 ngày; thử phục hồi
+so số dòng) + workflow `backup.yml` (hằng ngày; thử phục hồi Chủ nhật) — đã thử thật ở máy dev.
+`npm run security:check` trong CI. `env.ts`: production bắt buộc CORS https (không localhost) và đủ
+bí mật của BE6/BE9. Service `thumua365-api` (production) trong `render.yaml`, deploy tay.
+
 
 - **Backup:** job `pg_dump` hằng ngày ra kho riêng (khác nhà cung cấp), giữ 30 ngày,
   **thử phục hồi một lần**. Production đang ở gói Free (không có backup tự động) nên job này

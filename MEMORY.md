@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 → BE9 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 → BE10 đang làm** (BE10: phần code) (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -1060,6 +1060,36 @@ nối → đơn → phiếu theo đơn → gói mở) cho ra phễu 6 bước đ
 **Gom về repo BE** (nhánh `be9/do-luong`, 03/10): cherry-pick `8e8f53c` giữ tác giả; `package-lock.json` cài lại trên
 repo BE (chỉ thêm `prom-client` và phụ thuộc của nó). `verify` xanh (api 45); `test:db` **164/164**. Để ý: npm
 báo `prom-client@15` đã ngừng, thay bằng `@prometheus-io/client` — đổi khi nâng phụ thuộc, không chặn.
+
+---
+
+## BE10 — Lên production: phần code · nhánh `be10/production` · 03/10/2026
+
+**Kết quả:** mọi việc BE10 làm được không cần tài khoản của nhóm đã xong; phần còn lại là bảng kiểm
+vận hành **`ops/PRODUCTION.md`** (gom mọi "còn lại" của BE4–BE10, theo thứ tự làm).
+
+### Làm gì
+
+- **Backup** `ops/backup/backup.sh`: `pg_dump` public (+ dữ liệu `auth.users`, `auth.identities` trên
+  Supabase) → AES-256 (`BACKUP_PASSPHRASE`) → kho S3-compatible khác Supabase, giữ 30 ngày; kèm tệp
+  số dòng. `restore-check.sh`: phục hồi vào database trống, so số dòng. Workflow `backup.yml`: 02:00
+  mỗi ngày, thử phục hồi mỗi Chủ nhật trong runner (Postgres 17 + PostGIS); chưa có secrets → bỏ qua.
+- **Rà lộ khoá** `scripts/security-check.mjs` (`npm run security:check`, trong CI và `verify`): tệp
+  `.env`/khoá riêng, `sb_secret_`, JWT service_role, khoá AWS, chuỗi Postgres có mật khẩu thật,
+  frontend nhắc tới khoá bí mật. Chỉ in tệp:dòng, không in bí mật.
+- **`env.ts` production**: `CORS_ORIGINS` chỉ `https://`, không localhost; bắt buộc
+  `PRIVILEGED_DATABASE_URL`, `BANK_WEBHOOK_SECRET`, `METRICS_TOKEN` — thiếu là API không lên.
+- `render.yaml`: service production `thumua365-api` (starter, Singapore, `autoDeployTrigger: off`).
+
+### Chạy thật đã kiểm
+
+| Việc | Kết quả |
+|---|---|
+| Backup → phục hồi (container Postgres 17 ở máy dev) | 1 tổ chức · 25 phiếu · 25 lần trả · 2 dòng sổ đối soát: khớp; tệp đã mã hoá (`Salted__`); sai khoá → `pg_restore` từ chối |
+| `security:check` | 538 tệp sạch; tự thử với khoá giả, chuỗi kết nối thật, `.env` → bắt đủ 3 |
+| Image API sau BE5–BE9 | 473MB; `/v1/health` 200; `/metrics` không token 404, có token ra số đo; thiếu `PRIVILEGED_DATABASE_URL` → cảnh báo, không sập (staging) |
+
+### Còn lại — xem `ops/PRODUCTION.md`
 
 ---
 

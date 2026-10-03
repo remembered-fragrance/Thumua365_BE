@@ -19,6 +19,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Không lộ bí mật (BE10)
+        run: npm run security:check
+
       - name: Build gói dùng chung (core → contracts → sdk)
         run: npm run build:packages
 

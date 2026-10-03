@@ -1,6 +1,7 @@
 # Render Blueprint — áp dụng: Render Dashboard → Blueprints → New Blueprint Instance → chọn repo.
 #
-# Chỉ có STAGING. Production thêm vào đây ở BE10 (gói trả phí, luôn chạy, deploy tay).
+# STAGING (gói free, tự deploy khi CI xanh) và PRODUCTION (BE10 — gói trả phí, luôn chạy, deploy TAY:
+# Render → thumua365-api → Manual Deploy, chọn đúng commit đã chạy trên staging).
 # Biến `sync: false` là bí mật hoặc tuỳ môi trường: Render hỏi giá trị lúc tạo,
 # KHÔNG ghi giá trị thật vào file này.
 
@@ -50,5 +51,49 @@ services:
         sync: false
       # Render đứng sau Cloudflare: IP thật của người gọi nằm ở header này (Cloudflare
       # ghi đè, client không giả được). Thiếu nó thì hạn mức theo IP không có tác dụng.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
+
+  - type: web
+    name: thumua365-api
+    runtime: docker
+    region: singapore
+    # Luôn chạy: gói free ngủ sau 15 phút — request đầu sau đó chậm, webhook ngân hàng có thể hụt.
+    plan: starter
+    branch: master
+    # Production không tự deploy: chỉ đẩy commit đã qua staging, bấm tay.
+    autoDeployTrigger: off
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    buildFilter:
+      ignoredPaths:
+        - apps/web/**
+    healthCheckPath: /v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SUPABASE_URL
+        value: https://grrzveprprjukvosdtra.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: PRIVILEGED_DATABASE_URL
+        sync: false
+      - key: BANK_WEBHOOK_SECRET
+        sync: false
+      - key: ADMIN_USER_IDS
+        sync: false
+      - key: METRICS_TOKEN
+        sync: false
+      # Chỉ domain production của app web — không localhost.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+      - key: SENTRY_DSN
+        sync: false
       - key: CLIENT_IP_HEADER
         value: cf-connecting-ip
