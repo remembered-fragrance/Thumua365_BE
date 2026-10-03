@@ -1056,6 +1056,11 @@ nối → đơn → phiếu theo đơn → gói mở) cho ra phễu 6 bước đ
 - [ ] Frontend: `track()` qua hàng đợi, Sentry cho web, sửa trang Quyền riêng tư cùng PR.
 - [ ] Số đo job pg-boss lỗi — khi có kênh email.
 
+
+**Gom về repo BE** (nhánh `be9/do-luong`, 03/10): cherry-pick `8e8f53c` giữ tác giả; `package-lock.json` cài lại trên
+repo BE (chỉ thêm `prom-client` và phụ thuộc của nó). `verify` xanh (api 45); `test:db` **164/164**. Để ý: npm
+báo `prom-client@15` đã ngừng, thay bằng `@prometheus-io/client` — đổi khi nâng phụ thuộc, không chặn.
+
 ---
 
 ## Bốn số phải giữ trong tầm
