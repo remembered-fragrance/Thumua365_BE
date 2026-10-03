@@ -10,8 +10,9 @@
  *   3. làm op; 4. ghi `sync_ops` — CÙNG transaction, nên op hoặc đã làm và đã ghi, hoặc chưa gì.
  *
  * Phiếu lập theo đơn (`orderId`, BE5): đơn sang `fulfilled` + `order_events` trong CÙNG transaction
- * với phiếu; sau commit phát `order.fulfilled`. Đơn đã huỷ → phiếu vẫn ghi, gỡ `orderId`, cảnh báo
- * `ORDER_NOT_OPEN` — phiếu là việc đã cân thật ngoài đời, không bao giờ bị từ chối vì đơn.
+ * với phiếu; sau commit phát `order.fulfilled`. Đơn đã huỷ, không còn (bên kia xoá tài khoản) hay
+ * không đúng bên → phiếu vẫn ghi, gỡ `orderId`, cảnh báo `ORDER_NOT_OPEN` — phiếu là việc đã cân thật
+ * ngoài đời, không bao giờ bị từ chối vì đơn (gặp `rejected` là cả hàng đợi dừng). Nháp cũng vậy.
  */
 
 import { computeReceiptTotal, freezeLineTotals, totalAdjustments } from '@mambo/core/calc';
@@ -203,11 +204,18 @@ export class SyncPushService {
     if (op.kind === 'update') {
       // Xoá thắng: sửa đến sau không làm bản ghi sống lại (quy tắc số 3).
       if (deletedAt) return { status: 'applied', warning: 'RECORD_DELETED' };
-      if (op.entity === 'draft' && typeof op.data?.orderId === 'string') {
-        await findOrderFor(tx, ctx, op.data.orderId, (op.data.kind ?? null) as string | null);
+      const patch = { ...(op.data ?? {}) };
+      let warning: SyncWarning | undefined;
+      if (op.entity === 'draft' && typeof patch.orderId === 'string') {
+        // Chiều của nháp: trong vá nếu có, không thì chiều đang lưu — trigger cũng xét đúng như vậy.
+        const kind = patch.kind ?? (await tx.draft.findUnique({ where: { id: op.recordId }, select: { kind: true } }))?.kind;
+        if (!(await findOrderFor(tx, ctx, patch.orderId, (kind ?? null) as string | null))) {
+          patch.orderId = null;
+          warning = 'ORDER_NOT_OPEN';
+        }
       }
-      await model.update({ where: { id: op.recordId }, data: table.toDb(op.data ?? {}), select: { id: true } });
-      return APPLIED;
+      await model.update({ where: { id: op.recordId }, data: table.toDb(patch), select: { id: true } });
+      return warning ? { status: 'applied', warning } : APPLIED;
     }
 
     if (deletedAt) return DUPLICATE;
@@ -234,7 +242,7 @@ export class SyncPushService {
     }
 
     if (op.entity === 'draft' && typeof data.orderId === 'string') {
-      await findOrderFor(tx, ctx, data.orderId, (data.kind ?? null) as string | null);
+      if (!(await findOrderFor(tx, ctx, data.orderId, (data.kind ?? null) as string | null))) return notOpen(data);
     }
 
     if (op.entity === 'payment') {
@@ -251,20 +259,30 @@ export class SyncPushService {
     return { data };
   }
 
-  /** Phiếu theo đơn (KH §4.1 mục 8). Đơn còn mở → `fulfilled`; đã huỷ → gỡ khỏi đơn; đã xong → chỉ gắn. */
+  /**
+   * Phiếu theo đơn (KH §4.1 mục 8). Đơn còn mở → `fulfilled`; đã xong → chỉ gắn; đã huỷ, không còn hay
+   * sai bên → gỡ khỏi đơn, cảnh báo.
+   */
   private async fulfil(
     tx: Tx,
     ctx: PushContext,
     data: Record<string, unknown>,
   ): Promise<{ data: Record<string, unknown>; warning?: SyncWarning; fulfilled?: OrderChanged }> {
     const order = await findOrderFor(tx, ctx, data.orderId as string, data.kind as string);
-    if (order.status === 'cancelled') return { data: { ...data, orderId: null }, warning: 'ORDER_NOT_OPEN' };
+    if (!order || order.status === 'cancelled') return notOpen(data);
     if (order.status === 'fulfilled') return { data };
 
-    const done = await tx.order.update({
-      where: { id: order.id },
+    // Chỉ chuyển nếu đơn CÒN mở lúc ghi: bên kia (DN cũng có sổ) có thể vừa hoàn thành nó — khoá
+    // advisory theo tổ chức không chặn hai tổ chức với nhau. Đọc lại khi không khớp hàng nào.
+    const { count } = await tx.order.updateMany({
+      where: { id: order.id, status: { in: [...OPEN_ORDER] } },
       data: { status: 'fulfilled', version: { increment: 1 } },
     });
+    if (count === 0) {
+      const now = await tx.order.findUnique({ where: { id: order.id }, select: { status: true } });
+      return now?.status === 'fulfilled' ? { data } : notOpen(data);
+    }
+    const done = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
     await logStep(tx, order.id, order.status, 'fulfilled', ctx.user.id, ctx.membership.organizationId, null);
     return { data, fulfilled: changeOf(done, ctx.user, ctx.membership.organizationId) };
   }
@@ -379,14 +397,24 @@ const verifyLineTotals = (lines: TransactionLine[]): TransactionLine[] => {
   return frozen;
 };
 
+/** Đơn còn nhận phiếu để hoàn thành. */
+const OPEN_ORDER = ['submitted', 'accepted', 'scheduled'] as const;
+
+/** Gỡ phiếu / nháp khỏi đơn không dùng được — bản ghi vẫn lưu, app nhận cảnh báo. */
+const notOpen = (data: Record<string, unknown>): { data: Record<string, unknown>; warning: SyncWarning } => ({
+  data: { ...data, orderId: null },
+  warning: 'ORDER_NOT_OPEN',
+});
+
 /**
  * Đơn mà tổ chức là ĐÚNG bên: phiếu mua ↔ bên mua, phiếu bán ↔ bên bán, nháp chưa chọn chiều ↔ bên
- * nào cũng được. Sai thì từ chối op có giải thích (app đang gắn nhầm đơn) — trigger
- * `book_order_guard` giữ cùng luật ở database.
+ * nào cũng được. Không có (kể cả đã bị xoá cùng tài khoản bên kia) hoặc sai bên → `null`: KHÔNG từ
+ * chối op — phiếu là việc đã cân thật, `rejected` làm kẹt cả hàng đợi. Trigger `book_order_guard`
+ * giữ cùng luật ở database.
  */
-const findOrderFor = async (tx: Tx, ctx: PushContext, orderId: string, kind: string | null) => {
+const findOrderFor = (tx: Tx, ctx: PushContext, orderId: string, kind: string | null) => {
   const orgId = ctx.membership.organizationId;
-  const order = await tx.order.findFirst({
+  return tx.order.findFirst({
     where: {
       id: orderId,
       OR: [
@@ -396,10 +424,4 @@ const findOrderFor = async (tx: Tx, ctx: PushContext, orderId: string, kind: str
     },
     select: { id: true, status: true },
   });
-  if (!order) {
-    throw new OpRejected('VALIDATION_FAILED', 'Không có đơn này, hoặc tổ chức không phải đúng bên của đơn', {
-      fields: { orderId: 'Không có đơn này cho phía mua/bán của phiếu' },
-    });
-  }
-  return order;
 };

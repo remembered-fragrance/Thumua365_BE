@@ -370,8 +370,9 @@ Hợp đồng chính xác: `packages/contracts/src/sync.ts`, `sync-records.ts`, 
    chứng từ và ghi chú.
 7. `transaction` insert: tính lại tổng bằng `packages/core`; lệch → `VALIDATION_FAILED`.
 8. Phiếu có `orderId` hợp lệ → đơn sang `fulfilled` + `order_events` trong **cùng**
-   transaction; sau commit phát `order.fulfilled`. Đơn đã huỷ → phiếu vẫn ghi, gỡ `orderId`,
-   `warning: ORDER_NOT_OPEN`.
+   transaction; sau commit phát `order.fulfilled`. Đơn đã huỷ, không còn (bên kia xoá tài khoản) hay
+   sai bên → phiếu vẫn ghi, gỡ `orderId`, `warning: ORDER_NOT_OPEN` — không bao giờ `rejected` vì
+   đơn. Bên kia vừa hoàn thành đơn đúng lúc → phiếu chỉ gắn vào đơn.
 9. Xoá phiếu, huỷ lần trả → ghi `audit_log` trong cùng transaction.
 10. Vựa/DN hết gói → `402 PLAN_EXPIRED` cho cả request, không ghi gì.
 11. Lần trả cho phiếu đã bị xoá ở máy khác: vẫn lưu (tiền đã trả ngoài đời), `warning:

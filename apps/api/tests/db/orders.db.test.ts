@@ -318,22 +318,78 @@ describe('phiếu theo đơn', () => {
     expect(linked[0]?.n).toBe(2);
   });
 
-  it('đơn không có, đơn của người khác, phiếu BÁN cho đơn mình là bên mua → rejected VALIDATION_FAILED', async () => {
+  it('🔴 đơn không còn (bên kia xoá tài khoản lúc vựa đang cân offline) → phiếu VẪN GHI, gỡ khỏi đơn, ORDER_NOT_OPEN; lần trả sau nó vẫn lên', async () => {
+    const orderId = await acceptedOrder();
+    // Xoá tài khoản của cô Mai xoá hẳn đơn (purgeOrganization, BE6) — giả lập đúng bước đó.
+    await admin.query('delete from order_events where order_id = $1', [orderId]);
+    await admin.query('delete from orders where id = $1', [orderId]);
+
+    const op = opMaker();
+    const txId = newId();
+    const res = SyncPushResult.parse(
+      (await (await as(vuaStaff, vua)).push([op('transaction', 'insert', txId, txData({ orderId })), op('payment', 'insert', newId(), paymentData(txId, 500_000))]).expect(200))
+        .body,
+    );
+    // Gặp `rejected` là hàng đợi dừng (FRONTEND §7) — phiếu là việc đã cân thật, không được kẹt vì đơn.
+    expect(res.results.map((r) => r.status)).toEqual(['applied', 'applied']);
+    expect(res.results[0]?.warning).toBe('ORDER_NOT_OPEN');
+    const { rows } = await admin.query('select order_id from transactions where id = $1', [txId]);
+    expect(rows[0]?.order_id).toBeNull();
+  });
+
+  it('đơn không có, đơn của người khác, phiếu BÁN cho đơn mình là bên mua → phiếu vẫn ghi, gỡ khỏi đơn, ORDER_NOT_OPEN; đơn không đổi', async () => {
     const orderId = await acceptedOrder();
     const staff = await as(vuaStaff, vua);
     const op = opMaker();
     for (const data of [txData({ orderId: newId() }), txData({ orderId, kind: 'sale' })]) {
-      const res = SyncPushResult.parse((await staff.push([op('transaction', 'insert', newId(), data)]).expect(200)).body);
-      expect(res.results[0]?.status).toBe('rejected');
-      expect(res.results[0]?.error).toMatchObject({ code: 'VALIDATION_FAILED', details: { fields: { orderId: expect.any(String) } } });
+      const txId = newId();
+      const res = SyncPushResult.parse((await staff.push([op('transaction', 'insert', txId, data)]).expect(200)).body);
+      expect(res.results[0]).toMatchObject({ status: 'applied', warning: 'ORDER_NOT_OPEN' });
+      const { rows } = await admin.query('select order_id from transactions where id = $1', [txId]);
+      expect(rows[0]?.order_id).toBeNull();
     }
     await giveTrial(other);
     const stranger = SyncPushResult.parse(
       (await (await as(otherOwner, other)).push([opMaker()('transaction', 'insert', newId(), txData({ orderId }))]).expect(200)).body,
     );
-    expect(stranger.results[0]?.error?.code).toBe('VALIDATION_FAILED');
-    const { rows } = await admin.query('select status from orders where id = $1', [orderId]);
-    expect(rows[0]?.status).toBe('accepted');
+    expect(stranger.results[0]).toMatchObject({ status: 'applied', warning: 'ORDER_NOT_OPEN' });
+    const { rows } = await admin.query('select status, version from orders where id = $1', [orderId]);
+    expect(rows[0]).toEqual({ status: 'accepted', version: 2 });
+  });
+
+  it('🔴 bên kia vừa hoàn thành đơn đúng lúc vựa đẩy phiếu → phiếu chỉ gắn vào đơn, không lỗi INTERNAL', async () => {
+    const orderId = await acceptedOrder();
+    // Phía bên kia (DN cũng có sổ) hoàn thành đơn trong một transaction còn mở: vựa đọc thấy đơn còn
+    // mở, rồi phải đợi khoá hàng của đơn. Khoá advisory là theo tổ chức nên không chặn được việc này.
+    const peer = await admin.connect();
+    try {
+      await peer.query('begin');
+      await peer.query(`update orders set status = 'fulfilled', version = version + 1 where id = $1`, [orderId]);
+      const txId = newId();
+      const pushing = (await as(vuaStaff, vua))
+        .push([opMaker()('transaction', 'insert', txId, txData({ orderId }))])
+        .expect(200)
+        .then((r) => SyncPushResult.parse(r.body));
+      await new Promise((r) => setTimeout(r, 400));
+      await peer.query('commit');
+      const res = await pushing;
+      expect(res.results[0]).toEqual({ opId: expect.any(String), status: 'applied' });
+      const { rows } = await admin.query('select order_id from transactions where id = $1', [txId]);
+      expect(rows[0]?.order_id).toBe(orderId);
+      const { rows: order } = await admin.query('select status, version from orders where id = $1', [orderId]);
+      expect(order[0]).toEqual({ status: 'fulfilled', version: 3 });
+    } finally {
+      peer.release();
+    }
+  });
+
+  it('nháp gắn đơn không có → nháp vẫn lưu, gỡ khỏi đơn, ORDER_NOT_OPEN', async () => {
+    const draftId = newId();
+    const draft = { status: 'draft', supplierName: 'Cô Mai', lines: [], amountPaid: 0, orderId: newId() };
+    const res = SyncPushResult.parse((await (await as(vuaStaff, vua)).push([opMaker()('draft', 'insert', draftId, draft)]).expect(200)).body);
+    expect(res.results[0]).toMatchObject({ status: 'applied', warning: 'ORDER_NOT_OPEN' });
+    const { rows } = await admin.query('select order_id from drafts where id = $1', [draftId]);
+    expect(rows[0]?.order_id).toBeNull();
   });
 
   it('nháp theo đơn đồng bộ được, kéo về mang orderId', async () => {

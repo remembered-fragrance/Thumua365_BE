@@ -442,10 +442,11 @@ const detail = await api.orders.get(o.id); // detail.events: [{ toStatus, by: 'm
 - **Ô "Theo đơn" ở màn Tạo phiếu (vựa/DN):** chọn một đơn `accepted`/`scheduled` → điền sẵn
   `counterpartyId = order.partnerId` (dòng danh bạ của bên kia **trong sổ mình**; null thì người
   dùng chọn tay) và đặt `orderId` vào `data` của op `transaction` insert (nháp cũng mang được
-  `orderId`). Phiếu bán gắn đơn mình **bán**, phiếu mua gắn đơn mình **mua** — sai chiều →
-  op `rejected` `VALIDATION_FAILED` (`details.fields.orderId`).
-- Đơn bị huỷ trong lúc vựa cân offline: phiếu **vẫn được ghi**, server gỡ `orderId`, op có
-  `warning: 'ORDER_NOT_OPEN'` — báo nhẹ "Đơn đã bị huỷ; phiếu vẫn lưu", không coi là lỗi.
+  `orderId`). Phiếu bán gắn đơn mình **bán**, phiếu mua gắn đơn mình **mua**.
+- Đơn bị huỷ trong lúc vựa cân offline, đơn không còn (bên kia đã xoá tài khoản), hay gắn sai chiều:
+  phiếu **vẫn được ghi**, server gỡ `orderId`, op có `warning: 'ORDER_NOT_OPEN'` — báo nhẹ "Đơn
+  không còn mở; phiếu vẫn lưu", không coi là lỗi. Phiếu không bao giờ bị `rejected` vì đơn. Nháp
+  cũng vậy.
 - Người gắn chi nhánh (DN) chỉ thấy đơn của chi nhánh mình; đơn tạo ra mang chi nhánh đó.
 
 **Thông báo** (mọi vai trò): gọi `api.notifications.list()` khi mở app và mỗi 60 giây; huy hiệu
@@ -572,7 +573,7 @@ Dùng nó cùng `membership.permissions` để ẩn nút.
 | Cả request lỗi `402 PLAN_EXPIRED` | Dừng lượt, **giữ nguyên** hàng đợi, không tính lần thử; báo gói hết hạn |
 | Lỗi mạng | Thử lại theo lịch giãn cách |
 
-- `warning: 'ORDER_NOT_OPEN'` (từ BE5): đơn đã huỷ; phiếu vẫn được ghi nhưng bị gỡ khỏi đơn.
+- `warning: 'ORDER_NOT_OPEN'` (từ BE5): đơn đã huỷ, không còn hay sai chiều; phiếu / nháp vẫn được ghi nhưng bị gỡ khỏi đơn.
 - Nông dân gọi sync sẽ bị `403 FORBIDDEN` — đừng gọi.
 
 ### 7.4 Kéo về: `sdk.sync.pull({ cursor, limit })`

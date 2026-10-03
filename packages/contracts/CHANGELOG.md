@@ -22,9 +22,9 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
   { ids? }` → `{ unread }`; bỏ `ids` = tất cả.
 - `NotificationKind` liệt kê sẵn cả loại của BE6/BE7 (`member.*`, `plan.activated`).
 - Sync: `orderId` (tuỳ chọn) trong `TransactionInsert`, `DraftInsert`/`DraftPatch`; `orderId` trong
-  `TransactionRecord`, `DraftRecord`. Phiếu theo đơn còn mở → đơn `fulfilled`; đơn đã huỷ → phiếu
-  vẫn ghi, `orderId` bị gỡ, `warning: ORDER_NOT_OPEN`; đơn không có / sai bên → `rejected`
-  `VALIDATION_FAILED` (`details.fields.orderId`).
+  `TransactionRecord`, `DraftRecord`. Phiếu theo đơn còn mở → đơn `fulfilled`; đơn đã huỷ, không còn
+  hay sai bên → phiếu / nháp vẫn ghi, `orderId` bị gỡ, `warning: ORDER_NOT_OPEN` (không bao giờ
+  `rejected` vì đơn — op bị từ chối làm cả hàng đợi dừng).
 - Tổ chức lại file (không đổi export): `RouteDef` ở `route-def.ts`, route BE5 ở
   `routes-orders.ts`, phép kiểm khớp kiểu với core ở `sync-records-core.ts`.
 - `@mambo/sdk`: `orders.list/create/get/accept/reject/schedule/cancel`, `notifications.list/read`.
