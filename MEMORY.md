@@ -957,6 +957,23 @@ mở tay, chạy lại → "đã xử lý"; #7 hết gói → 402; #8 api_servic
       Casso / SePay.
 - [ ] Một lần chuyển khoản thật; một lần hoàn tiền thật (#6). Sau đó gỡ Edge Function `payment-webhook`.
 
+
+### Gom về repo BE · nhánh `be6/goi-thanh-toan` · 03/10/2026
+
+Cherry-pick `82ef0bf` giữ tác giả. **Sửa khi gom — mỗi định danh đăng nhập trỏ đúng một người:** `find_login_user`
+tra "tên OR SĐT OR email … LIMIT 1", mà tên đăng nhập được phép giống SĐT và email khôi phục không duy nhất ⇒ một
+định danh có thể khớp hai hồ sơ; BE6 cho sửa hai trường đó bất cứ lúc nào và quản trị viên tra tài khoản theo SĐT
+bằng chính hàm này. Sửa: schema `Username` (contracts) không cho giống SĐT, CHECK cùng luật ở database, email khôi
+phục duy nhất trong hồ sơ còn dùng, `find_login_user` tra đúng một loại định danh theo cách gõ (migration
+`20261003030000_be6_dinh_danh_dang_nhap`, chỉ thêm — staging kiểm trước: 0 hồ sơ vi phạm). Phần đăng ký (BE2)
+cũng được chặn theo, vì dùng chung `Username`.
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 80 · core 315 · sdk 12 · api 42 |
+| `npm run test:db` (database dựng lại từ đầu, 8 migration) | **155/155** — thêm 3 test cho chỗ sửa (đỏ trước khi sửa) + 1 test chốt tên toàn chữ số |
+| `schema.prisma` ↔ migration | `No difference detected` |
+
 ---
 
 ## Bốn số phải giữ trong tầm
