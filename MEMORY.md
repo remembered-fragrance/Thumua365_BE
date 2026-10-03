@@ -903,6 +903,9 @@ chủ: tổng = hai chi nhánh cộng lại; chi nhánh thứ 3 với gói 2 →
 - [ ] Lên staging (sau BE4, BE5); `SUPABASE_SECRET_KEY` của Render đã có (BE2) — tạo tài khoản thật.
 - [ ] Vỏ Doanh nghiệp ở frontend.
 
+**Gom về repo BE** (nhánh `be7/doanh-nghiep`, 03/10): cherry-pick `e6f746a` giữ tác giả, không sửa code. `verify`
+xanh; `test:db` **134/134** trên database dựng lại từ đầu; schema khớp migration.
+
 ---
 
 ## Bốn số phải giữ trong tầm
