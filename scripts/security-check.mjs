@@ -29,7 +29,11 @@ const RULES = [
   },
 ];
 
-/** Frontend (chạy trên máy người dùng) không được nhắc tới khoá bí mật. */
+/**
+ * Mã chạy trong trình duyệt không được nhắc tới khoá bí mật. Repo này chỉ có backend (frontend ở repo
+ * riêng); phần chạy trên trình duyệt là trang thử — trừ `serve.mjs` (máy chủ tĩnh, chạy bằng Node).
+ */
+const BROWSER_CODE = (file) => file.startsWith('tools/login-test/') && !file.endsWith('.mjs');
 const WEB_FORBIDDEN = /SUPABASE_SECRET_KEY|SERVICE_ROLE_KEY|PRIVILEGED_DATABASE_URL|BANK_WEBHOOK_SECRET/;
 
 const problems = [];
@@ -51,8 +55,8 @@ for (const file of files) {
         problems.push(`${file}:${i + 1}: ${rule.name}`);
       }
     }
-    if (file.startsWith('apps/web/src/') && WEB_FORBIDDEN.test(line)) {
-      problems.push(`${file}:${i + 1}: frontend nhắc tới khoá bí mật`);
+    if (BROWSER_CODE(file) && WEB_FORBIDDEN.test(line)) {
+      problems.push(`${file}:${i + 1}: mã chạy trên trình duyệt nhắc tới khoá bí mật`);
     }
   });
 }
