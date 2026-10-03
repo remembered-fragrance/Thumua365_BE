@@ -1005,6 +1005,11 @@ lúc mất mạng → có mạng xin URL, tải lên, đẩy phiếu → máy c�
 - [ ] Thử thật: URL hết hạn thì không mở được; PUT lại ảnh đã có → 409.
 - [ ] Frontend: hàng đợi ảnh trong `attachments.ts`.
 
+
+**Gom về repo BE** (nhánh `be8/anh-chung-tu`, 03/10): cherry-pick `1c19ff4` giữ tác giả, không sửa code. `verify`
+xanh; `test:db` **160/160**. Còn để ý: hợp đồng sync cho tối đa 10 ảnh mỗi phiếu / nháp, app cũ giới hạn 5
+(`MAX_ATTACHMENTS`) — chốt một số khi frontend làm màn ảnh.
+
 ---
 
 ## Bốn số phải giữ trong tầm
