@@ -383,6 +383,31 @@ describe('phiếu theo đơn', () => {
     }
   });
 
+  it('🔴 đơn vừa được nhận ở máy khác đúng lúc người cân đẩy phiếu → lịch sử ghi accepted → fulfilled, đúng bước thật', async () => {
+    const order = OrderSummary.parse((await (await as(mai, farm)).post('/v1/orders', { ...sellOrder, counterpartOrgId: vua }).expect(200)).body);
+    // Chủ vựa bấm "nhận" trên điện thoại trong lúc người cân đẩy phiếu: người cân đọc thấy `submitted`,
+    // rồi đợi khoá hàng của đơn. Bước hoàn thành phải xuất phát từ trạng thái lúc chuyển, không phải lúc đọc.
+    const peer = await admin.connect();
+    try {
+      await peer.query('begin');
+      await peer.query(`update orders set status = 'accepted', version = version + 1 where id = $1`, [order.id]);
+      const pushing = (await as(vuaStaff, vua))
+        .push([opMaker()('transaction', 'insert', newId(), txData({ orderId: order.id }))])
+        .expect(200)
+        .then((r) => SyncPushResult.parse(r.body));
+      await new Promise((r) => setTimeout(r, 400));
+      await peer.query('commit');
+      expect((await pushing).results[0]).toEqual({ opId: expect.any(String), status: 'applied' });
+      const { rows } = await admin.query(
+        `select from_status, to_status from order_events where order_id = $1 and to_status = 'fulfilled'`,
+        [order.id],
+      );
+      expect(rows).toEqual([{ from_status: 'accepted', to_status: 'fulfilled' }]);
+    } finally {
+      peer.release();
+    }
+  });
+
   it('nháp gắn đơn không có → nháp vẫn lưu, gỡ khỏi đơn, ORDER_NOT_OPEN', async () => {
     const draftId = newId();
     const draft = { status: 'draft', supplierName: 'Cô Mai', lines: [], amountPaid: 0, orderId: newId() };

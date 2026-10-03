@@ -268,21 +268,21 @@ export class SyncPushService {
     ctx: PushContext,
     data: Record<string, unknown>,
   ): Promise<{ data: Record<string, unknown>; warning?: SyncWarning; fulfilled?: OrderChanged }> {
-    const order = await findOrderFor(tx, ctx, data.orderId as string, data.kind as string);
+    const found = await findOrderFor(tx, ctx, data.orderId as string, data.kind as string);
+    if (!found) return notOpen(data);
+
+    // Khoá hàng của đơn rồi mới xét: bên kia (DN cũng có sổ) hay máy khác của chính mình có thể đang
+    // nhận, hẹn, hoàn thành đơn — khoá advisory theo tổ chức không chặn được. Trạng thái đọc sau khoá
+    // là trạng thái thật lúc chuyển: đúng luật, và lịch sử đơn ghi đúng bước trước đó.
+    const [order] = await tx.$queryRaw<{ id: string; status: string }[]>`
+      select id, status from orders where id = ${found.id}::uuid for update`;
     if (!order || order.status === 'cancelled') return notOpen(data);
     if (order.status === 'fulfilled') return { data };
 
-    // Chỉ chuyển nếu đơn CÒN mở lúc ghi: bên kia (DN cũng có sổ) có thể vừa hoàn thành nó — khoá
-    // advisory theo tổ chức không chặn hai tổ chức với nhau. Đọc lại khi không khớp hàng nào.
-    const { count } = await tx.order.updateMany({
-      where: { id: order.id, status: { in: [...OPEN_ORDER] } },
+    const done = await tx.order.update({
+      where: { id: order.id },
       data: { status: 'fulfilled', version: { increment: 1 } },
     });
-    if (count === 0) {
-      const now = await tx.order.findUnique({ where: { id: order.id }, select: { status: true } });
-      return now?.status === 'fulfilled' ? { data } : notOpen(data);
-    }
-    const done = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
     await logStep(tx, order.id, order.status, 'fulfilled', ctx.user.id, ctx.membership.organizationId, null);
     return { data, fulfilled: changeOf(done, ctx.user, ctx.membership.organizationId) };
   }
@@ -396,9 +396,6 @@ const verifyLineTotals = (lines: TransactionLine[]): TransactionLine[] => {
   }
   return frozen;
 };
-
-/** Đơn còn nhận phiếu để hoàn thành. */
-const OPEN_ORDER = ['submitted', 'accepted', 'scheduled'] as const;
 
 /** Gỡ phiếu / nháp khỏi đơn không dùng được — bản ghi vẫn lưu, app nhận cảnh báo. */
 const notOpen = (data: Record<string, unknown>): { data: Record<string, unknown>; warning: SyncWarning } => ({
