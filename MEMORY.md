@@ -830,7 +830,30 @@ từ `master` của monorepo (đã gồm BE4 chưa merge).
 - [ ] Kênh email (nhà cung cấp + pg-boss).
 - [ ] Lên staging sau BE4; nghiệm thu bằng trang thử; một test Playwright chạy luồng R2 trong CI (cần
       app web đã có màn đơn).
-- [ ] Phát hành `0.6.0` (cùng `0.5.0` của BE4 nếu lên staging cùng lúc).
+- [ ] Phát hành `0.6.0`.
+
+### Gom về repo BE · nhánh `be5/don-hang` · 03/10/2026
+
+Mục BE5 phía trên là nhật ký của `k20elite` trên nhánh `be/nestjs-be10` (repo frontend), chép theo
+commit — số test "web 370", tên nhánh và chữ "monorepo" là của nhánh đó. Quyết định của Tài:
+`Thumua365_BE` là repo chính, chỉ chứa backend; lấy phần backend về đây từng bước, soát và sửa trước.
+
+- Cherry-pick giữ tác giả `c0d9174`, `5d8a5bb`, `b1b766a` lên `master` (`v0.5.0`); gỡ xung đột với
+  mã kết nối (test SDK giữ cả `links.claim` lẫn `orders.schedule`; CHANGELOG 0.6.0 nối sau 0.5.0).
+- Sửa khi gom: đường `/links/claim` gửi `actorUserId` trong `link.accepted` (BE5 bắt buộc trường này
+  để listener thông báo chạy trong ngữ cảnh người gây ra việc).
+- **Đảo quyết định BE5 #3:** đơn không có / sai bên không còn `rejected` — phiếu, nháp vẫn ghi, gỡ
+  `orderId`, `ORDER_NOT_OPEN`. Lý do: xoá tài khoản (BE6) xoá luôn đơn của bên kia; vựa đang cân
+  offline đẩy phiếu theo đơn đó lên sẽ bị từ chối ⇒ cả hàng đợi dừng — đúng loại lỗi `prod-rubber` BE3.
+- Hoàn thành đơn chỉ khi đơn còn mở lúc ghi (`updateMany … where status`): vựa và DN cùng có sổ, khoá
+  advisory theo tổ chức không chặn nhau ⇒ trước đây bên đẩy sau vướng `orders_guard` thành `INTERNAL`.
+  Test giữ khoá hàng của đơn bằng một transaction mở để tái hiện chắc chắn — đỏ trước khi sửa.
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 78 · core 315 · sdk 12 · api 42; ranh giới 0 vi phạm |
+| `npm run test:db` (database dựng lại từ đầu) | **123/123** — thêm 4 test cho hai chỗ sửa (đỏ trước khi sửa) |
+| `schema.prisma` ↔ migration | `No difference detected` |
 
 ---
 
