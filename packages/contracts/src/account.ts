@@ -11,7 +11,7 @@
  */
 
 import { z } from 'zod';
-import { PlanSummary } from './me.js';
+import { PlanSummary, Username } from './me.js';
 import { OrgType } from './organization.js';
 
 const Time = z.iso.datetime({ offset: true });
@@ -34,16 +34,14 @@ export const MeProfile = z.object({
 });
 export type MeProfile = z.infer<typeof MeProfile>;
 
-/** Bỏ trường = không đổi; `null` = xoá. Tên đăng nhập đã có người dùng → 422 `fields.username`. */
+/**
+ * Bỏ trường = không đổi; `null` = xoá. Tên đăng nhập (`Username`) đã có người dùng → 422
+ * `fields.username`; email khôi phục hồ sơ khác đang dùng → 422 `fields.recoveryEmail`.
+ */
 export const MeProfilePatch = z
   .strictObject({
     name: z.string().trim().min(1).max(80),
-    username: z
-      .string()
-      .trim()
-      .toLowerCase()
-      .regex(/^[a-z0-9._]{3,32}$/)
-      .nullable(),
+    username: Username.nullable(),
     recoveryEmail: z.email().max(200).nullable(),
   })
   .partial()

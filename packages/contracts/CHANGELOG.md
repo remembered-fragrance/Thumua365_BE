@@ -7,7 +7,10 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
 
 - `RouteAuth` thêm `'admin'`: JWT của tài khoản có id trong `ADMIN_USER_IDS` của API; người khác → 403.
 - `routes.meProfile` · `meProfileUpdate` — `GET/PATCH /v1/me/profile` (`MeProfile`, `MeProfilePatch
-  { name?, username?, recoveryEmail? }`). Tên đăng nhập trùng → 422 `fields.username`.
+  { name?, username?, recoveryEmail? }`). Tên đăng nhập trùng → 422 `fields.username`; email khôi phục
+  tài khoản khác đang dùng → 422 `fields.recoveryEmail`.
+- `Username` (dùng cho `MeBootstrapInput.username` và `MeProfilePatch.username`): không được giống số điện
+  thoại (`isPhoneLike` của core) — đăng nhập một ô tra SĐT trước. Database giữ cùng luật.
 - `routes.meDelete` — `DELETE /v1/me` → `AccountDeleteResult { deletedOrganizations, leftOrganizations }`.
   Xoá thật; tổ chức còn người làm → 422 `details.reason: 'ORG_HAS_MEMBERS'`.
 - `routes.meSubscription` — `GET /v1/me/subscription` (`billing:manage`) → `SubscriptionView { plan,

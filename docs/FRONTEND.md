@@ -246,7 +246,7 @@ const me = await api.meBootstrap({
   orgType: 'trader',          // 'farmer' | 'trader' | 'enterprise'
   orgName: 'Vựa Tư Hùng',     // 1–120 ký tự
   name: 'Tư Hùng',            // 1–80 ký tự
-  username: 'tuhung',         // tuỳ chọn: 3–32 ký tự a-z 0-9 . _ (không phân biệt hoa thường)
+  username: 'tuhung',         // tuỳ chọn: 3–32 ký tự a-z 0-9 . _ (không phân biệt hoa thường), không giống SĐT
   phone: '0912345678',        // tuỳ chọn — CHỈ dùng khi đăng ký bằng email thật
 });
 ```
@@ -507,7 +507,9 @@ const { intents } = await api.billing.intents();     // lịch sử: pending →
   `createIntent` của doanh nghiệp / nông dân → `FORBIDDEN`.
 - Chuyển thiếu hoặc gõ sai nội dung: gói **không** tự mở; người dùng liên hệ, quản trị viên mở tay.
 
-**Hồ sơ**: `api.account.profile()`, `api.account.updateProfile({ name, username, recoveryEmail })`.
+**Hồ sơ**: `api.account.profile()`, `api.account.updateProfile({ name, username, recoveryEmail })`. Tên đăng nhập
+giống số điện thoại (`0912345678`) → 422 ngay ở hợp đồng; tên đã có người dùng → `fields.username`; email khôi
+phục tài khoản khác đang dùng → `fields.recoveryEmail` — mỗi định danh đăng nhập chỉ trỏ đúng một người.
 Số điện thoại là khoá đăng nhập, không đổi ở đây. Mã giới thiệu của mình: `profile.referralCode`;
 nhập mã của người mời (một lần): `api.account.claimReferral({ code })` → `{ claimed }` — `false`
 thì báo chung "Mã không dùng được", không nói vì sao.

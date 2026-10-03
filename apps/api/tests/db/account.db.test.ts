@@ -95,6 +95,22 @@ describe('hồ sơ', () => {
     await api.patch('/v1/me/profile', { phone: '+84900000000' }).expect(422);
     await (await as(newId())).get('/v1/me/profile').expect(404);
   });
+
+  it('🔴 tên đăng nhập giống SĐT → 422; email khôi phục người khác đang dùng → 422 đúng trường', async () => {
+    const me = newId();
+    const other = newId();
+    await profile(me, 'Anh Hùng', '+84905112233');
+    await profile(other, 'Chị Lan', '+84905112244');
+    await admin.query(`update profiles set recovery_email = 'lan@example.com' where id = $1`, [other]);
+    const api = await as(me);
+
+    const phoneLike = await api.patch('/v1/me/profile', { username: '0905112244' }).expect(422);
+    expect(ErrorBody.parse(phoneLike.body).error.details).toMatchObject({ fields: { username: expect.any(String) } });
+    const email = await api.patch('/v1/me/profile', { recoveryEmail: 'LAN@example.com' }).expect(422);
+    expect(ErrorBody.parse(email.body).error.details).toMatchObject({ fields: { recoveryEmail: expect.any(String) } });
+    const { rows } = await admin.query('select username, recovery_email from profiles where id = $1', [me]);
+    expect(rows[0]).toEqual({ username: null, recovery_email: null });
+  });
 });
 
 describe('mã giới thiệu', () => {

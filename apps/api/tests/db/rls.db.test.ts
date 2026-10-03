@@ -295,6 +295,31 @@ describe('find_login_user — đăng nhập một ô', () => {
     await admin.query('update profiles set deleted_at = now() where id = $1', [alice]);
     expect(await find('vuatuhung')).toBeNull();
   });
+
+  it('🔴 mỗi định danh trỏ đúng một người: tên đăng nhập không giống SĐT, email khôi phục không trùng', async () => {
+    // Trước đây hàm tra "tên OR SĐT OR email … LIMIT 1": ai đặt tên đăng nhập là số của người khác
+    // (hay email khôi phục của người khác) thì đăng nhập bằng số / email đó trúng ngẫu nhiên một trong hai.
+    for (const username of ['0912345678', '0912.345.678', '84912345678']) {
+      await expect(
+        admin.query(`insert into profiles (id, name, username) values ($1, 'Kẻ chen', $2)`, [newId(), username]),
+        username,
+      ).rejects.toThrow(/profiles_username_not_phone/);
+    }
+    await expect(
+      admin.query(`insert into profiles (id, name, recovery_email) values ($1, 'Kẻ chen', 'HUNG@gmail.com')`, [newId()]),
+    ).rejects.toThrow(/profiles_recovery_email_live/);
+    // Hồ sơ đã xoá không giữ chỗ email khôi phục.
+    await admin.query('update profiles set deleted_at = now() where id = $1', [alice]);
+    const next = newId();
+    await admin.query(`insert into profiles (id, name, recovery_email) values ($1, 'Người mới', 'hung@gmail.com')`, [next]);
+    expect(await find('hung@gmail.com')).toBe(next);
+  });
+
+  it('tên đăng nhập toàn chữ số nhưng không phải SĐT vẫn đăng nhập được', async () => {
+    const id = newId();
+    await admin.query(`insert into profiles (id, name, username) values ($1, 'x', '12345')`, [id]);
+    expect(await find('12345')).toBe(id);
+  });
 });
 
 describe('discover_links — dò kết nối theo số đã xác thực', () => {

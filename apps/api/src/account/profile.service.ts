@@ -47,6 +47,13 @@ export class ProfileService {
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        // Hai thứ duy nhất sửa được ở đây: tên đăng nhập và email khôi phục (index một phần
+        // `profiles_recovery_email_live`) — mỗi định danh đăng nhập chỉ trỏ đúng một người.
+        if (`${JSON.stringify(err.meta ?? {})} ${err.message}`.includes('recovery_email')) {
+          throw new ApiException('VALIDATION_FAILED', 'Email này đang là email khôi phục của tài khoản khác', {
+            fields: { recoveryEmail: 'Đã có tài khoản dùng email này' },
+          });
+        }
         throw new ApiException('VALIDATION_FAILED', 'Tên đăng nhập này đã có người dùng', {
           fields: { username: 'Đã có người dùng' },
         });

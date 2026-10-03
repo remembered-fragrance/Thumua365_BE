@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LINK_CODE_ALPHABET, LINK_CODE_LENGTH, LinkClaimInput, MeBootstrapInput, ResolveIdentifierInput } from '../src/index.js';
+import { LINK_CODE_ALPHABET, LINK_CODE_LENGTH, LinkClaimInput, MeBootstrapInput, MeProfilePatch, ResolveIdentifierInput } from '../src/index.js';
 
 describe('MeBootstrapInput', () => {
   it('chuẩn hoá: cắt khoảng trắng, tên đăng nhập về chữ thường', () => {
@@ -22,6 +22,24 @@ describe('MeBootstrapInput', () => {
     expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: '   ', name: 'x' }).success).toBe(false);
     expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: 'x', name: 'x', username: 'vựa' }).success).toBe(false);
     expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: 'x', name: 'x', username: 'a b' }).success).toBe(false);
+  });
+});
+
+describe('Tên đăng nhập không được giống số điện thoại', () => {
+  // Đăng nhập một ô tra SĐT trước: tên đăng nhập "0912345678" sẽ chen vào việc đăng nhập bằng số đó.
+  const phoneLike = ['0912345678', '0912.345.678', '84912345678', '843456789012'];
+
+  it('lúc đăng ký và lúc sửa hồ sơ đều từ chối', () => {
+    for (const username of phoneLike) {
+      expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: 'x', name: 'x', username }).success, username).toBe(false);
+      expect(MeProfilePatch.safeParse({ username }).success, username).toBe(false);
+    }
+  });
+
+  it('chữ số nhưng không phải SĐT vẫn được', () => {
+    for (const username of ['12345', 'vua.tu.hung', 'tuhung_0912']) {
+      expect(MeProfilePatch.safeParse({ username }).success, username).toBe(true);
+    }
   });
 });
 
