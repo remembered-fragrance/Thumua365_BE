@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import pkg from '../package.json' with { type: 'json' };
 import { buildOpenApi } from '../src/openapi.js';
-import { routes } from '../src/routes.js';
+import { pathParamNames, routes, type RouteDef } from '../src/routes.js';
 
 const doc = buildOpenApi(pkg.version);
 type Operation = { security?: unknown; requestBody?: unknown; responses: Record<string, unknown> };
@@ -15,10 +15,24 @@ describe('openapi.json', () => {
     expect(committed).toEqual(doc);
   });
 
-  it('mọi route trong danh bạ đều có mặt', () => {
+  it('mọi route trong danh bạ đều có mặt (`:id` viết thành `{id}`)', () => {
     for (const route of Object.values(routes)) {
-      expect(paths[route.path]?.[route.method.toLowerCase()]).toBeDefined();
+      const path = route.path.replace(/:([A-Za-z][A-Za-z0-9]*)/g, '{$1}');
+      expect(paths[path]?.[route.method.toLowerCase()], route.path).toBeDefined();
     }
+  });
+
+  it('mỗi `:ten` trong path là đúng một trường của `params`, không thừa không thiếu', () => {
+    for (const route of Object.values(routes) as RouteDef[]) {
+      const inPath = pathParamNames(route.path).sort();
+      const shape = (route.params as { shape?: Record<string, unknown> } | undefined)?.shape ?? {};
+      expect(Object.keys(shape).sort(), route.path).toEqual(inPath);
+    }
+  });
+
+  it('tham số đường dẫn thành parameters `in: path`, bắt buộc', () => {
+    const accept = paths['/v1/links/{id}/accept']?.post as Operation & { parameters?: { name: string; in: string; required: boolean }[] };
+    expect(accept.parameters?.filter((p) => p.in === 'path')).toEqual([expect.objectContaining({ name: 'id', required: true })]);
   });
 
   it('route công khai không đòi token; route cần đăng nhập khai báo 401', () => {

@@ -4,10 +4,11 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **28/09/2026** · Hợp đồng đã phát hành **`v0.4.0`** (BE0–BE3: tài khoản, tổ chức,
-> đồng bộ sổ) · Tiếp theo: BE4 (kết nối, phần xem của nông dân, OTP).
-> **Backend đi trước:** frontend dựng lại app theo hợp đồng ở đây; hợp đồng mỗi bước ra trước,
-> có mock, frontend làm song song.
+> Cập nhật **01/10/2026** · Hợp đồng đã phát hành **`v0.4.0`** (BE0–BE3: tài khoản, tổ chức,
+> đồng bộ sổ) · Tiếp theo: BE4 (kết nối bằng **mã kết nối**, phần xem của nông dân; OTP tạm ẩn).
+> **Backend làm trước, frontend làm sau** (chốt 28/09/2026): file này cùng `openapi.json` và các
+> trang thử trong `tools/login-test` là bản mô tả đầy đủ để dựng app khi tới lượt frontend.
+> Đang làm: BE4 — hợp đồng kết nối đã có (mục 5.6), chưa phát hành.
 > File này được sửa **cùng PR** với mọi thay đổi hợp đồng. Nếu thấy lệch với code thì code
 > là đúng — báo backend sửa file này.
 
@@ -152,6 +153,8 @@ Các hàm SDK đã có ở `v0.4.0`:
 | `api.meBootstrap(input)` | `POST /v1/me/bootstrap` | đăng nhập | `Me` |
 | `api.resolveIdentifier({ identifier })` | `POST /v1/auth/resolve-identifier` | — (10 lần/phút/IP) | `{ email }` |
 | `api.discoverLinks()` | `POST /v1/links/discover` | đăng nhập + tổ chức + quyền `linked:read` | `{ created, pending }` |
+| `api.links.list()` · `.invite(input)` · `.accept(id)` · `.revoke(id)` | `/v1/links…` (BE4, chưa phát hành) | tổ chức; quyền theo mục 5.6 | `{ links }` / `LinkSummary` |
+| `api.linked.receipts({ orgId })` · `api.linked.balance()` | `/v1/linked/…` (BE4, chưa phát hành) | tổ chức + `linked:read` | mục 5.6 |
 | `api.sync.push({ deviceId, ops })` | `POST /v1/sync/push` | đăng nhập + tổ chức + quyền `book:sync` | `{ results }` — mục 7.3 |
 | `api.sync.pull({ cursor, limit })` | `GET /v1/sync/pull` | đăng nhập + tổ chức + quyền `book:sync` | `{ cursor, hasMore, resetRequired, changes }` — mục 7.4 |
 
@@ -198,7 +201,7 @@ mã của hợp đồng, còn hai trường hợp nữa:
 | `UNAUTHENTICATED` | 401 | Làm mới token, thử lại một lần. Vẫn lỗi thì về màn đăng nhập, **giữ** hàng đợi |
 | `NOT_A_MEMBER` | 403 | Xoá cache của tổ chức đó, gọi lại `/v1/me`, về màn chọn tổ chức |
 | `FORBIDDEN` | 403 | Không thử lại. Nếu là op sync thì đánh dấu `conflict` |
-| `PHONE_NOT_VERIFIED` | 403 | Mở màn xác thực OTP |
+| `PHONE_NOT_VERIFIED` | 403 | Mở màn xác thực OTP — chỉ khi OTP mở lại (mục 5.5); hiện chưa gặp |
 | `LINK_REQUIRED` | 403 | Báo "Cần kết nối trước" |
 | `PLAN_EXPIRED` | 402 | Dừng lượt sync, **không tính là một lần thử**, hiện màn gia hạn |
 | `BRANCH_LIMIT` | 402 | Báo "Gói hiện tại cho tối đa N chi nhánh" |
@@ -334,23 +337,82 @@ Bảng gốc: `PERMISSIONS_BY` trong `@mambo/contracts`. Bảng dưới đây đ
 
 Vựa **không có** vai trò `manager`; nông dân chỉ có `owner`.
 
-### 5.5 Xác thực số điện thoại (OTP) — làm giao diện ngay, chạy thật từ BE4
+### 5.5 Xác thực số điện thoại (OTP) — TẠM ẨN, chưa làm màn này
+
+**Quyết định 01/10/2026:** kết nối dùng **mã kết nối** (mục 5.6). OTP tạm ẩn tới khi > 100 tổ chức
+trả phí — **không làm màn OTP** cho tới lúc đó. Staging và production **tắt** Phone provider, nên
+`supabase.auth.updateUser({ phone })` báo lỗi và `api.links.discover()` luôn trả
+`PHONE_NOT_VERIFIED` — app chưa gọi hai việc này.
+
+Khi mở lại (để dành, backend không phải sửa gì):
 
 ```ts
 await supabase.auth.updateUser({ phone });                                  // phone dạng +84…
 await supabase.auth.verifyOtp({ phone, token: code, type: 'phone_change' });
 const me = await api.me();                                                  // user.phoneVerified === true
-const { created, pending } = await api.discoverLinks();                     // cần đã chọn tổ chức
+const { created, pending } = await api.links.discover();                    // cần đã chọn tổ chức
 ```
 
-- Gặp `PHONE_NOT_VERIFIED` ở bất cứ đâu thì mở màn OTP.
-- `discoverLinks` cần quyền `linked:read` (nông dân, chủ vựa, chủ/quản lý DN). Người cân của
-  vựa gọi sẽ bị `FORBIDDEN`.
-- Chỉ bắt nhập OTP khi xác thực số, **không** phải mỗi lần đăng nhập (mỗi SMS tốn tiền).
-- Staging **chưa bật** Phone provider (việc này dời sang BE4), nên tới lúc đó
-  `updateUser({ phone })` sẽ báo lỗi.
+- Gặp `PHONE_NOT_VERIFIED` thì mở màn OTP. Chỉ bắt nhập OTP khi xác thực số, **không** phải mỗi
+  lần đăng nhập (mỗi SMS tốn tiền). `discover` cần `linked:read`.
 
-### 5.6 Đăng xuất
+### 5.6 Kết nối và phần xem của nông dân — BE4 (hợp đồng đã có, chưa phát hành) · mã kết nối từ 01/10
+
+Một kết nối nối **một dòng danh bạ trong sổ của vựa** (người bán / người mua) với **một tổ chức
+có tài khoản thật**. Nhìn từ tổ chức đang làm việc, mỗi kết nối có `side`:
+`owner` = dòng danh bạ nằm trong sổ của mình · `linked` = mình là người được nhắc tới trong sổ
+bên kia, và mình được xem.
+
+**Phía vựa** (`side: 'owner'`) — trên trang nông hộ, nút "Mời kết nối":
+
+```ts
+const link = await api.links.invite({ partnerKind: 'supplier', partnerId });
+link.inviteCode; // { code: 'K7M2QX9P', expiresAt } — hiện "K7M2-QX9P", to, dễ đọc; sau này kèm QR
+```
+
+- Vựa đưa mã **tận tay** cho đúng người: đọc lúc cân, hoặc nút "Gửi qua Zalo" (app tự soạn câu
+  mời kèm mã). Mã hạn **7 ngày**, dùng **một lần**.
+- Gọi lại `invite` an toàn: mã còn hạn → **đúng mã cũ** (QR đã in vẫn dùng được); hết hạn → mã
+  mới. `api.links.list()` trả `inviteCode` của từng lời mời đang chờ (`null` = hết hạn → hiện nút
+  "Lấy mã mới", gọi lại `invite`). Chỉ phía `owner` thấy mã.
+- Dòng danh bạ **không cần** có số điện thoại.
+- `list()` cho biết từng người bán: chưa kết nối / đã mời (kèm mã) / đang kết nối / đã huỷ.
+
+**Phía nông dân** (`side: 'linked'`) — ô "Nhập mã kết nối" (vỏ Nông dân, và cả vựa / DN khi được
+bên trên mời):
+
+```ts
+const link = await api.links.claim({ code });  // gõ kiểu gì cũng được: 'k7m2-qx9p', ' K7M2 QX9P '
+// → 'active' ngay, link.counterpart = vựa vừa nối. Nhập mã chính là bấm đồng ý.
+const { items } = await api.linked.balance();  // mỗi vựa đang kết nối: theyOwe / youOwe
+const page = await api.linked.receipts({ orgId: items[0].organization.id }); // mới nhất trước, có cursor
+```
+
+- `NOT_FOUND` = mã sai, đã dùng hoặc hết hạn — **một câu chung**: "Mã không đúng hoặc đã hết hạn,
+  xin vựa mã mới". `VALIDATION_FAILED` với `fields.code` = sai hình dạng (không đủ 8 ký tự, có
+  0/O/1/I/L) hoặc là mã của chính sổ mình. `RATE_LIMITED` sau 10 lần thử trong một phút.
+- **QR (sau này):** QR chỉ là cách khác để chuyển **cùng mã đó** — app vựa vẽ QR từ
+  `inviteCode.code` (ví dụ chứa `https://<app>/ket-noi?ma=K7M2QX9P`), app nông dân quét, lấy `ma`,
+  gọi đúng `api.links.claim({ code })`. Backend không cần thêm gì.
+- Bảng chữ của mã: `LINK_CODE_ALPHABET` trong `@mambo/contracts` — dùng nó để lọc ký tự khi gõ.
+
+Luật:
+
+- **Chỉ bên được mời** nhập mã; mã chứng minh vựa đã trao cho đúng người. (Đường OTP —
+  `discover` + `accept` — tạm ẩn, mục 5.5.)
+- Huỷ: cả hai bên. Bên sổ cần `partner:manage`, bên được xem cần `linked:read`. Huỷ là mất quyền
+  xem **ngay**; kết nối đã huỷ không mở lại được — muốn nối lại thì vựa mời lại (kết nối mới).
+- Chưa `active` mà gọi `linked.receipts` → `LINK_REQUIRED` ("Cần kết nối trước").
+- Người cân của vựa không xem, không mời, không huỷ kết nối (`FORBIDDEN`).
+- Phiếu bên kia cho xem (`LinkedReceipt`) **chỉ có trường in trên biên nhận**: ngày, loại, tên
+  mình trên biên nhận, từng dòng (mặt hàng, cân, bì / hàm lượng / hao hụt, số tính tiền, đơn giá,
+  thành tiền), khoản cộng/trừ, các lần trả, tổng, đã trả, còn nợ. Không có ghi chú nội bộ, người
+  lập phiếu, chi nhánh, ảnh. Tổng do server tính bằng `@mambo/core` — hiển thị nguyên số.
+- `kind` nhìn từ bên giữ sổ: `purchase` — họ mua của mình (**họ nợ mình** phần còn lại);
+  `sale` — họ bán cho mình (**mình nợ họ**). `balance` đã cộng sẵn thành `theyOwe` / `youOwe`.
+- Cùng cơ chế cho vựa ↔ doanh nghiệp.
+
+### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu và mọi form
   đang điền.
@@ -531,7 +593,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 |---|---|---|---|
 | **BE0–BE2 ✅** | `v0.3.0`: `me`, `meBootstrap`, `resolveIdentifier`, `discoverLinks`, ma trận quyền, mã lỗi | Mục 2 và 5: cài gói, client, đăng ký, "Bác là ai?", đăng nhập một ô, chọn tổ chức, chọn vỏ, màn OTP (giao diện) | Đăng ký thật trên staging bằng cả ba loại tổ chức, đăng nhập lại trên máy khác |
 | **BE3 ✅** | `v0.4.0`: `sync.push` · `sync.pull`, hình dạng 8 loại bản ghi, quyền từng op | Mục 7: sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức | Hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → sau khi đồng bộ khớp từng đồng |
-| **BE4** | `GET /v1/links` · `POST /v1/links/:id/accept` · `POST /v1/links/:id/revoke` · `POST /v1/links/invite { partnerId }` (trả link mời/Zalo) · `GET /v1/linked/receipts?orgId=&cursor=` · `GET /v1/linked/balance` · OTP chạy thật | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); danh sách lời mời chờ đồng ý; nút "Mời kết nối" trên trang nông hộ của vựa | Vựa ghi phiếu có nợ → nông dân đăng ký, OTP, đồng ý → thấy đúng phiếu, đúng số nợ; huỷ kết nối → mất quyền xem ngay |
+| **BE4** 🟡 | Hợp đồng đã có (mục 5.6): `GET /v1/links` · `POST /v1/links/invite { partnerKind, partnerId }` (trả `inviteCode`) · `POST /v1/links/claim { code }` · `POST /v1/links/:id/revoke` · `GET /v1/linked/receipts?orgId=&cursor=&limit=` · `GET /v1/linked/balance`. OTP (`discover`, `accept`) tạm ẩn | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); ô "Nhập mã kết nối"; nút "Mời kết nối" hiện mã trên trang nông hộ của vựa. Không làm màn OTP | Vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, nhập mã → thấy đúng phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền xem ngay |
 | **BE5** | `GET/POST /v1/orders` (lọc `role=seller\|buyer`, `status`) · `GET /v1/orders/:id` · `POST /v1/orders/:id/{accept,reject,schedule,cancel}` kèm `{ version }` · `GET /v1/notifications?cursor=` · `POST /v1/notifications/read` | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |
 | **BE6** | `GET/PATCH /v1/me/profile` · `GET /v1/me/subscription` · `GET/POST /v1/billing/intents` · `POST /v1/referrals/claim` · `DELETE /v1/me` | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
 | **BE7** | `GET/POST /v1/org/members` · `PATCH/DELETE /v1/org/members/:id` · `GET/POST/PATCH /v1/org/branches` · `GET /v1/reports/summary?from=&to=&branchId=` | Vỏ Doanh nghiệp: nhân viên, chi nhánh, báo cáo tổng; `BRANCH_LIMIT` | DN hai chi nhánh: mỗi nhân viên chỉ thấy phiếu chi nhánh mình; owner thấy tổng khớp; tạo chi nhánh vượt gói → `BRANCH_LIMIT` |
@@ -641,7 +703,7 @@ Ghi chú từng bước:
 | Việc | Ảnh hưởng | Khi nào |
 |---|---|---|
 | Đăng nhập hộ `POST /v1/auth/login` thay cho `resolve-identifier` | Hàm `signIn` trong `data/` | Nhóm quyết |
-| Nhà cung cấp SMS cho OTP | Màn OTP chạy thật | BE4 |
+| Nhà cung cấp SMS cho OTP | Màn OTP chạy thật | Khi > 100 tổ chức trả phí — chưa cần (kết nối bằng mã) |
 | Tên miền `api.thumua365.vn` | `VITE_API_URL` | Khi có quyền DNS; tạm dùng `*.onrender.com` |
 | Realtime cho đơn và thông báo | Bỏ hỏi 60 giây | Sau BE10 |
 

@@ -113,6 +113,50 @@ describe('@mambo/sdk', () => {
     expect(calls[0]?.init?.body).toBeUndefined();
   });
 
+  it('links.accept: tham số đường dẫn điền vào :id (đã mã hoá), POST không thân', async () => {
+    const summary = {
+      id: '0b9e4c1a-2d3f-4a5b-9c6d-7e8f9a0b1c2d',
+      side: 'linked',
+      status: 'active',
+      partnerKind: 'supplier',
+      partner: { id: '6f1c1d2e-3b4a-4c5d-8e9f-0a1b2c3d4e5f', name: 'Cô Mai' },
+      counterpart: { id: '6f1c1d2e-3b4a-4c5d-8e9f-0a1b2c3d4e5f', name: 'Vựa Tư Hùng', type: 'trader' },
+      invitedPhone: '+84912345678',
+      inviteCode: null,
+      createdAt: '2026-09-28T03:00:00.000Z',
+      decidedAt: '2026-09-28T03:01:00.000Z',
+    };
+    const { calls, fetchFn } = recorder(json(200, summary));
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+
+    await expect(client.links.accept(summary.id)).resolves.toEqual(summary);
+    expect(calls[0]?.url).toBe(`https://api.test/v1/links/${summary.id}/accept`);
+    expect(calls[0]?.init?.method).toBe('POST');
+    expect(calls[0]?.init?.body).toBeUndefined();
+  });
+
+  it('links.claim: gửi mã như người dùng gõ — server chuẩn hoá', async () => {
+    const summary = {
+      id: '0b9e4c1a-2d3f-4a5b-9c6d-7e8f9a0b1c2d',
+      side: 'linked',
+      status: 'active',
+      partnerKind: 'supplier',
+      partner: { id: '6f1c1d2e-3b4a-4c5d-8e9f-0a1b2c3d4e5f', name: 'Cô Mai' },
+      counterpart: { id: '6f1c1d2e-3b4a-4c5d-8e9f-0a1b2c3d4e5f', name: 'Vựa Tư Hùng', type: 'trader' },
+      invitedPhone: null,
+      inviteCode: null,
+      createdAt: '2026-09-28T03:00:00.000Z',
+      decidedAt: '2026-09-28T03:01:00.000Z',
+    };
+    const { calls, fetchFn } = recorder(json(200, summary));
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+
+    await expect(client.links.claim({ code: 'k7m2-qx9p' })).resolves.toEqual(summary);
+    expect(calls[0]?.url).toBe('https://api.test/v1/links/claim');
+    expect(calls[0]?.init?.method).toBe('POST');
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ code: 'k7m2-qx9p' }));
+  });
+
   it('sync.pull lần đầu: không có query string', async () => {
     const { calls, fetchFn } = recorder(json(200, emptyPull));
     const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });

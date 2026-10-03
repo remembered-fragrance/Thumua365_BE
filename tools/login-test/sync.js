@@ -15,6 +15,7 @@
 
 import { createClient as createSupabase } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm';
 import { freezeLineTotals, transactionTotals } from '@mambo/core/calc';
+import { normalizePhone } from '@mambo/core/identifier';
 import { isRetryable, parseSyncOp, SYNC_PUSH_MAX_OPS } from '@mambo/contracts';
 import { ApiError, createClient } from '@mambo/sdk';
 
@@ -132,6 +133,8 @@ const render = () => {
   $('receipt-btn').disabled = products.length === 0;
   renderExtra();
 
+  renderParties();
+
   // Phiếu
   const txs = live(state.book.transactions).sort((a, b) => b.date.localeCompare(a.date));
   $('receipts').replaceChildren(
@@ -242,10 +245,14 @@ $('receipt-form').addEventListener('submit', (e) => {
     pricePerUnit: price,
   });
   const txId = crypto.randomUUID();
-  const data = { date: new Date().toISOString(), kind: 'purchase', counterpartyId: null, supplierName: $('r-seller').value.trim() || 'Khách lẻ', lines: [line] };
+  const sellerName = $('r-seller').value.trim() || 'Khách lẻ';
+  const rawPhone = $('r-phone').value.trim();
+  if (rawPhone && !normalizePhone(rawPhone)) return say('Số điện thoại người bán chưa đúng.', 'error');
+  const data = { date: new Date().toISOString(), kind: 'purchase', counterpartyId: null, supplierName: sellerName, lines: [line] };
 
   try {
-    // Như derivedOps của app: việc phụ (giá gần nhất) trước, phiếu sau, lần trả cuối.
+    // Như derivedOps của app: việc phụ (người bán mới, giá gần nhất) trước, phiếu sau, lần trả cuối.
+    if (sellerName !== 'Khách lẻ') data.counterpartyId = supplierFor(sellerName, rawPhone);
     if (price !== product.lastPricePerUnit) {
       enqueue('product', 'update', product.id, { lastPricePerUnit: price });
       product.lastPricePerUnit = price;
@@ -257,8 +264,75 @@ $('receipt-form').addEventListener('submit', (e) => {
     return say(explain(err), 'error');
   }
   $('r-paid').value = '';
+  $('r-phone').value = '';
   commit(`Lập phiếu ${money(line.roundedTotal)}`);
 });
+
+/** Người bán cùng tên (không phân biệt hoa thường) thì dùng lại; chưa có thì tạo — op `supplier insert`. */
+const supplierFor = (name, phone) => {
+  const found = live(state.book.suppliers).find((sp) => sp.name.toLowerCase() === name.toLowerCase());
+  if (found) return found.id;
+  const id = crypto.randomUUID();
+  const data = { name, ...(phone ? { phone } : {}) };
+  enqueue('supplier', 'insert', id, data);
+  state.book.suppliers[id] = { ...localMeta(id), name, phone: phone || null, location: null, note: null };
+  return id;
+};
+
+/** Trạng thái kết nối của từng người bán — lấy từ `sdk.links.list()` sau mỗi lần đồng bộ. */
+let linksByPartner = new Map();
+
+const refreshLinks = async () => {
+  try {
+    const { links } = await api.links.list();
+    linksByPartner = new Map(links.filter((l) => l.side === 'owner').map((l) => [l.partner.id, l]));
+  } catch {
+    linksByPartner = new Map(); // người cân không có quyền xem kết nối — bỏ qua
+  }
+};
+
+/** `K7M2QX9P` → `K7M2-QX9P` — app thật hiện như vậy (và QR chứa đúng mã). */
+const showCode = (code) => `${code.slice(0, 4)}-${code.slice(4)}`;
+const codeLine = (code) => `mã ${showCode(code.code)} · hết hạn ${new Date(code.expiresAt).toLocaleString('vi-VN')}`;
+
+/** Mời / lấy lại mã: mã còn hạn thì trả đúng mã cũ, hết hạn thì cấp mã mới. */
+const invite = async (partnerId) => {
+  try {
+    const link = await api.links.invite({ partnerKind: 'supplier', partnerId });
+    linksByPartner.set(partnerId, link);
+    if (link.inviteCode) say(`Đưa cho người bán ${codeLine(link.inviteCode)} — họ nhập ở mục "Kết nối" của trang tài khoản.`, 'ok');
+  } catch (err) {
+    say(explain(err), 'error');
+  }
+  render();
+};
+
+const renderParties = () => {
+  const suppliers = live(state.book.suppliers).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  $('parties-box').hidden = suppliers.length === 0;
+  const pending = new Set(state.queue.map((op) => op.recordId));
+  $('parties').replaceChildren(
+    ...suppliers.map((sp) => {
+      const link = linksByPartner.get(sp.id);
+      const status = link
+        ? {
+            pending: link.inviteCode ? `đã mời · ${codeLine(link.inviteCode)}` : 'đã mời · mã hết hạn',
+            active: `đã kết nối với ${link.counterpart?.name}`,
+            revoked: 'đã huỷ',
+          }[link.status]
+        : 'chưa kết nối';
+      // Người bán phải lên server rồi mới mời được (dòng danh bạ còn trong hàng đợi thì chưa có).
+      const synced = !pending.has(sp.id);
+      const label = !link || link.status === 'revoked' ? 'Mời kết nối' : link.status === 'pending' && !link.inviteCode ? 'Lấy mã mới' : null;
+      return el(
+        'p',
+        { className: 'payment' },
+        `${sp.name}${sp.phone ? ` · ${sp.phone}` : ''} · ${status} `,
+        ...(synced && label ? [el('button', { type: 'button', className: 'secondary', textContent: label, onclick: () => invite(sp.id) })] : []),
+      );
+    }),
+  );
+};
 
 const payPrompt = (txId) => {
   const amount = Number((prompt('Trả bao nhiêu (đồng)?') ?? '').replace(/\D/g, ''));
@@ -366,6 +440,7 @@ const sync = async () => {
     }
     state.lastSyncedAt = new Date().toISOString();
     save();
+    await refreshLinks();
     const warnings = log.pushed.filter((r) => r.warning).map((r) => r.warning);
     const rejected = log.pushed.find((r) => r.status === 'rejected');
     say(

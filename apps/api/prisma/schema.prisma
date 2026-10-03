@@ -167,21 +167,25 @@ model Profile {
 // ─── Chuỗi — dùng chung giữa hai tổ chức, id do server sinh ──────────────────
 
 /// Dòng danh bạ trong sổ của `owner` ↔ tổ chức có tài khoản thật (`linked`).
-/// Chỉ `active` khi bên được liên kết đồng ý VÀ số điện thoại đã xác thực OTP.
+/// Chỉ `active` khi CHÍNH bên được liên kết nhập đúng mã kết nối (claim_link), hoặc đồng ý
+/// với số điện thoại đã xác thực OTP trùng số được mời (OTP tạm ẩn).
 model PartnerLink {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerOrgId   String    @map("owner_org_id") @db.Uuid
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerOrgId          String    @map("owner_org_id") @db.Uuid
   /// supplier | buyer — partner_id trỏ vào bảng tương ứng trong sổ của owner.
-  partnerKind  String    @map("partner_kind")
-  partnerId    String    @map("partner_id") @db.Uuid
-  linkedOrgId  String?   @map("linked_org_id") @db.Uuid
-  invitedPhone String?   @map("invited_phone")
+  partnerKind         String    @map("partner_kind")
+  partnerId           String    @map("partner_id") @db.Uuid
+  linkedOrgId         String?   @map("linked_org_id") @db.Uuid
+  invitedPhone        String?   @map("invited_phone")
+  /// Mã kết nối 8 ký tự bên owner đưa tận tay. Chỉ sống khi `pending` (trigger xoá khi đổi trạng thái).
+  inviteCode          String?   @unique @map("invite_code")
+  inviteCodeExpiresAt DateTime? @map("invite_code_expires_at") @db.Timestamptz(6)
   /// pending | active | revoked
-  status       String    @default("pending")
-  decidedBy    String?   @map("decided_by") @db.Uuid
-  decidedAt    DateTime? @map("decided_at") @db.Timestamptz(6)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  status              String    @default("pending")
+  decidedBy           String?   @map("decided_by") @db.Uuid
+  decidedAt           DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   owner  Organization  @relation("LinkOwner", fields: [ownerOrgId], references: [id])
   linked Organization? @relation("LinkLinked", fields: [linkedOrgId], references: [id])

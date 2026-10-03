@@ -20,10 +20,11 @@ const fieldErrors = (error: z.ZodError): Record<string, string> => {
 /**
  * Hai ô trên sơ đồ ("zod DTO" và "Transform") ở một chỗ, cùng đọc dòng `routes`:
  *
- * VÀO — thân request đi qua `route.body`, query string qua `route.query`, TRƯỚC khi
+ * VÀO — thân request đi qua `route.body`, query string qua `route.query`, tham số đường dẫn
+ * qua `route.params`, TRƯỚC khi
  * tới handler. Sai → 422 `VALIDATION_FAILED`, `details.fields` chỉ đúng trường sai.
  * Handler nhận bản đã chuẩn hoá (trim, chữ thường, ép số…) qua `@Body()` /
- * `@ContractQuery()`; schema là `strictObject` nên trường lạ bị từ chối, không lặng
+ * `@ContractQuery()` / `@ContractParams()`; schema là `strictObject` nên trường lạ bị từ chối, không lặng
  * lẽ bỏ qua.
  *
  * RA — mọi phản hồi thành công đi qua `route.response`:
@@ -53,6 +54,13 @@ export class ContractInterceptor implements NestInterceptor {
         throw new ApiException('VALIDATION_FAILED', 'Dữ liệu gửi lên chưa đúng', { fields: fieldErrors(parsed.error) });
       }
       req.body = parsed.data;
+    }
+    if (route.params) {
+      const parsed = route.params.safeParse({ ...req.params });
+      if (!parsed.success) {
+        throw new ApiException('VALIDATION_FAILED', 'Đường dẫn chưa đúng', { fields: fieldErrors(parsed.error) });
+      }
+      req.contractParams = parsed.data;
     }
     if (route.query) {
       // Express 5: `req.query` chỉ có getter — bản đã kiểm để ở `contractQuery` (@ContractQuery()).

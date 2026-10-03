@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { ERROR_STATUS, ErrorBody } from './errors.js';
-import { routes, type RouteDef } from './routes.js';
+import { pathParamNames, routes, type RouteDef } from './routes.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -29,21 +29,28 @@ const errorStatuses = (route: RouteDef): number[] => {
     statuses.add(ERROR_STATUS.FORBIDDEN);
     statuses.add(ERROR_STATUS.VALIDATION_FAILED); // header X-Organization-Id thiếu hoặc sai
   }
-  if (route.body || route.query) statuses.add(ERROR_STATUS.VALIDATION_FAILED);
+  if (route.body || route.query || route.params) statuses.add(ERROR_STATUS.VALIDATION_FAILED);
   for (const code of route.errors ?? []) statuses.add(ERROR_STATUS[code]);
   return [...statuses].sort((a, b) => a - b);
 };
 
-/** Mỗi trường của schema query thành một tham số `in: query`. */
-const queryParameters = (route: RouteDef): JsonObject[] => {
-  if (!route.query) return [];
-  const schema = schemaOf(route.query, 'input') as { properties?: Record<string, JsonObject>; required?: string[] };
+/** Mỗi trường của schema query/params thành một tham số `in: query` / `in: path`. */
+const fieldParameters = (schemaDef: z.ZodType | undefined, where: 'query' | 'path'): JsonObject[] => {
+  if (!schemaDef) return [];
+  const schema = schemaOf(schemaDef, 'input') as { properties?: Record<string, JsonObject>; required?: string[] };
   return Object.entries(schema.properties ?? {}).map(([name, property]) => ({
     name,
-    in: 'query',
-    required: schema.required?.includes(name) ?? false,
+    in: where,
+    required: where === 'path' || (schema.required?.includes(name) ?? false),
     schema: property,
   }));
+};
+
+/** `/v1/links/:id/accept` → `/v1/links/{id}/accept` (cú pháp của OpenAPI). */
+const openApiPath = (path: string): string => {
+  let out = path;
+  for (const name of pathParamNames(path)) out = out.replace(`:${name}`, `{${name}}`);
+  return out;
 };
 
 const operation = (name: string, route: RouteDef): JsonObject => {
@@ -64,7 +71,7 @@ const operation = (name: string, route: RouteDef): JsonObject => {
       schema: { type: 'string', format: 'uuid' },
     });
   }
-  parameters.push(...queryParameters(route));
+  parameters.push(...fieldParameters(route.params, 'path'), ...fieldParameters(route.query, 'query'));
 
   const body = route.docBody ?? route.body;
 
@@ -91,7 +98,8 @@ const operation = (name: string, route: RouteDef): JsonObject => {
 export const buildOpenApi = (version: string): JsonObject => {
   const paths: Record<string, JsonObject> = {};
   for (const [name, route] of Object.entries(routes) as [string, RouteDef][]) {
-    paths[route.path] = { ...(paths[route.path] ?? {}), [route.method.toLowerCase()]: operation(name, route) };
+    const path = openApiPath(route.path);
+    paths[path] = { ...(paths[path] ?? {}), [route.method.toLowerCase()]: operation(name, route) };
   }
 
   return {

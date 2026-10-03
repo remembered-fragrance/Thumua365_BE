@@ -23,6 +23,15 @@ export interface DomainEventMap {
   };
   /** Dò kết nối tạo được lời mời mới — thông báo cho vựa (BE4–BE5). */
   'link.discovered': { readonly linkedOrgId: string; readonly created: number };
+  /** Bên được liên kết đồng ý — thông báo cho bên sổ (BE5), đo lường `link_accepted` (BE9). */
+  'link.accepted': { readonly linkId: string; readonly ownerOrgId: string; readonly linkedOrgId: string };
+  /** Một bên huỷ kết nối — thông báo cho bên kia (BE5). */
+  'link.revoked': {
+    readonly linkId: string;
+    readonly ownerOrgId: string;
+    readonly linkedOrgId: string | null;
+    readonly by: 'owner' | 'linked';
+  };
 }
 
 export type DomainEventName = keyof DomainEventMap;

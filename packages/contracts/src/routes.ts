@@ -11,7 +11,17 @@ import type { z } from 'zod';
 import { ResolveIdentifierInput, ResolveIdentifierResult } from './auth.js';
 import type { ErrorCode } from './errors.js';
 import { Health } from './health.js';
-import { LinksDiscoverResult } from './links.js';
+import {
+  LinkedBalance,
+  LinkedReceiptsQuery,
+  LinkedReceiptsResult,
+  LinkClaimInput,
+  LinkIdParams,
+  LinkInviteInput,
+  LinksDiscoverResult,
+  LinksList,
+  LinkSummary,
+} from './links.js';
 import { Me, MeBootstrapInput } from './me.js';
 import type { Permission } from './permissions.js';
 import { SyncPullQuery, SyncPullResult, SyncPushInput, SyncPushRequest, SyncPushResult } from './sync.js';
@@ -41,6 +51,11 @@ export interface RouteDef {
   readonly docBody?: z.ZodType;
   /** Tham số query string. Server kiểm trước khi vào handler; sai hoặc thừa → 422 `VALIDATION_FAILED`. */
   readonly query?: z.ZodType;
+  /**
+   * Tham số trên đường dẫn — mỗi `:ten` trong `path` là một trường của schema này (test bắt
+   * khớp). Server kiểm trước khi vào handler; sai → 422 `VALIDATION_FAILED`.
+   */
+  readonly params?: z.ZodType;
   readonly response: z.ZodType;
   /** Hạn mức riêng mỗi phút mỗi IP, chặt hơn mức chung — cho route dễ bị dò. */
   readonly rateLimitPerMinute?: number;
@@ -83,11 +98,80 @@ export const routes = {
   linksDiscover: {
     method: 'POST',
     path: '/v1/links/discover',
-    summary: 'Dò các sổ có đối tác mang số điện thoại đã xác thực của người gọi, tạo lời mời chờ đồng ý',
+    summary:
+      'Dò các sổ có đối tác mang số điện thoại đã xác thực OTP của người gọi, tạo lời mời chờ đồng ý. Tạm ẩn — OTP mở lại khi > 100 tổ chức trả phí',
     auth: 'org',
     permission: 'linked:read',
     response: LinksDiscoverResult,
     errors: ['PHONE_NOT_VERIFIED'],
+  },
+  linksList: {
+    method: 'GET',
+    path: '/v1/links',
+    summary: 'Các kết nối của tổ chức đang làm việc, cả hai phía (sổ của mình / sổ bên kia). Cần linked:read hoặc partner:manage',
+    auth: 'org',
+    response: LinksList,
+  },
+  linksInvite: {
+    method: 'POST',
+    path: '/v1/links/invite',
+    summary:
+      'Mời một dòng danh bạ kết nối — kèm mã kết nối (inviteCode) để đưa tận tay. Gọi lại trả kết nối đang có; mã hết hạn thì cấp mã mới',
+    auth: 'org',
+    permission: 'partner:manage',
+    body: LinkInviteInput,
+    response: LinkSummary,
+    errors: ['NOT_FOUND'],
+  },
+  linksClaim: {
+    method: 'POST',
+    path: '/v1/links/claim',
+    summary:
+      'Bên được mời nhập mã kết nối (gõ tay hoặc quét QR) → kết nối active ngay. Mã sai, đã dùng hay hết hạn đều trả cùng một lỗi',
+    auth: 'org',
+    permission: 'linked:read',
+    body: LinkClaimInput,
+    response: LinkSummary,
+    rateLimitPerMinute: 10,
+    errors: ['NOT_FOUND'],
+  },
+  linksAccept: {
+    method: 'POST',
+    path: '/v1/links/:id/accept',
+    summary:
+      'Bên được liên kết đồng ý lời mời đã dò được — cần số điện thoại đã xác thực OTP trùng số được mời. Gọi lại an toàn. Tạm ẩn cùng OTP',
+    auth: 'org',
+    permission: 'linked:read',
+    params: LinkIdParams,
+    response: LinkSummary,
+    errors: ['PHONE_NOT_VERIFIED', 'NOT_FOUND'],
+  },
+  linksRevoke: {
+    method: 'POST',
+    path: '/v1/links/:id/revoke',
+    summary: 'Một trong hai bên huỷ kết nối — mất quyền xem ngay. Phía sổ cần partner:manage, phía được xem cần linked:read',
+    auth: 'org',
+    params: LinkIdParams,
+    response: LinkSummary,
+    errors: ['NOT_FOUND'],
+  },
+  linkedReceipts: {
+    method: 'GET',
+    path: '/v1/linked/receipts',
+    summary: 'Phiếu trong sổ của một tổ chức đang kết nối có nhắc tới mình — chỉ trường in trên biên nhận. Mới nhất trước',
+    auth: 'org',
+    permission: 'linked:read',
+    query: LinkedReceiptsQuery,
+    response: LinkedReceiptsResult,
+    errors: ['LINK_REQUIRED'],
+  },
+  linkedBalance: {
+    method: 'GET',
+    path: '/v1/linked/balance',
+    summary: 'Công nợ với từng tổ chức đang kết nối: họ còn nợ mình / mình còn nợ họ',
+    auth: 'org',
+    permission: 'linked:read',
+    response: LinkedBalance,
   },
   syncPush: {
     method: 'POST',
@@ -134,3 +218,16 @@ export type RouteWithQuery = {
 export type RouteQuery<N extends RouteWithQuery> = (typeof routes)[N] extends { query: infer Q extends z.ZodType }
   ? z.output<Q>
   : never;
+
+/** Tên các route có tham số đường dẫn. */
+export type RouteWithParams = {
+  [N in RouteName]: (typeof routes)[N] extends { params: z.ZodType } ? N : never;
+}[RouteName];
+
+/** Tham số đường dẫn (`:id`…) mà client điền. */
+export type RouteParams<N extends RouteWithParams> = (typeof routes)[N] extends { params: infer P extends z.ZodType }
+  ? z.input<P>
+  : never;
+
+/** `/v1/links/:id/accept` → `['id']`. */
+export const pathParamNames = (path: string): string[] => [...path.matchAll(/:([A-Za-z][A-Za-z0-9]*)/g)].map((m) => m[1] ?? '');

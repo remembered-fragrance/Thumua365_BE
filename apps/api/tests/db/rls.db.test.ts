@@ -366,3 +366,118 @@ describe('discover_links — dò kết nối theo số đã xác thực', () => 
     expect([seenByA, seenByB, seenByFarmer]).toEqual([1, 0, 1]);
   });
 });
+
+describe('kết nối — luật ở database, đứng vững kể cả khi API có lỗi (BE4)', () => {
+  let farmer: string;
+  let farmerOrg: string;
+  let linkId: string;
+  let supplier: string;
+
+  beforeEach(async () => {
+    farmer = newId();
+    farmerOrg = await createOrg('farmer', farmer, 'Hộ cô Mai');
+    supplier = await createSupplier(orgA, '0912345678', 'Cô Mai');
+    linkId = newId();
+    await admin.query(
+      `insert into partner_links (id, owner_org_id, partner_kind, partner_id, linked_org_id, invited_phone, status)
+       values ($1, $2, 'supplier', $3, $4, '+84912345678', 'pending')`,
+      [linkId, orgA, supplier, farmerOrg],
+    );
+  });
+
+  const setStatus = (orgId: string, userId: string, status: string) =>
+    serviceError({ userId, orgId }, 'update partner_links set status = $1 where id = $2', [status, linkId]);
+
+  it('🔴 bên sổ KHÔNG tự bật active được — chỉ chính bên được liên kết', async () => {
+    expect(await setStatus(orgA, alice, 'active')).toMatch(/Chỉ bên được liên kết mới đồng ý/);
+  });
+
+  it('không tạo thẳng kết nối active; không đổi hai đầu; đã huỷ không mở lại', async () => {
+    expect(
+      await serviceError(
+        { userId: alice, orgId: orgA },
+        `insert into partner_links (owner_org_id, partner_kind, partner_id, linked_org_id, status)
+         values ($1, 'supplier', $2, $3, 'active')`,
+        [orgA, await createSupplier(orgA, '0911111111'), farmerOrg],
+      ),
+    ).toMatch(/luôn ở trạng thái pending/);
+    expect(
+      await serviceError({ userId: alice, orgId: orgA }, 'update partner_links set linked_org_id = $1 where id = $2', [orgB, linkId]),
+    ).toMatch(/không đổi được/);
+
+    await admin.query(`update partner_links set status = 'revoked' where id = $1`, [linkId]);
+    expect(await setStatus(farmerOrg, farmer, 'active')).toMatch(/không mở lại được/);
+  });
+
+  it('linked_receipts: chờ đồng ý → rỗng · đồng ý → có đúng phiếu · không ngữ cảnh → rỗng', async () => {
+    await admin.query(
+      `insert into transactions (id, organization_id, created_by, date, kind, counterparty_id, supplier_name, lines)
+       values ($1, $2, $3, now(), 'purchase', $4, 'Cô Mai', '[]')`,
+      [newId(), orgA, alice, supplier],
+    );
+    const receipts = (scope: { userId?: string; orgId?: string }) =>
+      asService(scope, async (c) => (await c.query('select id from public.linked_receipts(null, null, null, null)')).rowCount);
+
+    expect(await receipts({ userId: farmer, orgId: farmerOrg })).toBe(0);
+    await asService({ userId: farmer, orgId: farmerOrg }, (c) =>
+      c.query(`update partner_links set status = 'active' where id = $1`, [linkId]).then(() => c.query('commit')),
+    );
+    expect(await receipts({ userId: farmer, orgId: farmerOrg })).toBe(1);
+    expect(await receipts({ userId: bob, orgId: orgB })).toBe(0);
+    expect(await receipts({})).toBe(0);
+  });
+
+  const SET_CODE = `update partner_links set invite_code = 'K7M2QX9P', invite_code_expires_at = now() + interval '7 days' where id = $1`;
+
+  it('mã kết nối: 🔴 chỉ bên sổ cấp được; đổi trạng thái là mã bị xoá; hình dạng mã kiểm ở database', async () => {
+    expect(await serviceError({ userId: farmer, orgId: farmerOrg }, SET_CODE, [linkId])).toMatch(/Chỉ bên sổ mới cấp được mã/);
+
+    const after = await asService({ userId: alice, orgId: orgA }, async (c) => {
+      await c.query(SET_CODE, [linkId]);
+      await c.query(`update partner_links set status = 'revoked' where id = $1`, [linkId]);
+      return (await c.query('select invite_code, invite_code_expires_at from partner_links where id = $1', [linkId])).rows[0];
+    });
+    expect(after).toEqual({ invite_code: null, invite_code_expires_at: null });
+
+    await expect(
+      admin.query(`update partner_links set invite_code = 'K7M2QX0P', invite_code_expires_at = now() where id = $1`, [linkId]),
+    ).rejects.toThrow(/partner_links_invite_code_check/);
+    await expect(admin.query(`update partner_links set invite_code = 'K7M2QX9P' where id = $1`, [linkId])).rejects.toThrow(
+      /partner_links_invite_code_pair/,
+    );
+  });
+
+  it('claim_link: đúng mã → active, gắn đúng tổ chức, mã bị xoá · mã của mình / hết hạn → null · không ngữ cảnh → lỗi', async () => {
+    const open = newId();
+    const expired = newId();
+    await admin.query(
+      `insert into partner_links (id, owner_org_id, partner_kind, partner_id, invite_code, invite_code_expires_at)
+       values ($1, $3, 'supplier', $4, 'K7M2QX9P', now() + interval '7 days'),
+              ($2, $3, 'supplier', $5, 'ABCDEFGH', now() - interval '1 minute')`,
+      [open, expired, orgA, await createSupplier(orgA, null, 'Chú Bảy'), await createSupplier(orgA, null, 'Cô Tư')],
+    );
+    const claim = (scope: { userId?: string; orgId?: string }, code: string) =>
+      asService(scope, async (c) => (await c.query<{ id: string | null }>('select public.claim_link($1) as id', [code])).rows[0]?.id);
+
+    expect(await claim({ userId: alice, orgId: orgA }, 'K7M2QX9P')).toBeNull();
+    expect(await claim({ userId: bob, orgId: orgB }, 'ABCDEFGH')).toBeNull();
+    expect(await claim({ userId: bob, orgId: orgB }, 'ZZZZZZZZ')).toBeNull();
+    expect(await serviceError({ userId: bob }, `select public.claim_link('K7M2QX9P')`)).toMatch(/app\.org_id/);
+
+    const row = await asService({ userId: bob, orgId: orgB }, async (c) => {
+      const id = (await c.query<{ id: string }>('select public.claim_link($1) as id', ['K7M2QX9P'])).rows[0]?.id;
+      return (await c.query('select id, status, linked_org_id, invite_code, decided_by from partner_links where id = $1', [id])).rows[0];
+    });
+    expect(row).toEqual({ id: open, status: 'active', linked_org_id: orgB, invite_code: null, decided_by: bob });
+  });
+
+  it('claim_link: lời mời đã có bên được liên kết (dò bằng OTP) → chỉ chính bên đó nhập mã được', async () => {
+    await admin.query(`update partner_links set invite_code = 'K7M2QX9P', invite_code_expires_at = now() + interval '7 days' where id = $1`, [
+      linkId,
+    ]);
+    const claim = (scope: { userId: string; orgId: string }) =>
+      asService(scope, async (c) => (await c.query<{ id: string | null }>(`select public.claim_link('K7M2QX9P') as id`)).rows[0]?.id);
+    expect(await claim({ userId: bob, orgId: orgB })).toBeNull();
+    expect(await claim({ userId: farmer, orgId: farmerOrg })).toBe(linkId);
+  });
+});

@@ -3,9 +3,11 @@
 Ngày lập: **21/09/2026** · Sửa lần 2: cùng ngày — đối chiếu lại với **kiến trúc v2 đã chốt** ·
 Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `ContractInterceptor`, mã lỗi, Render)
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
-Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** (OTP dời sang BE4) · **BE3 ✅** (`v0.4.0`) · tiếp theo BE4 — nhật
-ký ở [MEMORY.md](../MEMORY.md)
-Hướng làm (28/09/2026): **backend đi trước**, frontend dựng lại app từ đầu theo hợp đồng
+Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; OTP tạm ẩn tới khi > 100 tổ chức trả phí (§1.4)
+Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 🟡** hợp đồng + API + test xong (cả mã
+kết nối), còn nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
+Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
+hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
 Kiến trúc đã chốt: [so-do-kien-truc-v2.html](so-do-kien-truc-v2.html) ·
 Tổng hợp dự án: [THONG_TIN_DU_AN.md](THONG_TIN_DU_AN.md) §3, §9
@@ -103,27 +105,74 @@ analytics_events (id, organization_id NULL, org_type, anon_id, name, props jsonb
 
 Extension `postgis` **bật ở BE2** (cột `location` có sẵn, chưa dùng tới giai đoạn 2).
 
-### 1.4 Kết nối giữa tổ chức — có OTP
+### 1.4 Kết nối giữa tổ chức — mã kết nối (OTP tạm ẩn)
 
 Sổ của vựa vẫn là **của vựa**. Nông dân chỉ **nhìn** phần sổ nói về mình.
 
-1. Vựa có nông hộ "Cô Mai – 0912…" trong danh bạ.
-2. Cô Mai đăng ký (mật khẩu như hiện nay) rồi **xác thực số**: app gọi
-   `supabase.auth.updateUser({ phone })` → Supabase gửi OTP → `verifyOtp({ type:
-   'phone_change' })` → `auth.users.phone_confirmed_at` có giá trị.
-3. App gọi `POST /v1/links/discover`. Server đọc `phone_confirmed_at` qua Auth Admin API;
-   **chưa xác thực → `PHONE_NOT_VERIFIED`**, không dò. Đã xác thực → tạo `partner_links`
-   `pending` cho mọi sổ có đối tác mang số đó.
-4. Cô Mai bấm đồng ý → `active`, ghi `audit_log`. Vựa cũng có thể mời trước
-   (`/links/invite`), nhưng liên kết vẫn chỉ `active` khi cô Mai đồng ý **và** số đã xác thực.
-5. Cô Mai thấy phiếu có `counterparty_id` là nông hộ đó — **chỉ trường in trên biên nhận**.
-6. Một trong hai bên huỷ → `revoked` → mất quyền đọc ngay.
+**Đường chính — mã kết nối (chốt 01/10/2026):**
 
-**Gửi SMS:** Supabase Auth phone provider. Nhà cung cấp Supabase hỗ trợ sẵn (Twilio,
-Vonage, MessageBird…) hoặc **Send SMS Hook** trỏ sang nhà cung cấp trong nước (eSMS,
-SpeedSMS…) nếu giá/tỉ lệ tới máy tốt hơn — chọn ở BE4 (dời từ BE2). Rate limit OTP bật ở dashboard Auth.
+1. Vựa có nông hộ "Cô Mai" trong danh bạ (có hay không có số điện thoại đều được).
+2. Vựa bấm "Mời kết nối" → `POST /v1/links/invite` → kết nối `pending` kèm **mã kết nối** 8 ký tự
+   (`inviteCode`, hạn 7 ngày). Vựa đưa mã **tận tay** — đọc lúc cân, gửi Zalo, sau này hiện **QR**
+   chứa đúng mã đó.
+3. Cô Mai đăng ký (mật khẩu như hiện nay), nhập mã → `POST /v1/links/claim { code }` → `active`
+   ngay, ghi `audit_log`. Nhập mã chính là bấm đồng ý.
+4. Cô Mai thấy phiếu có `counterparty_id` là nông hộ đó — **chỉ trường in trên biên nhận**.
+5. Một trong hai bên huỷ → `revoked` → mất quyền đọc ngay; mã của kết nối đó chết theo.
+
+Vì sao mã đủ thay OTP: OTP chỉ chứng minh người nhập đang giữ SIM của số được ghi trong sổ. Mã do
+**chính vựa — người biết mặt cô Mai — trao tận tay**, nên chứng minh đúng điều cần: vựa đồng ý cho
+đúng người này xem. Ai đăng ký bằng số người khác cũng không xem được gì vì không có mã. Không tốn
+SMS, không cần đăng ký brandname.
+
+**Đường thứ hai — OTP, tạm ẩn tới khi > 100 tổ chức trả phí:** code giữ nguyên, Phone provider của
+Supabase **tắt** ⇒ không ai có số đã xác thực ⇒ `/links/discover` luôn `PHONE_NOT_VERIFIED`. Mở lại =
+bật Phone provider + nhà cung cấp SMS + màn OTP ở app; **backend không phải sửa gì**. Khi mở, nông
+dân tự dò được mọi sổ có số của mình:
+
+1. App gọi `supabase.auth.updateUser({ phone })` → Supabase gửi OTP → `verifyOtp({ type:
+   'phone_change' })` → `auth.users.phone_confirmed_at` có giá trị.
+2. `POST /v1/links/discover`. Server đọc `phone_confirmed_at` qua Auth API; **chưa xác thực →
+   `PHONE_NOT_VERIFIED`**, không dò. Đã xác thực → tạo `partner_links` `pending` cho mọi sổ có đối
+   tác mang số đó (và nhận lời mời vựa đã gửi tới số đó).
+3. Cô Mai bấm đồng ý (`/links/:id/accept`) → `active` — số đã xác thực phải trùng số được mời.
+
+**Gửi SMS (khi mở lại OTP):** Supabase Auth phone provider. Nhà cung cấp Supabase hỗ trợ sẵn
+(Twilio, Vonage, MessageBird…) hoặc **Send SMS Hook** trỏ sang nhà cung cấp trong nước (eSMS,
+SpeedSMS…). Rate limit OTP bật ở dashboard Auth.
 
 Cùng cơ chế áp cho **vựa ↔ doanh nghiệp**.
+
+**Chốt khi làm mã kết nối (01/10/2026):**
+
+- Mã 8 ký tự trên bảng 31 chữ/số bỏ 0/O, 1/I/L (`LINK_CODE_ALPHABET` trong contracts) ≈ 8,5 × 10¹¹
+  mã; hạn 7 ngày; dùng một lần; `/links/claim` 10 lần/phút/IP. App gõ kiểu gì cũng được
+  (`k7m2-qx9p`) — contracts chuẩn hoá.
+- Mời lại khi mã còn hạn → **đúng mã cũ** (QR đã in vẫn dùng được); mã hết hạn / sắp hết (< 1 giờ)
+  → mã mới, mã cũ chết. Huỷ rồi mời lại → kết nối mới, mã mới.
+- Mã lưu nguyên văn trong `partner_links.invite_code` (duy nhất), chỉ bên sổ thấy (`my_links()`
+  không trả mã cho phía được liên kết). Không băm: ai đọc được bảng thì đã đọc được chính phần sổ mà
+  mã mở ra.
+- Database giữ luật: CHECK hình dạng mã; trigger — chỉ bên sổ cấp mã, mã bị xoá khi kết nối rời
+  `pending`. `claim_link(code)` (security definer) là đường duy nhất để bên chưa có quyền nhìn thấy
+  lời mời nhận nó.
+- Mã sai, đã dùng, hết hạn → **cùng một câu** `NOT_FOUND` — không dò được mã nào từng tồn tại. Mã
+  của chính sổ mình → `VALIDATION_FAILED` (bên sổ vốn thấy mã của mình).
+- Dòng danh bạ **không bắt buộc** có số điện thoại nữa; số (nếu có) vẫn lưu cho đường OTP.
+
+**Chốt khi làm BE4 (28/09/2026) — vẫn đúng cho cả hai đường:**
+
+- Chỉ **bên được liên kết** đồng ý, và số đã xác thực OTP của người bấm phải **trùng** số được mời
+  (`invited_phone`) — kiểm lại ngay lúc bấm, không chỉ lúc dò.
+- `/links/invite` tạo lời mời chưa có bên được liên kết (`linked_org_id` null) nhắm vào số của dòng
+  danh bạ; `discover_links` nhận lời mời đó khi đúng số đó xác thực và dò. Trả `LinkSummary`, không
+  trả link Zalo — câu chữ mời để app tự soạn.
+- Huỷ: bên sổ cần `partner:manage`, bên được xem cần `linked:read`. `revoked` là trạng thái cuối.
+- Trigger `partner_links_guard` giữ luật ngay ở database: chỉ bên được liên kết bật `active`,
+  không tạo thẳng `active`, không đổi hai đầu, `revoked` không mở lại.
+- Đọc xuyên tổ chức chỉ qua `my_links()` và `linked_receipts()` (security definer, nhìn qua
+  `app.org_id()`); `linked_receipts` chỉ trả cột in trên biên nhận, phiếu chưa xoá, lần trả chưa huỷ.
+- `/linked/receipts?orgId=` lấy phiếu theo **tổ chức giữ sổ** (gộp mọi kết nối active với họ).
 
 ### 1.5 Đơn hàng & đặt lịch
 
@@ -392,9 +441,10 @@ Thêm: staff hai chi nhánh không thấy phiếu của nhau; nông dân bị hu
 |---|---|---|
 | `POST /v1/me/bootstrap` | mới đăng ký | Tạo hồ sơ + tổ chức + membership `owner` + (vựa/DN) dùng thử. Idempotent |
 | `POST /v1/auth/resolve-identifier` | chưa đăng nhập | Thay RPC `resolve_identifier`; rate limit; lỗi luôn cùng một câu |
-| `POST /v1/links/discover` | đã xác thực SĐT | §1.4 bước 3 |
-| `GET /v1/links` · `POST /v1/links/:id/{accept,revoke}` | mọi loại | |
-| `POST /v1/links/invite` `{ partnerId }` | vựa, DN | Trả link mời / Zalo |
+| `POST /v1/links/invite` `{ partnerKind, partnerId }` | vựa, DN (`partner:manage`) | Trả `LinkSummary` kèm `inviteCode` (BE4) |
+| `POST /v1/links/claim` `{ code }` | `linked:read` | Nhập mã kết nối → `active`; 10 lần/phút/IP (§1.4) |
+| `GET /v1/links` · `POST /v1/links/:id/revoke` | mọi loại | |
+| `POST /v1/links/discover` · `POST /v1/links/:id/accept` | đã xác thực SĐT | Đường OTP — tạm ẩn (§1.4) |
 | `GET /v1/linked/receipts?orgId=&cursor=` · `GET /v1/linked/balance` | `linked:read` | Chỉ trường biên nhận |
 | `GET/POST /v1/orders` · `GET /v1/orders/:id` | mọi loại | Lọc `role=seller\|buyer`, `status` |
 | `POST /v1/orders/:id/{accept,reject,schedule,cancel}` `{ version }` | §1.6 | |
@@ -516,15 +566,16 @@ chưa đạt.
   (máy B mất mạng) ra cùng tổng, cùng số còn nợ, cùng "dấu sổ", khớp database; `test:db` 78/78
   trong CI.
 
-### BE4 — Kết nối + Nông dân (2–3 buổi)
+### BE4 — Kết nối + Nông dân (2–3 buổi) · 🟡 đang làm — hợp đồng + API + test xong (cả mã kết nối) 01/10
 
 - **Backend:** `/links/*`, `/linked/*`, hàm `linked_receipts()`; schema `LinkedReceipt`
-  riêng trong contracts; sự kiện `link.*`. **Nhận từ BE2:** bật Phone provider trên
-  Supabase, chọn nhà cung cấp SMS, OTP tới máy thật (`/links/discover` đã kiểm
-  `phone_confirmed_at`).
-- **Frontend:** vỏ Nông dân (phần xem); nút "Mời kết nối" trên trang nông hộ.
-- **Xong khi:** vựa ghi phiếu có nợ → nông dân đăng ký, **xác thực OTP**, đồng ý → thấy
-  đúng phiếu, đúng số nợ; chưa OTP → `PHONE_NOT_VERIFIED`; huỷ kết nối → mất quyền ngay.
+  riêng trong contracts; sự kiện `link.*`. **Mã kết nối** (01/10/2026): `inviteCode` khi mời,
+  `/links/claim`, `claim_link()`. ~~Nhận từ BE2: bật Phone provider, chọn nhà cung cấp SMS, OTP
+  tới máy thật~~ → **OTP tạm ẩn** tới khi > 100 tổ chức trả phí (§1.4, §9); code giữ nguyên.
+- **Frontend:** vỏ Nông dân (phần xem) + ô "Nhập mã kết nối"; trên trang nông hộ: "Mời kết nối"
+  hiện mã (sau này QR). Không làm màn OTP.
+- **Xong khi:** vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, **nhập mã** → thấy đúng
+  phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền ngay.
 
 ### BE5 — Đơn, đặt lịch, thông báo (3–4 buổi) · luồng giá trị chính
 
@@ -597,7 +648,7 @@ chưa đạt.
 | Ô trên sơ đồ v2 | Bước |
 |---|---|
 | Client một app, ba vỏ · IndexedDB · hàng đợi | FE song song BE2–BE7 |
-| Supabase Auth: đăng ký, OTP SMS, refresh token, JWKS | BE1 (JWKS) · BE2 (OTP) |
+| Supabase Auth: đăng ký, OTP SMS, refresh token, JWKS | BE1 (JWKS) · BE2 (OTP — tạm ẩn từ 01/10, kết nối bằng mã ở BE4) |
 | HTTPS /v1 · Bearer JWT · `X-Organization-Id` · REST + sync | BE1 · BE3 |
 | Pipeline: JWT → Tổ chức → Quyền → zod → Interceptor → Lỗi chuẩn | BE1 |
 | Auth & Hồ sơ | BE2 · BE6 |
@@ -617,7 +668,7 @@ chưa đạt.
 | Supabase Storage · signed URL | BE8 |
 | Supabase Realtime | Giai đoạn 2 |
 | Ngân hàng Casso/SePay → webhook | BE6 |
-| Email · SMS | BE2 (SMS OTP qua Auth) · BE5 (email) |
+| Email · SMS | SMS OTP qua Auth — tạm ẩn tới khi > 100 tổ chức trả phí (§9) · BE5 (email) |
 | Backup PITR + `pg_dump` | BE10 |
 | GitHub Actions · Prometheus/Grafana · Sentry · Log JSON · Bảo mật | BE1 · BE9 · BE10 |
 
@@ -634,6 +685,7 @@ chưa đạt.
 | Map / PostGIS, chợ mở | Nông dân muốn gửi đơn cho vựa chưa kết nối — bàn riêng |
 | Báo cáo nặng phía server cho vựa | Sổ > ~2.000 phiếu |
 | Capacitor | Cần API native mà TWA không có |
+| **Mở lại OTP** — nông dân tự dò các sổ có số của mình (`/links/discover`, đã có code) | > 100 tổ chức trả phí. Việc: chọn nhà cung cấp SMS, bật Phone provider + rate limit OTP, màn OTP ở app, sửa trang Quyền riêng tư (nhà cung cấp SMS) |
 
 ---
 
@@ -645,7 +697,7 @@ chưa đạt.
 | BE1 | Contract `me`, định dạng lỗi | `/lien-he`, link pháp lý (R4); khung chọn vỏ |
 | BE2 | Contract `bootstrap`, `resolve-identifier`, `links/discover`, ma trận quyền | "Bác là ai?", màn OTP, `auth.ts` |
 | BE3 | Contract `sync` + mock | `sync.ts`, `pullChanges.ts`, `cache.ts`, `queue.ts` |
-| BE4 | Contract `links`, `linked` | Vỏ Nông dân (phần xem), "Mời kết nối" |
+| BE4 | Contract `links`, `linked` | Vỏ Nông dân (phần xem), "Mời kết nối" hiện mã, ô "Nhập mã kết nối" |
 | BE5 | Contract `orders`, `notifications` | Đơn, hẹn lịch, ô "Theo đơn" |
 | BE6 | Contract billing/account | `billing.ts`, `account.ts` |
 | BE7 | Contract `org`, `reports` | Vỏ Doanh nghiệp |
@@ -664,13 +716,13 @@ Nhịp: 15 phút đầu tuần chốt contract của tuần; đổi contract gi�
 | Hai phía hiểu khác một trường | Một schema zod cho cả hai + `openapi.json` trong git |
 | Mất khoản trả khi đồng bộ | Năm test §4.4 + bảy kịch bản e2e |
 | Lộ sổ vựa này cho vựa khác | Hai lớp §5: Guard + RLS theo phiên; test cố tình bỏ lọc |
-| Lộ sổ vựa cho người lạ vì SĐT | OTP bắt buộc + bấm đồng ý + chỉ trường biên nhận + huỷ có hiệu lực ngay |
+| Lộ sổ vựa cho người lạ vì SĐT | Mã kết nối vựa trao tận tay (dùng một lần, hạn 7 ngày; OTP khi > 100 tổ chức trả phí) + chỉ trường biên nhận + huỷ có hiệu lực ngay |
 | Nhân viên làm việc không được phép | Ma trận quyền kiểm ở từng op sync |
 | Đơn bị hai bên đổi cùng lúc | `version` + `409` + `order_events` |
 | Lệch giờ máy khách | Cursor do server cấp |
 | API sập thì app chết | Vựa/DN vẫn ghi cục bộ; chỉ đơn và phần nông dân cần mạng |
 | Listener hỏng làm hỏng việc chính | Listener chạy sau commit; gửi ra ngoài qua pg-boss có thử lại |
-| Chi phí SMS OTP | Rate limit ở Auth; OTP chỉ khi xác thực số, không phải mỗi lần đăng nhập |
+| Chi phí SMS OTP | Chưa tốn: OTP tạm ẩn, kết nối bằng mã. Khi mở lại: rate limit ở Auth; OTP chỉ khi xác thực số, không phải mỗi lần đăng nhập |
 | Phạm vi phình ra | Không làm §9 trước khi BE10 đạt |
 
 ---
@@ -680,14 +732,15 @@ Nhịp: 15 phút đầu tuần chốt contract của tuần; đổi contract gi�
 1. **Trả tiền:** nông dân miễn phí · vựa 149.000đ/tháng · DN theo số chi nhánh; đơn và kết
    nối miễn phí cho mọi bên (§1.7).
 2. **Đồng bộ qua NestJS**, cursor do server cấp (§4).
-3. **OTP SMS + bấm đồng ý** trước khi kết nối (§1.4).
+3. ~~**OTP SMS + bấm đồng ý** trước khi kết nối~~ → **mã kết nối vựa trao tận tay** (01/10/2026); OTP tạm
+   ẩn, mở lại khi > 100 tổ chức trả phí (§1.4).
 4. **Đơn** bản đầu chỉ gửi cho tổ chức đã kết nối; chợ mở ở giai đoạn 2.
 5. **zod** thay class-validator; **Winston** cho log.
 6. **Hạ tầng:** vùng Singapore, `api.thumua365.vn`, gói npm `@mambo/*`; không Redis,
    không ELK, không Kubernetes ở giai đoạn này.
 7. **Duyệt PR** vào `packages/core`, `packages/contracts`: bắt buộc cả hai người.
 
-Còn chờ: nhà cung cấp SMS (BE4); quyền DNS `thumua365.vn`; số tài khoản nhận tiền và người
+Còn chờ: quyền DNS `thumua365.vn`; số tài khoản nhận tiền và người
 chịu trách nhiệm pháp lý (Nguyên, Linh). Nơi chạy container: **Render**, Singapore (chốt ở BE1).
 Đã xong: Docker Desktop trên máy dev (22/09). Quy ước §3: frontend dựng lại theo hợp đồng
 (28/09) nên theo đúng §3 từ đầu.

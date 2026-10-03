@@ -98,21 +98,40 @@
       <p id="org-summary" class="hint"></p>
     </section>
 
-    <section id="otp-box" hidden>
-      <h2>Xác thực số điện thoại (OTP)</h2>
-      <p class="hint">Bắt buộc trước khi dò kết nối. Supabase gửi mã qua SMS — trên staging dùng số thử
-        khai ở Authentication → Providers → Phone.</p>
-      <form id="otp-send">
-        <label>Số điện thoại <input id="otp-phone" inputmode="tel" required></label>
-        <button type="submit" id="otp-send-btn">Gửi mã</button>
-      </form>
-      <form id="otp-verify" hidden>
-        <label>Mã OTP <input id="otp-code" inputmode="numeric" autocomplete="one-time-code" required></label>
-        <button type="submit" id="otp-verify-btn">Xác thực</button>
+    <section id="links-box" hidden>
+      <h2>Kết nối</h2>
+      <p class="hint">Vựa đưa bác một <b>mã kết nối</b> 8 ký tự (lúc cân, hoặc qua Zalo). Nhập mã là kết nối ngay —
+        xem được phiếu và công nợ của bác trong sổ vựa, chỉ những gì in trên biên nhận. Một trong hai bên huỷ là mất
+        quyền xem ngay.</p>
+      <form id="claim">
+        <label>Mã kết nối <input id="claim-code" autocomplete="off" autocapitalize="characters" spellcheck="false"
+            placeholder="K7M2-QX9P" maxlength="32" required></label>
+        <button type="submit" id="claim-btn">Kết nối</button>
       </form>
       <div class="row">
-        <button type="button" id="discover-btn" class="secondary">Dò kết nối</button>
+        <button type="button" id="links-btn" class="secondary">Tải kết nối</button>
+        <button type="button" id="balance-btn" class="secondary">Công nợ với các bên</button>
       </div>
+      <div id="links"></div>
+    </section>
+
+    <section id="otp-box" hidden>
+      <details>
+        <summary>Xác thực số điện thoại (OTP) — tạm ẩn tới khi &gt; 100 tổ chức trả phí</summary>
+        <p class="hint">Đường thứ hai: xác thực số rồi "Dò kết nối" để tự tìm các sổ có số của bác. Staging đang tắt
+          Phone provider nên bước gửi mã sẽ báo lỗi — đúng như mong đợi.</p>
+        <form id="otp-send">
+          <label>Số điện thoại <input id="otp-phone" inputmode="tel" required></label>
+          <button type="submit" id="otp-send-btn">Gửi mã</button>
+        </form>
+        <form id="otp-verify" hidden>
+          <label>Mã OTP <input id="otp-code" inputmode="numeric" autocomplete="one-time-code" required></label>
+          <button type="submit" id="otp-verify-btn">Xác thực</button>
+        </form>
+        <div class="row">
+          <button type="button" id="discover-btn" class="secondary">Dò kết nối</button>
+        </div>
+      </details>
     </section>
 
     <p id="message" role="status"></p>

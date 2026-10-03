@@ -3,6 +3,35 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.5.0 — chưa phát hành (BE4)
+
+- `RouteDef.params` — tham số trên đường dẫn (`/v1/links/:id/accept`): server kiểm như thân
+  request (`@ContractParams()`), SDK điền vào đường dẫn, openapi viết `{id}` + `in: path`. Kiểu
+  tiện ích `RouteWithParams`, `RouteParams<N>`, hàm `pathParamNames`.
+- `routes.linksList` — `GET /v1/links` → `LinksList { links: LinkSummary[] }`, cả hai phía
+  (`side: owner | linked`), kèm tổ chức bên kia (`counterpart`).
+- `routes.linksInvite` — `POST /v1/links/invite` (`partner:manage`), thân `LinkInviteInput
+  { partnerKind, partnerId }` → `LinkSummary` kèm `inviteCode { code, expiresAt }` (mã kết nối 8
+  ký tự, hạn `LINK_CODE_TTL_DAYS` = 7 ngày). Idempotent: mã còn hạn → đúng mã cũ; hết hạn → mã mới.
+  Dòng danh bạ không cần số điện thoại.
+- `routes.linksClaim` — `POST /v1/links/claim` (`linked:read`, 10 lần/phút/IP), thân
+  `LinkClaimInput { code }` → `LinkSummary` (`active`). `LinkCode` chuẩn hoá chữ thường, khoảng
+  trắng, gạch nối. Mã sai / đã dùng / hết hạn → `NOT_FOUND` (một câu chung); mã của chính mình →
+  `VALIDATION_FAILED`. **Đường chính để kết nối** (quyết định 01/10/2026).
+- `routes.linksAccept` — `POST /v1/links/:id/accept` (`linked:read`) → `LinkSummary`. Số đã xác
+  thực OTP phải trùng số được mời, không thì `PHONE_NOT_VERIFIED`. Cùng `linksDiscover`: **tạm ẩn**
+  tới khi > 100 tổ chức trả phí (Phone provider tắt).
+- `LinkSummary.inviteCode` — mã còn hạn, chỉ phía `owner` khi `pending`; còn lại `null`.
+  Hằng `LINK_CODE_ALPHABET` (bỏ 0/O, 1/I/L), `LINK_CODE_LENGTH`, `LINK_CODE_TTL_DAYS`.
+- `routes.linksRevoke` — `POST /v1/links/:id/revoke` → `LinkSummary`. Quyền theo phía.
+- `routes.linkedReceipts` — `GET /v1/linked/receipts?orgId=&cursor=&limit=` (`linked:read`) →
+  `LinkedReceiptsResult { receipts: LinkedReceipt[], cursor }`; chưa kết nối → `LINK_REQUIRED`.
+- `routes.linkedBalance` — `GET /v1/linked/balance` (`linked:read`) → `LinkedBalance
+  { items: [{ organization, theyOwe, youOwe, receiptCount, lastReceiptAt }] }`.
+- Kiểu mới: `PartnerKind`, `LinkStatus`, `LinkSide`, `OrgRef`, `LinkedReceiptLine`.
+- `/links/discover`: `created` giờ đếm cả lời mời của vựa vừa được nhận về. Hình dạng không đổi.
+- `@mambo/sdk`: `links.list/invite/claim/discover/accept/revoke`, `linked.receipts/balance`.
+
 ## 0.4.0 — 28/09/2026 (BE3)
 
 - `routes.syncPush` — `POST /v1/sync/push` (`book:sync`), thân `SyncPushRequest`
