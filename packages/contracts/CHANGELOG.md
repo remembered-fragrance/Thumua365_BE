@@ -3,6 +3,16 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.9.0 — chưa phát hành (BE8)
+
+- `routes.attachmentsUploadUrl` — `POST /v1/attachments/upload-url` (`receipt:create`), thân
+  `AttachmentUploadInput { attachmentId, contentType: image/jpeg|png|webp, size ≤ 3MB }` →
+  `AttachmentUploadUrl { uploadUrl, method: 'PUT', headers, expiresAt }`. Không ghi đè: PUT lại → 409 = xong.
+- `routes.attachmentUrl` — `GET /v1/attachments/:id/url` (`book:sync`) → `AttachmentDownloadUrl { url,
+  expiresAt }` (10 phút). Chỉ ảnh mà phiếu / nháp mình được thấy nhắc tới; chưa lên → 404.
+- Hằng số `ATTACHMENT_MAX_BYTES`, `ATTACHMENT_TYPES`.
+- `@mambo/sdk`: `attachments.uploadUrl/upload/url` — `upload(id, blob)` xin URL, PUT, coi 409 là xong.
+
 ## 0.8.0 — chưa phát hành (BE6)
 
 - `RouteAuth` thêm `'admin'`: JWT của tài khoản có id trong `ADMIN_USER_IDS` của API; người khác → 403.

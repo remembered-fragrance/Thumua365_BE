@@ -8,6 +8,8 @@ import { AccountDeletionService } from './account/account-deletion.service';
 import { ProfileService } from './account/profile.service';
 import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
+import { AttachmentsController } from './attachments/attachments.controller';
+import { AttachmentsService } from './attachments/attachments.service';
 import { AuthController } from './auth/auth.controller';
 import { BankWebhookService } from './billing/bank-webhook.service';
 import { BillingController } from './billing/billing.controller';
@@ -77,6 +79,7 @@ export class AppModule {
         AccountController,
         BillingController,
         AdminController,
+        AttachmentsController,
         SyncController,
       ],
       providers: [
@@ -104,6 +107,7 @@ export class AppModule {
         BillingService,
         BankWebhookService,
         AdminService,
+        AttachmentsService,
         SyncPushService,
         SyncPullService,
         // Thứ tự đăng ký = thứ tự chạy.

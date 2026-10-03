@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5, BE7, BE6 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5, BE7, BE6, BE8 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -973,6 +973,37 @@ cũng được chặn theo, vì dùng chung `Username`.
 | `npm run verify` | Xanh — contracts 80 · core 315 · sdk 12 · api 42 |
 | `npm run test:db` (database dựng lại từ đầu, 8 migration) | **155/155** — thêm 3 test cho chỗ sửa (đỏ trước khi sửa) + 1 test chốt tên toàn chữ số |
 | `schema.prisma` ↔ migration | `No difference detected` |
+
+---
+
+## BE8 — Ảnh chứng từ · 🟡 · nhánh `be8/anh-chung-tu` · 03/10/2026
+
+**Kết quả:** hợp đồng + API + test xong (`test:db` thêm 5). Đúng "Xong khi" ở mức API: người cân chụp
+lúc mất mạng → có mạng xin URL, tải lên, đẩy phiếu → máy của chủ xin được URL xem (10 phút).
+
+### Làm gì
+
+- Contracts `attachments.ts`, 2 route trong `routes.ts`. SDK `attachments.upload(id, blob)` gói cả
+  xin URL + PUT + coi 409 là xong; `attachments.url(id)`.
+- `StorageAdmin.signUpload`, `signDownload` (Supabase Storage REST bằng khoá secret). Không cần migration.
+- `AttachmentsService`: đường dẫn luôn trong thư mục tổ chức đang làm việc; xem cần phiếu / nháp nhắc tới
+  id, cùng lọc chi nhánh như sổ.
+
+### Quyết định
+
+1. **Không ghi đè** (`x-upsert: false`): ảnh chứng từ không bị thay sau khi đã lên; hàng đợi gửi lại
+   gặp 409 thì coi là xong — đúng nghĩa idempotent.
+2. **Tải lên không cần phiếu có trước** — ảnh chụp lúc mất mạng có thể lên trước op của phiếu. Xem thì
+   cần (đó là chỗ kiểm phạm vi).
+3. Không có bảng `attachments`: id nằm trong `attachment_ids` của phiếu / nháp là đủ để kiểm quyền; ảnh
+   mồ côi (chụp rồi bỏ phiếu) nằm lại trong thư mục tổ chức tới khi xoá tài khoản — chấp nhận ở pilot.
+
+### Còn lại của BE8
+
+- [ ] Supabase (staging, prod): bucket `attachments` **riêng tư**, giới hạn 3MB, chỉ
+      `image/jpeg,image/png,image/webp`; **không** policy nào cho `authenticated` / `anon`.
+- [ ] Thử thật: URL hết hạn thì không mở được; PUT lại ảnh đã có → 409.
+- [ ] Frontend: hàng đợi ảnh trong `attachments.ts`.
 
 ---
 
