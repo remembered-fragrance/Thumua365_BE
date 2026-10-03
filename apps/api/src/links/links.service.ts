@@ -218,7 +218,7 @@ export class LinksService {
       return { summary: link, ownerOrgId: link.counterpart?.id ?? '' };
     });
 
-    this.events.emit('link.accepted', { linkId: summary.id, ownerOrgId, linkedOrgId: orgId });
+    this.events.emit('link.accepted', { linkId: summary.id, ownerOrgId, linkedOrgId: orgId, actorUserId: user.id });
     return summary;
   }
 
