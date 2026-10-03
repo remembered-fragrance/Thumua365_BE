@@ -845,14 +845,19 @@ commit — số test "web 370", tên nhánh và chữ "monorepo" là của nhán
 - **Đảo quyết định BE5 #3:** đơn không có / sai bên không còn `rejected` — phiếu, nháp vẫn ghi, gỡ
   `orderId`, `ORDER_NOT_OPEN`. Lý do: xoá tài khoản (BE6) xoá luôn đơn của bên kia; vựa đang cân
   offline đẩy phiếu theo đơn đó lên sẽ bị từ chối ⇒ cả hàng đợi dừng — đúng loại lỗi `prod-rubber` BE3.
-- Hoàn thành đơn chỉ khi đơn còn mở lúc ghi (`updateMany … where status`): vựa và DN cùng có sổ, khoá
-  advisory theo tổ chức không chặn nhau ⇒ trước đây bên đẩy sau vướng `orders_guard` thành `INTERNAL`.
-  Test giữ khoá hàng của đơn bằng một transaction mở để tái hiện chắc chắn — đỏ trước khi sửa.
+- Hoàn thành đơn xét trạng thái **sau khi khoá hàng của đơn** (`select … for update`): vựa và DN cùng có
+  sổ, khoá advisory theo tổ chức không chặn nhau ⇒ trước đây bên đẩy sau vướng `orders_guard` thành
+  `INTERNAL`; bản sửa đầu (`updateMany … where status`) hết lỗi đó nhưng lịch sử đơn ghi bước trước là
+  trạng thái đọc lúc đầu ("submitted → fulfilled" khi đơn vừa được nhận ở máy khác). Hai test giữ khoá
+  hàng của đơn bằng một transaction mở để tái hiện chắc chắn — đỏ trước khi sửa.
+- **`truncateAll` của test DB đợi listener lắng, thử lại khi deadlock** — bản sửa có ở BE9, chuyển xuống
+  đây vì listener thông báo có từ BE5. Soát lại cả chuỗi (03/10, tối): `test:db` của be5 122/123, be6
+  154/155 — đều deadlock ở `truncateAll`; CI của PR BE5–BE8 sẽ đỏ ngẫu nhiên nếu không sửa.
 
 | Việc | Kết quả |
 |---|---|
 | `npm run verify` | Xanh — contracts 78 · core 315 · sdk 12 · api 42; ranh giới 0 vi phạm |
-| `npm run test:db` (database dựng lại từ đầu) | **123/123** — thêm 4 test cho hai chỗ sửa (đỏ trước khi sửa) |
+| `npm run test:db` (database dựng lại từ đầu) | **124/124**, hai lần liền — thêm 5 test cho ba chỗ sửa (đỏ trước khi sửa) |
 | `schema.prisma` ↔ migration | `No difference detected` |
 
 ---
