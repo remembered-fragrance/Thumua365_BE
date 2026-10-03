@@ -5,7 +5,8 @@ Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `C
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
 Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; OTP tạm ẩn tới khi > 100 tổ chức trả phí (§1.4)
 Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 ✅** (`v0.5.0`, kết nối bằng mã kết
-nối, nghiệm thu trên staging 03/10) — nhật ký ở [MEMORY.md](../MEMORY.md)
+nối, nghiệm thu trên staging 03/10) · **BE5 🟡** hợp đồng + API + test xong (gom từ
+nhánh `be/nestjs-be10` của repo frontend), còn email và nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
@@ -581,7 +582,15 @@ chưa đạt.
   huỷ → `LINK_REQUIRED` ngay; database: kết nối `pending → active → revoked`, mã đã xoá, đủ ba dòng
   audit. `test:db` 103/103 trong CI.
 
-### BE5 — Đơn, đặt lịch, thông báo (3–4 buổi) · luồng giá trị chính
+### BE5 — Đơn, đặt lịch, thông báo (3–4 buổi) · luồng giá trị chính · 🟡 03/10 — hợp đồng + API + test xong
+
+**Chốt khi làm BE5 (03/10/2026):** accept/reject = bên NHẬN đơn; schedule = bên MUA (hẹn lại được);
+cancel = bên nào cũng được; `fulfilled` chỉ qua phiếu theo đơn, từ MỌI trạng thái còn mở (phiếu là
+việc đã cân thật). Đơn đã xong nhận thêm phiếu (chỉ gắn). Luật ở database: trigger `orders_guard`
+(trạng thái, version, ai làm bước nào), `book_order_guard` (phiếu/nháp chỉ gắn đơn mà tổ chức là
+đúng bên — khoá ngoại không qua RLS). Thông báo là của TỔ CHỨC, ghi bằng `notify_order()` /
+`notify_link()` (security definer, chỉ cho bên kia). Kênh email chờ chọn nhà cung cấp gửi thư.
+
 
 - **Backend:** `OrdersModule` (state machine, `version`, `order_events`) nối vào sync;
   `NotificationsModule` với hai kênh: **trong app** (bảng `notifications`) và **email**

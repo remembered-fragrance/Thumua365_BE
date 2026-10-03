@@ -412,6 +412,50 @@ Luật:
   `sale` — họ bán cho mình (**mình nợ họ**). `balance` đã cộng sẵn thành `theyOwe` / `youOwe`.
 - Cùng cơ chế cho vựa ↔ doanh nghiệp.
 
+### 5.8 Đơn hàng, đặt lịch, thông báo — BE5 (hợp đồng đã có, chưa phát hành)
+
+Đơn **cần mạng** (id do server sinh, không nằm trong sổ offline) và chỉ gửi được cho tổ chức **đã
+kết nối đúng chiều** — chưa thì `LINK_REQUIRED` ("Cần kết nối trước"). Danh sách tổ chức chọn được
+lấy từ `api.links.list()` (`counterpart` của kết nối `active`).
+
+```ts
+// Nông dân — "Tạo đơn bán"
+const order = await api.orders.create({ role: 'seller', counterpartOrgId, crop: 'rubber', estQuantity: 1000, note });
+// Vựa — danh sách đơn tới, nhận, hẹn lịch (mọi bước gửi kèm version đang thấy)
+const { orders, cursor } = await api.orders.list({ role: 'buyer', status: 'submitted' });
+await api.orders.accept(o.id, { version: o.version });
+await api.orders.schedule(o.id, { version: o.version + 1, pickupAt, pickupAddress });
+// Bên nào cũng huỷ được; lịch sử đơn
+await api.orders.cancel(o.id, { version, note });
+const detail = await api.orders.get(o.id); // detail.events: [{ toStatus, by: 'me' | 'counterpart', note, at }]
+```
+
+| Bước | Ai | Từ trạng thái |
+|---|---|---|
+| `accept` · `reject` | bên **nhận** đơn (không phải bên tạo), `order:respond` | `submitted` |
+| `schedule` | bên **mua** (người đến cân), `order:respond`; gọi lại để đổi lịch | `accepted`, `scheduled` |
+| `cancel` | bên nào cũng được (bên tạo cần `order:create`, bên nhận `order:respond`) | `submitted`, `accepted`, `scheduled` |
+| `fulfilled` | **không có nút** — phiếu có `orderId` đồng bộ lên thì server tự chuyển | mọi trạng thái còn mở |
+
+- `ORDER_STATE_CHANGED` (409): bên kia vừa đổi đơn, hoặc trạng thái không cho bước đó. `details`
+  mang `status`, `version` mới — tải lại đơn (`get`), vẽ lại, **không tự bấm lại**.
+- **Ô "Theo đơn" ở màn Tạo phiếu (vựa/DN):** chọn một đơn `accepted`/`scheduled` → điền sẵn
+  `counterpartyId = order.partnerId` (dòng danh bạ của bên kia **trong sổ mình**; null thì người
+  dùng chọn tay) và đặt `orderId` vào `data` của op `transaction` insert (nháp cũng mang được
+  `orderId`). Phiếu bán gắn đơn mình **bán**, phiếu mua gắn đơn mình **mua** — sai chiều →
+  op `rejected` `VALIDATION_FAILED` (`details.fields.orderId`).
+- Đơn bị huỷ trong lúc vựa cân offline: phiếu **vẫn được ghi**, server gỡ `orderId`, op có
+  `warning: 'ORDER_NOT_OPEN'` — báo nhẹ "Đơn đã bị huỷ; phiếu vẫn lưu", không coi là lỗi.
+- Người gắn chi nhánh (DN) chỉ thấy đơn của chi nhánh mình; đơn tạo ra mang chi nhánh đó.
+
+**Thông báo** (mọi vai trò): gọi `api.notifications.list()` khi mở app và mỗi 60 giây; huy hiệu
+lấy `unread`. Mở thông báo → `api.notifications.read({ ids: [id] })`; "Đánh dấu tất cả" →
+`api.notifications.read()`. Mỗi thông báo có `kind` (`order.submitted` · `order.accepted` ·
+`order.scheduled` · `order.cancelled` · `order.fulfilled` · `link.accepted` · `link.revoked`, và
+về sau `member.*`, `plan.activated`), `from` (tổ chức gây ra việc), `orderId`/`orderStatus`/
+`pickupAt` hoặc `linkId`. Gặp `kind` chưa biết vẽ thì bỏ qua. Thông báo là của **tổ chức** — mọi
+thành viên cùng thấy, cùng trạng thái đã đọc.
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu và mọi form
@@ -594,7 +638,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 | **BE0–BE2 ✅** | `v0.3.0`: `me`, `meBootstrap`, `resolveIdentifier`, `discoverLinks`, ma trận quyền, mã lỗi | Mục 2 và 5: cài gói, client, đăng ký, "Bác là ai?", đăng nhập một ô, chọn tổ chức, chọn vỏ, màn OTP (giao diện) | Đăng ký thật trên staging bằng cả ba loại tổ chức, đăng nhập lại trên máy khác |
 | **BE3 ✅** | `v0.4.0`: `sync.push` · `sync.pull`, hình dạng 8 loại bản ghi, quyền từng op | Mục 7: sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức | Hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → sau khi đồng bộ khớp từng đồng |
 | **BE4 ✅** | `v0.5.0` (mục 5.6): `GET /v1/links` · `POST /v1/links/invite { partnerKind, partnerId }` (trả `inviteCode`) · `POST /v1/links/claim { code }` · `POST /v1/links/:id/revoke` · `GET /v1/linked/receipts?orgId=&cursor=&limit=` · `GET /v1/linked/balance`. OTP (`discover`, `accept`) tạm ẩn | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); ô "Nhập mã kết nối"; nút "Mời kết nối" hiện mã trên trang nông hộ của vựa. Không làm màn OTP | Vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, nhập mã → thấy đúng phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền xem ngay |
-| **BE5** | `GET/POST /v1/orders` (lọc `role=seller\|buyer`, `status`) · `GET /v1/orders/:id` · `POST /v1/orders/:id/{accept,reject,schedule,cancel}` kèm `{ version }` · `GET /v1/notifications?cursor=` · `POST /v1/notifications/read` | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |
+| **BE5** 🟡 | Hợp đồng đã có (mục 5.8): `api.orders.*` (list/create/get/accept/reject/schedule/cancel, kèm `version`) · `api.notifications.list/read` · `orderId` trong op phiếu/nháp | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |
 | **BE6** | `GET/PATCH /v1/me/profile` · `GET /v1/me/subscription` · `GET/POST /v1/billing/intents` · `POST /v1/referrals/claim` · `DELETE /v1/me` | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
 | **BE7** | `GET/POST /v1/org/members` · `PATCH/DELETE /v1/org/members/:id` · `GET/POST/PATCH /v1/org/branches` · `GET /v1/reports/summary?from=&to=&branchId=` | Vỏ Doanh nghiệp: nhân viên, chi nhánh, báo cáo tổng; `BRANCH_LIMIT` | DN hai chi nhánh: mỗi nhân viên chỉ thấy phiếu chi nhánh mình; owner thấy tổng khớp; tạo chi nhánh vượt gói → `BRANCH_LIMIT` |
 | **BE8** | `POST /v1/attachments/upload-url` · `GET /v1/attachments/:id/url` | Ảnh chụp lúc mất mạng xếp hàng; có mạng thì xin URL rồi `PUT` thẳng lên Storage; xem ảnh bằng URL có hạn | Ảnh chụp offline lên được khi có mạng; máy thứ hai xem được; URL hết hạn thì không mở được |

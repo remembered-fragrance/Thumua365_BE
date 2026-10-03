@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **tiếp: BE5** · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -765,6 +765,72 @@ FRONTEND.md trỏ `v0.5.0`; FRONTEND §5.6, bảng bước, THONG_TIN cập nh�
 - **BE5 → BE10:** có bản làm sẵn trên nhánh `be/nestjs-be10` của repo frontend (03/10). Tài chốt:
   **`Thumua365_BE` là repo chính, chỉ chứa backend** — gom phần backend về đây, soát và sửa trước, mỗi
   bước một PR, nghiệm thu staging từng bước như BE3, BE4.
+
+---
+
+## BE5 — Đơn, đặt lịch, thông báo · 🟡 đang làm · nhánh `be5/don-hang` · 03/10/2026
+
+**Kết quả:** hợp đồng + migration + API + test xong trên Postgres thật (`test:db` **108/108**), đúng
+luồng nghiệm thu R2. Chưa lên staging (cần BE4 lên trước — cùng chuỗi migration). Làm trên nhánh tách
+từ `master` của monorepo (đã gồm BE4 chưa merge).
+
+### Làm gì
+
+- Contracts: `orders.ts` (`OrderCreateInput`, `OrderSummary`, `OrderDetail`, chuyển trạng thái),
+  `notifications.ts`, 9 route trong `routes-orders.ts`; `orderId` cho phiếu/nháp trong sync. Tách
+  `route-def.ts` và `sync-records-core.ts` để mọi file `packages/*/src` ≤ 300 dòng (`routes.ts` sẽ còn
+  lớn thêm ở BE6–BE9).
+- Migration `20261003000000_be5_don_hang`: `order_events.actor_org_id`; `orders.created_at`,
+  `notifications.created_at` → `timestamptz(3)`; trigger `orders_guard`, `book_order_guard`; hàm
+  `order_counterparts()`, `notify_order()`, `notify_link()`; CHECK `notifications.kind`.
+- API: `OrdersService` (+ `order-records.ts` dùng chung với sync), `NotificationsService`,
+  `NotificationsListener` (sau commit, lỗi không làm hỏng việc chính), sync push: phiếu theo đơn →
+  `fulfilled` cùng transaction, phát `order.fulfilled` sau commit. `common/page-cursor.ts`.
+- SDK: `orders.*`, `notifications.*`.
+
+### Quyết định
+
+1. **Ai làm bước nào** — kế hoạch chưa nói: accept/reject = bên NHẬN đơn; schedule = bên MUA (người
+   đến cân); cancel = bên nào cũng được. Giữ ở cả API lẫn trigger.
+2. **`fulfilled` từ mọi trạng thái còn mở** (kể cả `submitted`): phiếu là việc đã cân thật, đơn phải
+   phản ánh thực tế. Đơn đã `fulfilled` nhận thêm phiếu (giao nhiều lần) — chỉ gắn, không đổi gì.
+3. **Đơn không có / sai bên → `rejected` `VALIDATION_FAILED`**, không âm thầm gỡ `orderId`: đó là lỗi
+   của app (đơn không bao giờ bị xoá, hai bên không đổi) — giống id `prod-…` ở BE3.
+4. **Thông báo là của tổ chức** (`user_id` null), một trạng thái đã đọc cho mọi thành viên — đủ cho
+   pilot. `NotificationKind` liệt kê sẵn loại của BE6/BE7: thêm giá trị vào enum trong phản hồi sẽ làm
+   SDK cũ (kiểm phản hồi bằng zod) vỡ.
+5. **Ghi thông báo cho bên kia bằng hàm security definer** chứ không đổi `app.org_id` sang tổ chức
+   nhận — hàm chỉ ghi được cho đúng bên kia của một đơn/kết nối mà mình là một bên.
+6. **Email chưa làm**: cần chọn nhà cung cấp gửi thư (Resend/SES/SMTP) và thêm pg-boss. Chỗ gắn đã có
+   trong `NotificationsListener`.
+7. Đơn **không** bật theo `features` — giống kết nối (BE4). Bật theo tổ chức quyết ở BE10.
+8. Đơn tạo bởi bên kia cho DN có `branch_id` null ⇒ người gắn chi nhánh không thấy; gán chi nhánh cho
+   đơn để BE7.
+
+### Lỗi bắt được trong lúc làm
+
+- 🔴 **Phân trang đơn/thông báo sẽ bỏ sót bản ghi**: `created_at` micro-giây, cursor JS Date mili-giây —
+  đúng lỗi BE3 đã gặp với `updated_at`. Đổi hai cột sang `timestamptz(3)` trước khi có dữ liệu.
+- 409 của bên bấm chậm trả `status/version` **cũ** (đọc trước khi bên kia commit) → đọc lại sau khi
+  `updateMany` không khớp hàng nào. Test hai người bấm cùng lúc bắt được.
+- Thử gỡ luật "đơn đã huỷ → gỡ `orderId`" → phiếu bị `rejected` (trigger chặn cancelled → fulfilled),
+  hàng đợi kẹt — test đỏ; bật lại → xanh.
+
+### Chạy thật đã kiểm
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 75 · core 315 · sdk 11 · api 42 · web 370; ranh giới 0 vi phạm |
+| `npm run test:db` | **108/108** — thêm 17 test đơn/thông báo/luật database |
+| Luồng R2 (test) | Cô Mai gửi đơn → vựa nhận, hẹn lịch → cô Mai thấy lịch (đơn + thông báo) → vựa đẩy phiếu theo đơn + trả 500.000 → đơn `fulfilled` v4, lịch sử 4 mốc đúng bên → cô Mai thấy phiếu `1.438.000 · đã trả 500.000 · còn nợ 938.000` |
+| `schema.prisma` ↔ migration | `No difference detected` |
+
+### Còn lại của BE5
+
+- [ ] Kênh email (nhà cung cấp + pg-boss).
+- [ ] Lên staging sau BE4; nghiệm thu bằng trang thử; một test Playwright chạy luồng R2 trong CI (cần
+      app web đã có màn đơn).
+- [ ] Phát hành `0.6.0` (cùng `0.5.0` của BE4 nếu lên staging cùng lúc).
 
 ---
 
