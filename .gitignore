@@ -8,3 +8,5 @@ coverage
 !.env.example
 # Prisma Client — sinh lại bằng `prisma generate` (build, typecheck, test tự chạy)
 apps/api/src/generated/
+# Git Bash trên Windows sinh ra khi tiến trình con hỏng
+*.stackdump

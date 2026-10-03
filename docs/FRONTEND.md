@@ -457,6 +457,34 @@ về sau `member.*`, `plan.activated`), `from` (tổ chức gây ra việc), `or
 `pickupAt` hoặc `linkId`. Gặp `kind` chưa biết vẽ thì bỏ qua. Thông báo là của **tổ chức** — mọi
 thành viên cùng thấy, cùng trạng thái đã đọc.
 
+### 5.9 Nhân viên, chi nhánh, báo cáo — BE7 (hợp đồng đã có, chưa phát hành)
+
+**Chủ tạo tài khoản cho người của mình** — người cân / quản lý không tự đăng ký, không cần OTP:
+
+```ts
+const { members } = await api.org.members.list();              // chủ: staff:manage
+await api.org.members.create({ name, phone, password, role: 'staff', branchId });
+await api.org.members.update(id, { role: 'manager', branchId });  // đổi chi nhánh → máy người đó resetRequired
+await api.org.members.remove(id);                                 // mất quyền ngay
+const { branches, limit, used } = await api.org.branches.list();  // branch:manage
+await api.org.branches.create({ name, address });                 // vượt gói → BRANCH_LIMIT (details.limit)
+await api.org.branches.update(id, { archived: true });            // còn người gắn → VALIDATION_FAILED
+const report = await api.reports.summary({ from, to, branchId }); // report:view
+```
+
+- Người được tạo đăng nhập bằng **số điện thoại + mật khẩu chủ đặt** (màn đăng nhập một ô như mọi
+  người), rồi tự đổi mật khẩu. App của họ thấy ngay tổ chức trong `/v1/me` — **không** hiện "Bác là
+  ai?" (đã có membership).
+- Lỗi khi tạo: `details.reason` `ACCOUNT_EXISTS` → "Số này đã có tài khoản ở nơi khác";
+  `ALREADY_MEMBER` → "Người này đã ở trong tổ chức". Số từng bị gỡ khỏi tổ chức → được bật lại với
+  tài khoản (và mật khẩu) cũ — báo chủ "đã thêm lại, dùng mật khẩu cũ".
+- Vai trò chọn được: vựa — chỉ `staff` (người cân); doanh nghiệp — `manager`, `staff`. Không có nút
+  sửa / gỡ trên dòng của chủ và của chính mình (server cũng chặn).
+- Báo cáo: `from`/`to` là mốc ISO có múi giờ (app tính đầu ngày giờ Việt Nam), `to` không gồm, tối đa
+  366 ngày. `totals` + từng `branches[]` (chi nhánh `null` = phiếu không gắn chi nhánh); mỗi bên
+  `{ count, netWeight, amount, paid, debt }`. Người gắn chi nhánh chỉ thấy chi nhánh mình. Nông dân
+  cũng gọi được: số là phiếu các vựa ghi về mình, nhìn từ phía mình (`sale` = mình bán).
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu và mọi form
@@ -641,7 +669,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 | **BE4 ✅** | `v0.5.0` (mục 5.6): `GET /v1/links` · `POST /v1/links/invite { partnerKind, partnerId }` (trả `inviteCode`) · `POST /v1/links/claim { code }` · `POST /v1/links/:id/revoke` · `GET /v1/linked/receipts?orgId=&cursor=&limit=` · `GET /v1/linked/balance`. OTP (`discover`, `accept`) tạm ẩn | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); ô "Nhập mã kết nối"; nút "Mời kết nối" hiện mã trên trang nông hộ của vựa. Không làm màn OTP | Vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, nhập mã → thấy đúng phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền xem ngay |
 | **BE5** 🟡 | Hợp đồng đã có (mục 5.8): `api.orders.*` (list/create/get/accept/reject/schedule/cancel, kèm `version`) · `api.notifications.list/read` · `orderId` trong op phiếu/nháp | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |
 | **BE6** | `GET/PATCH /v1/me/profile` · `GET /v1/me/subscription` · `GET/POST /v1/billing/intents` · `POST /v1/referrals/claim` · `DELETE /v1/me` | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
-| **BE7** | `GET/POST /v1/org/members` · `PATCH/DELETE /v1/org/members/:id` · `GET/POST/PATCH /v1/org/branches` · `GET /v1/reports/summary?from=&to=&branchId=` | Vỏ Doanh nghiệp: nhân viên, chi nhánh, báo cáo tổng; `BRANCH_LIMIT` | DN hai chi nhánh: mỗi nhân viên chỉ thấy phiếu chi nhánh mình; owner thấy tổng khớp; tạo chi nhánh vượt gói → `BRANCH_LIMIT` |
+| **BE7** 🟡 | Hợp đồng đã có (mục 5.9): `api.org.members.*`, `api.org.branches.*`, `api.reports.summary` | Vỏ Doanh nghiệp: nhân viên, chi nhánh, báo cáo tổng; `BRANCH_LIMIT` | DN hai chi nhánh: mỗi nhân viên chỉ thấy phiếu chi nhánh mình; owner thấy tổng khớp; tạo chi nhánh vượt gói → `BRANCH_LIMIT` |
 | **BE8** | `POST /v1/attachments/upload-url` · `GET /v1/attachments/:id/url` | Ảnh chụp lúc mất mạng xếp hàng; có mạng thì xin URL rồi `PUT` thẳng lên Storage; xem ảnh bằng URL có hạn | Ảnh chụp offline lên được khi có mạng; máy thứ hai xem được; URL hết hạn thì không mở được |
 | **BE9** | `POST /v1/events` (danh mục sự kiện có kiểu trong contracts) | `track()` đi qua hàng đợi; Sentry cho web; sửa trang Quyền riêng tư cùng PR; TWA + CH Play thử nghiệm kín | Một vòng luồng BE5 trên staging → phễu có đủ sự kiện đúng thứ tự, tách được theo `orgType` |
 | **BE10** | Production: URL, CORS, bật `features` cho nhóm pilot | Đổi env sang production; nộp bản CH Play | Pilot một tuần không có op `rejected` ngoài dự kiến |

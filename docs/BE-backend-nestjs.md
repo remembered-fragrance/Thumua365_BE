@@ -5,7 +5,7 @@ Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `C
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
 Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; OTP tạm ẩn tới khi > 100 tổ chức trả phí (§1.4)
 Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 ✅** (`v0.5.0`, kết nối bằng mã kết
-nối, nghiệm thu trên staging 03/10) · **BE5 🟡** hợp đồng + API + test xong (gom từ
+nối, nghiệm thu trên staging 03/10) · **BE5 🟡 · BE7 🟡** hợp đồng + API + test xong (gom từ
 nhánh `be/nestjs-be10` của repo frontend), còn email và nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
@@ -613,7 +613,15 @@ việc đã cân thật). Đơn đã xong nhận thêm phiếu (chỉ gắn). Lu
 - **Xong khi:** 10 mục VAN_HANH §7.3 chạy trên API; một lần chuyển khoản thật. **Đạt
   phần luồng của R3.**
 
-### BE7 — Doanh nghiệp: nhân viên, chi nhánh, báo cáo (2–3 buổi)
+### BE7 — Doanh nghiệp: nhân viên, chi nhánh, báo cáo (2–3 buổi) · 🟡 03/10 — hợp đồng + API + test xong
+
+**Chốt khi làm BE7 (03/10/2026):** chủ TẠO tài khoản cho nhân viên (tên, SĐT, mật khẩu ban đầu —
+Auth Admin API) thay vì mời: người cân không phải tự đăng ký, không cần OTP. Số đã có tài khoản nơi
+khác → `ACCOUNT_EXISTS` (mời tài khoản có sẵn: giai đoạn sau); người từng bị gỡ → bật lại. Vai trò
+`owner` chỉ có từ lúc lập tổ chức — trigger `memberships_guard`. Chi nhánh chỉ lưu trữ, không xoá;
+giới hạn gói kiểm dưới khoá advisory. Báo cáo tính bằng `transactionTotals` của core; nông dân xem
+phiếu vựa ghi về mình (lật chiều).
+
 
 - **Backend:** `/org/members`, `/org/branches` (`BRANCH_LIMIT`), `/reports/summary`; sự kiện
   `member.*`.

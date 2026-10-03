@@ -25,6 +25,7 @@ import {
 import { Me, MeBootstrapInput } from './me.js';
 import type { RouteDef } from './route-def.js';
 import { orderRoutes } from './routes-orders.js';
+import { orgRoutes } from './routes-org.js';
 import { SyncPullQuery, SyncPullResult, SyncPushInput, SyncPushRequest, SyncPushResult } from './sync.js';
 
 export type { RouteAuth, RouteDef } from './route-def.js';
@@ -140,6 +141,7 @@ export const routes = {
     response: LinkedBalance,
   },
   ...orderRoutes,
+  ...orgRoutes,
   syncPush: {
     method: 'POST',
     path: '/v1/sync/push',
