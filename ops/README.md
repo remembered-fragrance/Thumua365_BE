@@ -51,15 +51,16 @@ Supabase), mã hoá AES-256 trước khi rời máy, lên kho S3-compatible khá
 `ops/backup/restore-check.sh` — phục hồi vào database trống, so số dòng với lúc dump. Workflow
 `.github/workflows/backup.yml`: sao lưu 02:00 mỗi ngày, thử phục hồi mỗi Chủ nhật (hoặc chạy tay).
 
-Thử ở máy dev (container Postgres của docker compose có sẵn `pg_dump` 17 và `openssl`):
+Thử trọn vòng ở máy dev (cùng bước CI chạy sau `test:db`): sao lưu Postgres của docker compose rồi phục
+hồi vào một cluster Postgres **mới tinh** — chưa có role nào của ta, như lúc dựng lại ở nơi khác. Công cụ
+(`pg_dump` 17, `openssl`) chạy trong image postgis, máy không cần cài:
 
 ```bash
-docker cp ops/backup/backup.sh thumua365-db-1:/tmp/ && docker cp ops/backup/restore-check.sh thumua365-db-1:/tmp/
-docker exec -e BACKUP_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/thumua365 \
-  -e BACKUP_PASSPHRASE=<≥32 ký tự> -e BACKUP_OUT_DIR=/tmp/bk thumua365-db-1 bash /tmp/backup.sh
-docker exec -e BACKUP_PASSPHRASE=<như trên> -e RESTORE_ADMIN_URL=postgresql://postgres:postgres@localhost:5432/postgres \
-  thumua365-db-1 bash /tmp/restore-check.sh /tmp/bk <STAMP>
+npm run db:up && bash ops/backup/roundtrip-check.sh
 ```
+
+Đừng thử bằng cách phục hồi vào chính cluster vừa dump: role (`api_service`…) là của cả cluster, có sẵn
+ở đó nên che mất lỗi "role does not exist" — `restore-check.sh` giờ tự tạo các role đó trước khi phục hồi.
 
 Phục hồi vào một project Supabase MỚI: tạo project → chạy phần A của migration đầu tiên (role
 `api_service`, `api_privileged`, extension) → `pg_restore` bản `public` (gồm cả `_prisma_migrations`) →

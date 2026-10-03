@@ -671,9 +671,12 @@ Chưa có pg-boss nên chưa có số đo job lỗi — thêm cùng kênh email.
 ### BE10 — Lên production (1–2 buổi) · 🟡 03/10 — phần code xong, bảng kiểm vận hành ở `ops/PRODUCTION.md`
 
 **Làm 03/10/2026:** `ops/backup/` (pg_dump mã hoá → kho S3-compatible, giữ 30 ngày; thử phục hồi
-so số dòng) + workflow `backup.yml` (hằng ngày; thử phục hồi Chủ nhật) — đã thử thật ở máy dev.
-`npm run security:check` trong CI. `env.ts`: production bắt buộc CORS https (không localhost) và đủ
-bí mật của BE6/BE9. Service `thumua365-api` (production) trong `render.yaml`, deploy tay.
+so số dòng) + workflow `backup.yml` (hằng ngày; thử phục hồi Chủ nhật). Khi gom về repo BE: phục hồi tự
+tạo role (`api_service`, `api_privileged`, `anon`, `authenticated` — policy RLS nhắc tới chúng), và CI job
+`db` thử sao lưu → phục hồi vào một cluster Postgres trống mỗi lần chạy. `npm run security:check` trong CI.
+`env.ts`: production bắt buộc CORS https (không localhost) và đủ bí mật của BE6/BE9. Service production
+chưa thêm vào `render.yaml` — thêm lúc làm mục 6 của `ops/PRODUCTION.md` (thêm sớm thì Blueprint tạo
+ngay service trả phí khi chưa có bí mật).
 
 
 - **Backup:** job `pg_dump` hằng ngày ra kho riêng (khác nhà cung cấp), giữ 30 ngày,

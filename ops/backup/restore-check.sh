@@ -35,6 +35,21 @@ psql "$TARGET" -v ON_ERROR_STOP=1 -qc "create schema if not exists extensions" \
   -c "create extension if not exists postgis with schema extensions" \
   -c "alter database $DB set search_path to \"\$user\", public, extensions"
 
+# Policy RLS ghi `TO api_service`; role là của cả cluster nên pg_dump không mang theo. Phục hồi vào một
+# cluster / project mới mà thiếu role thì pg_restore dừng ngay ở policy đầu tiên. Tạo role không đăng
+# nhập được; dựng lại thật thì đặt mật khẩu sau (`npm run db:role-password -w @mambo/api`).
+echo "→ role mà dữ liệu nhắc tới"
+psql "$RESTORE_ADMIN_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'api_service') then create role api_service nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'api_privileged') then create role api_privileged nologin bypassrls; end if;
+end
+$$;
+SQL
+
 echo "→ phục hồi public"
 psql "$TARGET" -qc "drop schema if exists public cascade"
 decrypt "$DIR/thumua365-$STAMP.public.dump.enc" | pg_restore --no-owner --no-privileges --exit-on-error -d "$TARGET"
