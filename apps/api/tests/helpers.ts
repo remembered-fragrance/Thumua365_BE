@@ -109,11 +109,20 @@ export class FakeSupabaseAdmin implements SupabaseAdmin {
   }
 }
 
-/** Storage giả: ghi lại thư mục nào bị xoá, theo thứ tự. */
+/** Storage giả: ghi lại thư mục nào bị xoá, theo thứ tự; `objects` là file đang có. */
 export class FakeStorageAdmin implements StorageAdmin {
   readonly removed: string[] = [];
+  readonly objects = new Set<string>();
   /** Đặt true để giả Storage hỏng. */
   failing = false;
+
+  async signUpload(bucket: string, path: string): Promise<string> {
+    return `https://storage.test/upload/${bucket}/${path}?token=up`;
+  }
+
+  async signDownload(bucket: string, path: string, seconds: number): Promise<string | null> {
+    return this.objects.has(`${bucket}/${path}`) ? `https://storage.test/${bucket}/${path}?ttl=${seconds}` : null;
+  }
 
   async removeFolder(bucket: string, folder: string): Promise<number> {
     if (this.failing) throw new Error('Storage hỏng');

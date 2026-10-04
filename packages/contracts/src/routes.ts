@@ -9,6 +9,7 @@
  */
 
 import type { z } from 'zod';
+import { AttachmentDownloadUrl, AttachmentIdParams, AttachmentUploadInput, AttachmentUploadUrl } from './attachments.js';
 import { ResolveIdentifierInput, ResolveIdentifierResult } from './auth.js';
 import { Health } from './health.js';
 import {
@@ -144,6 +145,25 @@ export const routes = {
   ...orderRoutes,
   ...orgRoutes,
   ...accountRoutes,
+  attachmentsUploadUrl: {
+    method: 'POST',
+    path: '/v1/attachments/upload-url',
+    summary: 'URL có chữ ký để PUT một ảnh chứng từ thẳng lên Storage. Không ghi đè: PUT lại ảnh đã lên → 409, coi là xong',
+    auth: 'org',
+    permission: 'receipt:create',
+    body: AttachmentUploadInput,
+    response: AttachmentUploadUrl,
+  },
+  attachmentUrl: {
+    method: 'GET',
+    path: '/v1/attachments/:id/url',
+    summary: 'URL có hạn để xem một ảnh mà phiếu / nháp mình được thấy đang nhắc tới. Chưa lên Storage → 404',
+    auth: 'org',
+    permission: 'book:sync',
+    params: AttachmentIdParams,
+    response: AttachmentDownloadUrl,
+    errors: ['NOT_FOUND'],
+  },
   syncPush: {
     method: 'POST',
     path: '/v1/sync/push',

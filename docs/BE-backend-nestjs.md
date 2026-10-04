@@ -5,7 +5,7 @@ Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `C
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
 Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; OTP tạm ẩn tới khi > 100 tổ chức trả phí (§1.4)
 Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 ✅** (`v0.5.0`, kết nối bằng mã kết
-nối, nghiệm thu trên staging 03/10) · **BE5 🟡 · BE7 🟡 · BE6 🟡** hợp đồng + API + test xong (gom từ
+nối, nghiệm thu trên staging 03/10) · **BE5 🟡 · BE7 🟡 · BE6 🟡 · BE8 🟡** hợp đồng + API + test xong (gom từ
 nhánh `be/nestjs-be10` của repo frontend), còn email và nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
@@ -637,7 +637,12 @@ phiếu vựa ghi về mình (lật chiều).
 - **Xong khi:** DN hai chi nhánh, mỗi nơi một nhân viên cân — mỗi người chỉ thấy phiếu chi
   nhánh mình; owner thấy tổng khớp hai chi nhánh cộng lại; tạo chi nhánh thứ N+1 → `BRANCH_LIMIT`.
 
-### BE8 — Ảnh chứng từ (1 buổi)
+### BE8 — Ảnh chứng từ (1 buổi) · 🟡 03/10 — hợp đồng + API + test xong
+
+**Chốt khi làm BE8 (03/10/2026):** đường dẫn `attachments/<orgId>/<attachmentId>`, API chỉ ký URL
+(tải lên: hạn 2 giờ, không ghi đè; xem: 10 phút). Xem chỉ khi phiếu / nháp mình được thấy (RLS + chi
+nhánh) nhắc tới id. Giới hạn 3MB, JPEG/PNG/WebP — kiểm ở API, bucket chặn lần nữa.
+
 
 - **Backend:** signed URL; kiểm `MAX_ATTACHMENTS`, loại và kích thước file; bucket không
   còn policy cho `authenticated`.

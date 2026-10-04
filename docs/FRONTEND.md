@@ -519,6 +519,25 @@ chủ duy nhất, hồ sơ, rồi tài khoản đăng nhập. Hỏi xác nhận 
 phiếu). `ORG_HAS_MEMBERS` → "Gỡ nhân viên trước". Xong thì xoá sổ, hàng đợi, ảnh trong IndexedDB
 và đăng xuất — máy có thể là máy mượn. Nhân viên xoá tài khoản chỉ rời tổ chức.
 
+### 5.11 Ảnh chứng từ — BE8 (hợp đồng đã có, chưa phát hành)
+
+Ảnh đi thẳng giữa app và Supabase Storage; API chỉ ký URL. App không cầm khoá Storage nào.
+
+```ts
+// Chụp: nén (JPEG, cạnh dài 1600px) → lưu IndexedDB với id = newId() → đặt id vào attachmentIds của phiếu.
+// Hàng đợi ảnh (riêng với hàng đợi op sổ), khi có mạng:
+await api.attachments.upload(id, blob);       // xin URL + PUT; 409 = đã lên từ lần trước → xong
+// Xem trên máy khác:
+const { url, expiresAt } = await api.attachments.url(id);  // hết hạn sau 10 phút → xin lại
+```
+
+- Ảnh lên trước hay sau op của phiếu đều được. Xem ảnh thì phiếu (hoặc nháp) nhắc tới id đó phải đã
+  lên máy chủ; ảnh chưa lên → `NOT_FOUND` "Ảnh chưa lên máy chủ" — hiện ảnh trong máy nếu có, không
+  thì ô xám "Ảnh ở máy khác, chưa có mạng".
+- Sai loại (chỉ JPEG / PNG / WebP) hay quá 3MB → `VALIDATION_FAILED` ngay, chưa tốn mạng.
+- Người cân chi nhánh A không xem được ảnh phiếu chi nhánh B — cùng phạm vi như sổ.
+- Xoá tài khoản xoá cả thư mục ảnh của tổ chức (mục 5.10).
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu và mọi form
@@ -704,7 +723,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 | **BE5** 🟡 | Hợp đồng đã có (mục 5.8): `api.orders.*` (list/create/get/accept/reject/schedule/cancel, kèm `version`) · `api.notifications.list/read` · `orderId` trong op phiếu/nháp | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |
 | **BE6** 🟡 | Hợp đồng đã có (mục 5.10): `api.account.*` (hồ sơ, mã giới thiệu, xoá tài khoản), `api.billing.*` (gói, chuyển khoản) | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
 | **BE7** 🟡 | Hợp đồng đã có (mục 5.9): `api.org.members.*`, `api.org.branches.*`, `api.reports.summary` | Vỏ Doanh nghiệp: nhân viên, chi nhánh, báo cáo tổng; `BRANCH_LIMIT` | DN hai chi nhánh: mỗi nhân viên chỉ thấy phiếu chi nhánh mình; owner thấy tổng khớp; tạo chi nhánh vượt gói → `BRANCH_LIMIT` |
-| **BE8** | `POST /v1/attachments/upload-url` · `GET /v1/attachments/:id/url` | Ảnh chụp lúc mất mạng xếp hàng; có mạng thì xin URL rồi `PUT` thẳng lên Storage; xem ảnh bằng URL có hạn | Ảnh chụp offline lên được khi có mạng; máy thứ hai xem được; URL hết hạn thì không mở được |
+| **BE8** 🟡 | Hợp đồng đã có (mục 5.11): `api.attachments.upload(id, blob)`, `api.attachments.url(id)` | Ảnh chụp lúc mất mạng xếp hàng; có mạng thì xin URL rồi `PUT` thẳng lên Storage; xem ảnh bằng URL có hạn | Ảnh chụp offline lên được khi có mạng; máy thứ hai xem được; URL hết hạn thì không mở được |
 | **BE9** | `POST /v1/events` (danh mục sự kiện có kiểu trong contracts) | `track()` đi qua hàng đợi; Sentry cho web; sửa trang Quyền riêng tư cùng PR; TWA + CH Play thử nghiệm kín | Một vòng luồng BE5 trên staging → phễu có đủ sự kiện đúng thứ tự, tách được theo `orgType` |
 | **BE10** | Production: URL, CORS, bật `features` cho nhóm pilot | Đổi env sang production; nộp bản CH Play | Pilot một tuần không có op `rejected` ngoài dự kiến |
 

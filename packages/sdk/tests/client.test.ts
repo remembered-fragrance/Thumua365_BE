@@ -192,6 +192,38 @@ describe('@mambo/sdk', () => {
     expect(list.calls[0]?.url).toBe('https://api.test/v1/orders?role=buyer');
   });
 
+  it('attachments.upload: xin URL rồi PUT đúng header; 409 (đã lên từ trước) là xong; 500 thì ném', async () => {
+    const id = '0b9e4c1a-2d3f-4a5b-9c6d-7e8f9a0b1c2d';
+    const target = {
+      attachmentId: id,
+      uploadUrl: 'https://storage.test/upload/attachments/org/x?token=up',
+      method: 'PUT',
+      headers: { 'content-type': 'image/jpeg', 'x-upsert': 'false' },
+      expiresAt: '2026-10-03T05:00:00.000Z',
+    };
+    const image = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' });
+    for (const [putStatus, ok] of [
+      [200, true],
+      [409, true],
+      [500, false],
+    ] as const) {
+      const responses = [json(200, target), new Response('', { status: putStatus })];
+      const calls: { url: string; init?: RequestInit }[] = [];
+      const fetchFn = async (url: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ url: String(url), init });
+        return responses.shift() ?? new Response('', { status: 599 });
+      };
+      const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+      const run = client.attachments.upload(id, image);
+      if (ok) await expect(run).resolves.toBeUndefined();
+      else await expect(run).rejects.toMatchObject({ code: 'INTERNAL', status: 500 });
+      expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ attachmentId: id, contentType: 'image/jpeg', size: 3 });
+      expect(calls[1]?.url).toBe(target.uploadUrl);
+      expect(calls[1]?.init?.method).toBe('PUT');
+      expect(calls[1]?.init?.headers).toEqual(target.headers);
+    }
+  });
+
   it('sync.pull lần đầu: không có query string', async () => {
     const { calls, fetchFn } = recorder(json(200, emptyPull));
     const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });

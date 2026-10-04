@@ -182,6 +182,24 @@ export const createClient = (options: ClientOptions) => {
       /** Bên nào cũng được, khi đơn chưa hoàn thành. */
       cancel: (id: string, input: RouteBody<'orderCancel'>) => call('orderCancel', input, undefined, { id }),
     },
+    /** Ảnh chứng từ (BE8) — ảnh đi thẳng giữa app và Storage, API chỉ ký URL. */
+    attachments: {
+      uploadUrl: (input: RouteBody<'attachmentsUploadUrl'>) => send('attachmentsUploadUrl', input),
+      /**
+       * Xin URL rồi PUT ảnh lên. Ảnh đã lên từ lần trước (mất phản hồi) → Storage trả 409 → coi là
+       * xong. Lỗi khác ném `ApiError` — hàng đợi ảnh thử lại theo lịch giãn cách.
+       */
+      upload: async (attachmentId: string, image: Blob) => {
+        const contentType = image.type as RouteBody<'attachmentsUploadUrl'>['contentType'];
+        const target = await send('attachmentsUploadUrl', { attachmentId, contentType, size: image.size });
+        const res = await doFetch(target.uploadUrl, { method: target.method, headers: target.headers, body: image });
+        if (!res.ok && res.status !== 409) {
+          throw new ApiError(res.status >= 500 ? 'INTERNAL' : 'VALIDATION_FAILED', res.status, `Tải ảnh lên hỏng (HTTP ${res.status})`);
+        }
+      },
+      /** URL xem ảnh, hết hạn sau `expiresAt`. Ảnh chưa lên → `NOT_FOUND`. */
+      url: (id: string) => call('attachmentUrl', undefined, undefined, { id }),
+    },
     /** Hồ sơ, mã giới thiệu, xoá tài khoản (BE6). */
     account: {
       profile: () => call('meProfile'),
