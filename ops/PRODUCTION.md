@@ -47,7 +47,11 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 ## 4. Backup — điều kiện bắt buộc trước người dùng thật
 
 - [ ] Tạo bucket ở R2 / B2 (nhà cung cấp KHÁC Supabase), khoá truy cập chỉ ghi / đọc bucket đó.
-- [ ] GitHub secrets: `BACKUP_DATABASE_URL` (role postgres của **production**, Session pooler 5432),
+- [ ] **Role riêng chỉ đọc cho sao lưu**, đừng dùng `postgres`: chuỗi kết nối nằm trong GitHub secrets, mà
+      `pg_dump` chỉ cần đọc. Tạo role (vd. `backup_reader`: `LOGIN`, `BYPASSRLS`, `USAGE` + `SELECT` mọi bảng /
+      sequence của `public`, `SELECT` trên `auth.users`, `auth.identities`), chạy thử `backup.sh` bằng nó rồi mới
+      đặt secret. Supabase không cho tạo role như vậy thì mới dùng `postgres` — ghi vào MEMORY là chấp nhận rủi ro.
+- [ ] GitHub secrets: `BACKUP_DATABASE_URL` (role ở mục trên, của **production**, Session pooler 5432),
       `BACKUP_PASSPHRASE` (≥ 32 ký tự — **cất thêm một bản ngoài GitHub**), `BACKUP_S3_BUCKET`,
       `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`.
 - [ ] Chạy tay workflow **Backup** với "thử phục hồi" → job `restore-check` xanh (phục hồi vào Postgres
