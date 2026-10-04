@@ -3,6 +3,25 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.7.0 — chưa phát hành (BE7)
+
+- `routes.orgMembersList` — `GET /v1/org/members` (`staff:manage`) → `OrgMembersList { members: OrgMember[] }`.
+- `routes.orgMembersCreate` — `POST /v1/org/members` (`staff:manage`), thân `OrgMemberCreateInput
+  { name, phone, password, role: 'manager'|'staff', branchId? }` → `OrgMember`. Chủ tạo tài khoản
+  cho người đó. Số đã có tài khoản nơi khác → 422 `details.reason: 'ACCOUNT_EXISTS'`; đã trong tổ
+  chức → `'ALREADY_MEMBER'`; từng bị gỡ khỏi tổ chức này → bật lại, giữ tài khoản và mật khẩu cũ.
+- `routes.orgMemberUpdate` — `PATCH /v1/org/members/:id` `{ role?, branchId? }`;
+  `routes.orgMemberRemove` — `DELETE /v1/org/members/:id` (mất quyền ngay, gọi lại an toàn). Không
+  sửa / gỡ được chủ hay chính mình (`FORBIDDEN`).
+- `routes.orgBranchesList` — `GET /v1/org/branches` (`branch:manage`) → `{ branches, limit, used }`;
+  `routes.orgBranchesCreate` — `POST` `{ name, address? }`; `routes.orgBranchUpdate` — `PATCH /:id`
+  `{ name?, address?, archived? }`. Vượt gói → 402 `BRANCH_LIMIT` `details.limit`.
+- `routes.reportsSummary` — `GET /v1/reports/summary?from=&to=&branchId=` (`report:view`) →
+  `ReportSummary { from, to, totals, branches }`, `ReportFigures { purchase, sale }` mỗi bên
+  `{ count, netWeight, amount, paid, debt }`. Nông dân: phiếu vựa ghi về mình, lật chiều.
+- Kiểu mới: `IdParams`, `BranchRef`, `MemberStatus`, `AssignableRole`.
+- `@mambo/sdk`: `org.members.list/create/update/remove`, `org.branches.list/create/update`, `reports.summary`.
+
 ## 0.6.0 — chưa phát hành (BE5)
 
 - `routes.ordersList` — `GET /v1/orders?role=&status=&cursor=&limit=` → `OrdersListResult

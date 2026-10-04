@@ -19,7 +19,11 @@ export type AuditAction =
   | 'member.role_changed'
   | 'link.invited'
   | 'link.accepted'
-  | 'link.revoked';
+  | 'link.revoked'
+  | 'member.added'
+  | 'member.removed'
+  | 'branch.created'
+  | 'branch.updated';
 
 export interface AuditEntry {
   readonly organizationId: string;

@@ -24,6 +24,11 @@ import { NotificationsListener } from './notifications/notifications.listener';
 import { NotificationsService } from './notifications/notifications.service';
 import { OrdersController } from './orders/orders.controller';
 import { OrdersService } from './orders/orders.service';
+import { BranchesService } from './org/branches.service';
+import { MembersService } from './org/members.service';
+import { OrgController } from './org/org.controller';
+import { ReportsController } from './reports/reports.controller';
+import { ReportsService } from './reports/reports.service';
 import { SyncController } from './sync/sync.controller';
 import { SyncPullService } from './sync/sync-pull.service';
 import { SyncPushService } from './sync/sync-push.service';
@@ -54,6 +59,8 @@ export class AppModule {
         LinksController,
         OrdersController,
         NotificationsController,
+        OrgController,
+        ReportsController,
         SyncController,
       ],
       providers: [
@@ -71,6 +78,9 @@ export class AppModule {
         OrdersService,
         NotificationsService,
         NotificationsListener,
+        MembersService,
+        BranchesService,
+        ReportsService,
         SyncPushService,
         SyncPullService,
         // Thứ tự đăng ký = thứ tự chạy.

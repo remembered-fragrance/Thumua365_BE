@@ -182,6 +182,31 @@ export const createClient = (options: ClientOptions) => {
       /** Bên nào cũng được, khi đơn chưa hoàn thành. */
       cancel: (id: string, input: RouteBody<'orderCancel'>) => call('orderCancel', input, undefined, { id }),
     },
+    /** Nhân viên và chi nhánh (BE7) — màn của chủ vựa / doanh nghiệp. */
+    org: {
+      members: {
+        list: () => call('orgMembersList'),
+        /**
+         * Chủ tạo tài khoản cho người cân / quản lý — người đó đăng nhập bằng số điện thoại và mật
+         * khẩu này. Số đã có tài khoản ở nơi khác → `VALIDATION_FAILED`, `details.reason: 'ACCOUNT_EXISTS'`.
+         */
+        create: (input: RouteBody<'orgMembersCreate'>) => send('orgMembersCreate', input),
+        update: (id: string, patch: RouteBody<'orgMemberUpdate'>) => call('orgMemberUpdate', patch, undefined, { id }),
+        /** Mất quyền ngay. Gọi lại an toàn. */
+        remove: (id: string) => call('orgMemberRemove', undefined, undefined, { id }),
+      },
+      branches: {
+        list: () => call('orgBranchesList'),
+        /** Vượt giới hạn của gói → `BRANCH_LIMIT`, `details.limit`. */
+        create: (input: RouteBody<'orgBranchesCreate'>) => send('orgBranchesCreate', input),
+        update: (id: string, patch: RouteBody<'orgBranchUpdate'>) => call('orgBranchUpdate', patch, undefined, { id }),
+      },
+    },
+    /** Báo cáo tổng tính phía server (BE7). `from` gồm, `to` không gồm; tối đa 366 ngày. */
+    reports: {
+      summary: (params: { readonly from: string; readonly to: string; readonly branchId?: string }) =>
+        call('reportsSummary', undefined, { from: params.from, to: params.to, branchId: params.branchId }),
+    },
     /** Thông báo trong app (BE5). Hỏi khi mở app và mỗi 60 giây. */
     notifications: {
       list: (params: { readonly cursor?: string; readonly limit?: number } = {}) =>

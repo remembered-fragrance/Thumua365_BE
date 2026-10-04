@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5, BE7 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -859,6 +859,52 @@ commit — số test "web 370", tên nhánh và chữ "monorepo" là của nhán
 | `npm run verify` | Xanh — contracts 78 · core 315 · sdk 12 · api 42; ranh giới 0 vi phạm |
 | `npm run test:db` (database dựng lại từ đầu) | **124/124**, hai lần liền — thêm 5 test cho ba chỗ sửa (đỏ trước khi sửa) |
 | `schema.prisma` ↔ migration | `No difference detected` |
+
+---
+
+## BE7 — Doanh nghiệp: nhân viên, chi nhánh, báo cáo · 🟡 · nhánh `be7/doanh-nghiep` · 03/10/2026
+
+**Kết quả:** hợp đồng + migration + API + test xong (`test:db` **119/119**), đúng "Xong khi": DN hai
+chi nhánh, mỗi nơi một người cân do chủ tạo — mỗi người chỉ kéo về phiếu chi nhánh mình; báo cáo của
+chủ: tổng = hai chi nhánh cộng lại; chi nhánh thứ 3 với gói 2 → `BRANCH_LIMIT`.
+
+### Làm gì
+
+- Contracts `org.ts` + `routes-org.ts`: 8 route (members ×4, branches ×3, reports). SDK `org.*`, `reports.*`.
+- Migration `20261003010000_be7_doanh_nghiep` (không đổi bảng): trigger `memberships_guard`, hàm
+  `org_members()`, `create_member_profile()`.
+- API: `MembersService` (tạo tài khoản qua Auth Admin API → membership + hồ sơ cùng transaction; hỏng
+  thì xoá tài khoản vừa tạo), `BranchesService` (khoá advisory, lưu trữ), `ReportsService`.
+  `SupabaseAdmin` thêm `createUser`, `deleteUser`. Audit: `member.added/removed/role_changed`,
+  `branch.created/updated`.
+
+### Quyết định
+
+1. **Chủ tạo tài khoản cho nhân viên, không mời.** Bảng có sẵn trạng thái `invited` nhưng mời cần
+   người kia tự đăng ký — mà "Bác là ai?" luôn tạo một tổ chức mới — và cần OTP (chưa có). Cách tạo
+   tài khoản giống phần mềm bán hàng phổ biến; người cân chỉ cần SĐT + mật khẩu.
+2. **Số đã có tài khoản nơi khác → `ACCOUNT_EXISTS`.** Một người làm cho hai nơi: để sau (luồng mời).
+   Người từng bị gỡ khỏi chính tổ chức → bật lại, **không** đổi mật khẩu của họ.
+3. **`owner` chỉ có từ bootstrap** — trigger chặn nâng / tước / gỡ / thêm chủ thứ hai bằng
+   `api_service`. API cũng chặn sửa chủ và tự sửa chính mình.
+4. Thành viên DN gắn chi nhánh thấy báo cáo chi nhánh mình; vựa owner có `branch:manage` theo ma
+   trận nên vựa cũng tạo được chi nhánh (giới hạn theo `branch_limit` của gói — vựa đang null).
+   **Cần nhóm quyết:** vựa có được nhiều chi nhánh với giá 149.000đ không.
+5. Không phát sự kiện / thông báo `member.*` — chưa có ai nhận (người được thêm thấy ngay trong
+   `/me`). Audit đủ cho truy vết.
+
+### Lỗi bắt được trong lúc làm
+
+- Hai người tạo chi nhánh cùng lúc vượt giới hạn gói — thử bỏ khoá advisory: test đỏ 3/3 lần.
+- Lint chặn `_count._all` (no-underscore-dangle) của `groupBy` — đếm bằng JS.
+
+### Còn lại của BE7
+
+- [ ] Lên staging (sau BE4, BE5); `SUPABASE_SECRET_KEY` của Render đã có (BE2) — tạo tài khoản thật.
+- [ ] Vỏ Doanh nghiệp ở frontend.
+
+**Gom về repo BE** (nhánh `be7/doanh-nghiep`, 03/10): cherry-pick `e6f746a` giữ tác giả, không sửa code. `verify`
+xanh; `test:db` **134/134** trên database dựng lại từ đầu; schema khớp migration.
 
 ---
 

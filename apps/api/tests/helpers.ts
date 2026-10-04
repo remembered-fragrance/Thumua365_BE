@@ -1,11 +1,12 @@
 import 'reflect-metadata';
+import { randomUUID } from 'node:crypto';
 import type { MeMembership } from '@mambo/contracts';
 import type { INestApplication, Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWTPayload } from 'jose';
 import { AppModule } from '../src/app.module';
 import { type MembershipContext, type MembershipLookup, NoMembershipsYet } from '../src/auth/membership';
-import type { SupabaseAdmin } from '../src/auth/supabase-admin';
+import type { NewAccount, SupabaseAdmin } from '../src/auth/supabase-admin';
 import type { SupabaseAccount, SupabaseUsers } from '../src/auth/supabase-users';
 import { configureApp } from '../src/bootstrap';
 import { type Env, loadEnv } from '../src/config/env';
@@ -78,10 +79,26 @@ export class FakeMemberships implements MembershipLookup {
 export class FakeSupabaseAdmin implements SupabaseAdmin {
   readonly emails = new Map<string, string>();
   readonly asked: string[] = [];
+  /** Tài khoản đã tạo: id → mật khẩu (để test kiểm chủ đặt đúng mật khẩu). */
+  readonly passwords = new Map<string, string>();
+  readonly deleted: string[] = [];
 
   async loginEmail(userId: string): Promise<string | null> {
     this.asked.push(userId);
     return this.emails.get(userId) ?? null;
+  }
+
+  async createUser(account: NewAccount): Promise<{ readonly id: string } | 'exists'> {
+    if ([...this.emails.values()].includes(account.email)) return 'exists';
+    const id = randomUUID();
+    this.emails.set(id, account.email);
+    this.passwords.set(id, account.password);
+    return { id };
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    this.deleted.push(userId);
+    this.emails.delete(userId);
   }
 }
 
