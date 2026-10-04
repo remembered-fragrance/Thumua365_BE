@@ -16,12 +16,39 @@ export const SERVICE_URL =
 export const admin = new pg.Pool({ connectionString: ADMIN_URL, max: 2 });
 export const service = new pg.Pool({ connectionString: SERVICE_URL, max: 2 });
 
+/**
+ * Đợi các transaction của API (role api_service / api_privileged) xong. Listener (thông báo, đo
+ * lường) chạy SAU khi API đã trả lời — test trước có thể còn listener đang ghi khi test sau dọn bảng,
+ * và TRUNCATE (khoá toàn bảng) đụng nó thành deadlock.
+ */
+const settle = async (): Promise<void> => {
+  for (let i = 0; i < 80; i++) {
+    const { rows } = await admin.query<{ n: number }>(
+      `select count(*)::int as n from pg_stat_activity
+       where usename in ('api_service', 'api_privileged') and state <> 'idle' and pid <> pg_backend_pid()`,
+    );
+    if (rows[0]?.n === 0) return;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+};
+
 /** Xoá dữ liệu mọi bảng (giữ bảng migration). Gọi trong beforeEach. */
 export const truncateAll = async (): Promise<void> => {
   const { rows } = await admin.query<{ tablename: string }>(
     `select tablename from pg_tables where schemaname = 'public' and tablename <> '_prisma_migrations'`,
   );
-  await admin.query(`truncate ${rows.map((r) => `public."${r.tablename}"`).join(', ')} cascade`);
+  const sql = `truncate ${rows.map((r) => `public."${r.tablename}"`).join(', ')} cascade`;
+  for (let attempt = 0; ; attempt++) {
+    await settle();
+    try {
+      await admin.query(sql);
+      return;
+    } catch (err) {
+      // 40P01 = deadlock: một listener vừa mở transaction đúng lúc — đợi rồi thử lại.
+      if (attempt < 3 && (err as { code?: string }).code === '40P01') continue;
+      throw err;
+    }
+  }
 };
 
 export interface Scope {

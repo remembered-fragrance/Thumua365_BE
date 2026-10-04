@@ -24,15 +24,39 @@ export interface DomainEventMap {
   /** Dò kết nối tạo được lời mời mới — thông báo cho vựa (BE4–BE5). */
   'link.discovered': { readonly linkedOrgId: string; readonly created: number };
   /** Bên được liên kết đồng ý — thông báo cho bên sổ (BE5), đo lường `link_accepted` (BE9). */
-  'link.accepted': { readonly linkId: string; readonly ownerOrgId: string; readonly linkedOrgId: string };
+  'link.accepted': {
+    readonly linkId: string;
+    readonly ownerOrgId: string;
+    readonly linkedOrgId: string;
+    readonly actorUserId: string;
+  };
   /** Một bên huỷ kết nối — thông báo cho bên kia (BE5). */
   'link.revoked': {
     readonly linkId: string;
     readonly ownerOrgId: string;
     readonly linkedOrgId: string | null;
     readonly by: 'owner' | 'linked';
+    readonly actorUserId: string;
   };
+  /** Đơn chuyển trạng thái (BE5) — thông báo cho bên kia; `order.fulfilled` còn cho đo lường (BE9). */
+  'order.submitted': OrderChanged;
+  'order.accepted': OrderChanged;
+  'order.scheduled': OrderChanged;
+  'order.cancelled': OrderChanged;
+  /** Phát từ đồng bộ sổ: phiếu theo đơn vừa lên. */
+  'order.fulfilled': OrderChanged;
 }
+
+/** Ai (tổ chức, người) vừa đổi đơn nào. Bên kia = bên còn lại trong hai bên bán/mua. */
+export interface OrderChanged {
+  readonly orderId: string;
+  readonly actorOrgId: string;
+  readonly actorUserId: string;
+  readonly sellerOrgId: string | null;
+  readonly buyerOrgId: string;
+}
+
+export type OrderEventName = 'order.submitted' | 'order.accepted' | 'order.scheduled' | 'order.cancelled' | 'order.fulfilled';
 
 export type DomainEventName = keyof DomainEventMap;
 

@@ -216,7 +216,7 @@ model Order {
   branchId        String?   @map("branch_id") @db.Uuid
   /// Tăng mỗi lần chuyển trạng thái; lệch → 409 ORDER_STATE_CHANGED.
   version         Int       @default(1)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   seller       Organization? @relation("OrderSeller", fields: [sellerOrgId], references: [id])
@@ -239,6 +239,8 @@ model OrderEvent {
   fromStatus  String?  @map("from_status")
   toStatus    String   @map("to_status")
   actorUserId String?  @map("actor_user_id") @db.Uuid
+  /// Tổ chức làm bước này (BE5) — lịch sử đơn nói "mình" hay "bên kia".
+  actorOrgId  String?  @map("actor_org_id") @db.Uuid
   note        String?
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -474,7 +476,7 @@ model Notification {
   kind           String
   payload        Json      @default("{}")
   readAt         DateTime? @map("read_at") @db.Timestamptz(6)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 

@@ -3,6 +3,8 @@ export * from './errors.js';
 export * from './health.js';
 export * from './links.js';
 export * from './me.js';
+export * from './notifications.js';
+export * from './orders.js';
 export * from './organization.js';
 export * from './permissions.js';
 export * from './routes.js';

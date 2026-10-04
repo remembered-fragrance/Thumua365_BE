@@ -10,18 +10,10 @@
  * Quy ước: camelCase · tiền là số nguyên đồng · thời gian ISO 8601 có múi giờ · Khách lẻ là
  * `counterpartyId: null` (core dùng `'guest'`/`'guest-buyer'` — app đổi ở lớp dữ liệu) ·
  * trong patch, bỏ trường = không đổi, `null` = để trống.
+ *
+ * Kiểu lệch với `@mambo/core` là lỗi biên dịch — xem `sync-records-core.ts`.
  */
 
-import type {
-  CreditTerm as CoreCreditTerm,
-  CropType as CoreCropType,
-  DraftStatus as CoreDraftStatus,
-  PriceAdjustment as CorePriceAdjustment,
-  PricingRuleKind as CorePricingRuleKind,
-  ProductFormulaType as CoreFormulaType,
-  TransactionKind as CoreTransactionKind,
-  TransactionLine as CoreTransactionLine,
-} from '@mambo/core/types';
 import { z } from 'zod';
 
 const Id = z.uuid();
@@ -201,11 +193,13 @@ const draftFields = {
   amountPaid: NonNegativeMoney,
   note: nullableText(2000),
   attachmentIds: z.array(Id).max(10),
+  /** (BE5) Nháp lập theo đơn — chốt thành phiếu thì phiếu mang `orderId` này. */
+  orderId: Id.nullable(),
 };
 /** Doanh nghiệp: `branchId` như phiếu (xem TransactionInsert). Chi nhánh không đổi được sau khi tạo. */
 export const DraftInsert = z
   .strictObject({ ...draftFields, branchId: Id.nullable() })
-  .partial({ kind: true, counterpartyId: true, supplierId: true, note: true, attachmentIds: true, branchId: true });
+  .partial({ kind: true, counterpartyId: true, supplierId: true, note: true, attachmentIds: true, branchId: true, orderId: true });
 export const DraftPatch = z.strictObject(draftFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const DraftRecord = z.object({
   ...meta,
@@ -219,6 +213,7 @@ export const DraftRecord = z.object({
   note: z.string().nullable(),
   attachmentIds: z.array(z.string()),
   branchId: z.string().nullable(),
+  orderId: z.string().nullable(),
 });
 export type DraftRecord = z.infer<typeof DraftRecord>;
 
@@ -242,6 +237,8 @@ export const TransactionInsert = z.strictObject({
    * đó — gửi chi nhánh khác → FORBIDDEN. Chủ (không gắn chi nhánh) để trống = cả tổ chức.
    */
   branchId: Id.nullable().optional(),
+  /** (BE5) Phiếu lập theo đơn → đơn tự sang `fulfilled`. Đơn đã huỷ → phiếu vẫn ghi, gỡ `orderId`. */
+  orderId: Id.nullable().optional(),
 });
 
 /** Phiếu đã chốt chỉ sửa được chứng từ đính kèm và ghi chú. Sai cân, sai giá = xoá phiếu, lập phiếu mới. */
@@ -263,6 +260,7 @@ export const TransactionRecord = z.object({
   attachmentIds: z.array(z.string()),
   note: z.string().nullable(),
   branchId: z.string().nullable(),
+  orderId: z.string().nullable(),
 });
 export type TransactionRecord = z.infer<typeof TransactionRecord>;
 
@@ -284,17 +282,3 @@ export const PaymentRecord = z.object({
 });
 export type PaymentRecord = z.infer<typeof PaymentRecord>;
 
-// ─── Lệch với @mambo/core là lỗi biên dịch ───────────────────────────────────
-
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
-const matchesCore: [
-  Same<z.infer<typeof CropType>, CoreCropType>,
-  Same<z.infer<typeof FormulaType>, CoreFormulaType>,
-  Same<z.infer<typeof TransactionKind>, CoreTransactionKind>,
-  Same<z.infer<typeof DraftStatus>, CoreDraftStatus>,
-  Same<z.infer<typeof PricingRuleKind>, CorePricingRuleKind>,
-  Same<z.infer<typeof LineRecord>, CoreTransactionLine>,
-  Same<z.infer<typeof PriceAdjustment>, CorePriceAdjustment>,
-  Same<z.infer<typeof CreditTerm>, CoreCreditTerm>,
-] = [true, true, true, true, true, true, true, true];
-void matchesCore;

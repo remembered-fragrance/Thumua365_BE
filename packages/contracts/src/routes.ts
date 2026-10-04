@@ -4,12 +4,12 @@
  *   - SDK: `@mambo/sdk` gọi theo đúng `method` + `path` và kiểm lại phản hồi
  *   - OpenAPI: `openapi.json` sinh từ đây (`npm run openapi`)
  *
- * Thêm endpoint = thêm một dòng ở đây trước, rồi mới viết controller.
+ * Thêm endpoint = thêm một dòng ở đây trước, rồi mới viết controller. Nhóm lớn tách ra file
+ * `routes-<miền>.ts` rồi trải vào đây (`...orderRoutes`) — tên route vẫn là một không gian chung.
  */
 
 import type { z } from 'zod';
 import { ResolveIdentifierInput, ResolveIdentifierResult } from './auth.js';
-import type { ErrorCode } from './errors.js';
 import { Health } from './health.js';
 import {
   LinkedBalance,
@@ -23,45 +23,11 @@ import {
   LinkSummary,
 } from './links.js';
 import { Me, MeBootstrapInput } from './me.js';
-import type { Permission } from './permissions.js';
+import type { RouteDef } from './route-def.js';
+import { orderRoutes } from './routes-orders.js';
 import { SyncPullQuery, SyncPullResult, SyncPushInput, SyncPushRequest, SyncPushResult } from './sync.js';
 
-/**
- * Ai được gọi:
- *   public — không cần đăng nhập
- *   user   — cần JWT của Supabase
- *   org    — cần JWT + header `X-Organization-Id` của tổ chức người đó là thành viên
- */
-export type RouteAuth = 'public' | 'user' | 'org';
-
-export interface RouteDef {
-  readonly method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
-  readonly path: `/v1/${string}`;
-  readonly summary: string;
-  readonly auth: RouteAuth;
-  /** Chỉ có nghĩa khi `auth: 'org'`. */
-  readonly permission?: Permission;
-  /** Thân request (JSON). Server kiểm trước khi vào handler; sai → 422 `VALIDATION_FAILED`. */
-  readonly body?: z.ZodType;
-  /**
-   * Thân request như tài liệu (openapi, mock) mô tả, khi `body` cố ý lỏng hơn — ví dụ
-   * `/sync/push` chỉ kiểm vỏ ở cổng để lỗi của từng op được trả về theo op, không làm hỏng
-   * cả lô. Không có thì tài liệu dùng `body`.
-   */
-  readonly docBody?: z.ZodType;
-  /** Tham số query string. Server kiểm trước khi vào handler; sai hoặc thừa → 422 `VALIDATION_FAILED`. */
-  readonly query?: z.ZodType;
-  /**
-   * Tham số trên đường dẫn — mỗi `:ten` trong `path` là một trường của schema này (test bắt
-   * khớp). Server kiểm trước khi vào handler; sai → 422 `VALIDATION_FAILED`.
-   */
-  readonly params?: z.ZodType;
-  readonly response: z.ZodType;
-  /** Hạn mức riêng mỗi phút mỗi IP, chặt hơn mức chung — cho route dễ bị dò. */
-  readonly rateLimitPerMinute?: number;
-  /** Mã lỗi riêng của route này (ngoài các mã chung theo loại xác thực) — để frontend biết trước. */
-  readonly errors?: readonly ErrorCode[];
-}
+export type { RouteAuth, RouteDef } from './route-def.js';
 
 export const routes = {
   health: {
@@ -173,6 +139,7 @@ export const routes = {
     permission: 'linked:read',
     response: LinkedBalance,
   },
+  ...orderRoutes,
   syncPush: {
     method: 'POST',
     path: '/v1/sync/push',
