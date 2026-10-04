@@ -5,7 +5,7 @@ Sửa lần 3: sau BE1 — khớp với code đã chạy (log ở middleware, `C
 Sửa lần 4: 28/09/2026 — §4 khớp hợp đồng đồng bộ đã code (BE3)
 Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; OTP tạm ẩn tới khi > 100 tổ chức trả phí (§1.4)
 Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 ✅** (`v0.5.0`, kết nối bằng mã kết
-nối, nghiệm thu trên staging 03/10) · **BE5 🟡 · BE7 🟡 · BE6 🟡 · BE8 🟡** hợp đồng + API + test xong (gom từ
+nối, nghiệm thu trên staging 03/10) · **BE5 🟡 · BE7 🟡 · BE6 🟡 · BE8 🟡 · BE9 🟡** hợp đồng + API + test xong (gom từ
 nhánh `be/nestjs-be10` của repo frontend), còn email và nghiệm thu trên staging — nhật ký ở [MEMORY.md](../MEMORY.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
@@ -650,7 +650,14 @@ nhánh) nhắc tới id. Giới hạn 3MB, JPEG/PNG/WebP — kiểm ở API, buc
 - **Xong khi:** ảnh chụp lúc mất mạng lên được khi có mạng; máy thứ hai xem được; URL hết
   hạn thì không mở được.
 
-### BE9 — Đo lường + giám sát (2 buổi) · R5
+### BE9 — Đo lường + giám sát (2 buổi) · R5 · 🟡 03/10 — hợp đồng + API + test xong
+
+**Chốt khi làm BE9 (03/10/2026):** `POST /v1/events` công khai, token tuỳ chọn (`optionalAuth`) —
+có thì server gắn tổ chức + `orgType` thật. Danh mục `discriminatedUnion` với thuộc tính strict; sai
+thì bỏ riêng. `link_accepted` do server bắn (không phải app). `/metrics` (prom-client) ngoài `/v1`,
+cần `METRICS_TOKEN`; nhãn route là mẫu. Phễu: `GET /v1/admin/funnel`. Dashboard: `ops/grafana/`.
+Chưa có pg-boss nên chưa có số đo job lỗi — thêm cùng kênh email.
+
 
 - **Backend:** `POST /v1/events`; danh mục là `z.discriminatedUnion` trong contracts, mọi
   sự kiện kèm `orgType`; `plan_activated`, `order_fulfilled`, `link_accepted` do server bắn

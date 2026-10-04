@@ -7,6 +7,7 @@ import type { Logger } from 'winston';
 import { ApiExceptionFilter } from './common/exception.filter';
 import { type ApiRequest, requestContext } from './common/request-context';
 import type { Env } from './config/env';
+import { metricsEndpoint } from './metrics/metrics';
 
 /** Một lô đồng bộ tối đa 100 thao tác (KH §4.1) nằm gọn dưới mức này. */
 const JSON_BODY_LIMIT = '1mb';
@@ -49,6 +50,8 @@ export const configureApp = (app: INestApplication, env: Env, logger: Logger): v
   http.disable('x-powered-by');
 
   http.use(requestContext(logger, env.CLIENT_IP_HEADER));
+  // Trước helmet / CORS / guard: Prometheus không phải trình duyệt, cũng không có JWT.
+  http.use(metricsEndpoint(env.METRICS_TOKEN));
   http.use(helmet());
   http.enableCors({
     origin: (origin, cb) => cb(null, !origin || env.CORS_ORIGINS.includes(origin)),

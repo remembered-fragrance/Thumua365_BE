@@ -19,6 +19,11 @@ export interface RouteDef {
   readonly path: `/v1/${string}`;
   readonly summary: string;
   readonly auth: RouteAuth;
+  /**
+   * Chỉ với `auth: 'public'`: client gửi token (và tổ chức) NẾU đang đăng nhập; server dùng nếu xác
+   * thực được, sai thì coi như ẩn danh (BE9 — đo lường). Route công khai khác KHÔNG gửi token.
+   */
+  readonly optionalAuth?: boolean;
   /** Chỉ có nghĩa khi `auth: 'org'`. */
   readonly permission?: Permission;
   /** Thân request (JSON). Server kiểm trước khi vào handler; sai → 422 `VALIDATION_FAILED`. */

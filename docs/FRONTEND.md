@@ -538,6 +538,24 @@ const { url, expiresAt } = await api.attachments.url(id);  // hết hạn sau 10
 - Người cân chi nhánh A không xem được ảnh phiếu chi nhánh B — cùng phạm vi như sổ.
 - Xoá tài khoản xoá cả thư mục ảnh của tổ chức (mục 5.10).
 
+### 5.12 Đo lường — BE9 (hợp đồng đã có, chưa phát hành)
+
+`track(name, props)` ghi vào hàng đợi riêng trong IndexedDB (giống hàng đợi op, nhưng mất thì thôi),
+xả lô ≤ 50 qua `api.events.track({ events })` khi có mạng — kể cả lúc chưa đăng nhập.
+
+```ts
+track('receipt_created', { kind: 'purchase', lines: 2, offline: !navigator.onLine, fromOrder: Boolean(orderId) });
+// mỗi sự kiện gửi đi: { anonId, at: new Date().toISOString(), platform: 'pwa', appVersion, name, props }
+```
+
+- `anonId`: chuỗi ngẫu nhiên sinh một lần, giữ trong máy. `at`: giờ trên máy lúc xảy ra.
+- Danh mục và thuộc tính đúng `TrackedEvent` trong `@mambo/contracts` — kiểu TypeScript bắt lỗi
+  lúc biên dịch. Thuộc tính lạ (số tiền, SĐT, tên) làm server **bỏ** sự kiện (`dropped`).
+- KHÔNG gửi `plan_activated`, `order_fulfilled`, `link_accepted` — server tự bắn.
+- Đã đăng nhập: SDK gửi kèm token + tổ chức (route có `optionalAuth`), server gắn tổ chức và
+  `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bác là ai?").
+- `dropped > 0` là lỗi của app (sai danh mục) — xoá khỏi hàng đợi, ghi Sentry, không gửi lại.
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu và mọi form
@@ -724,7 +742,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 | **BE6** 🟡 | Hợp đồng đã có (mục 5.10): `api.account.*` (hồ sơ, mã giới thiệu, xoá tài khoản), `api.billing.*` (gói, chuyển khoản) | Màn Gói (chỉ chủ vựa/DN), trả tiền bằng chuyển khoản kèm mã đối soát (`@mambo/core/transferCode`); màn Tài khoản; xoá tài khoản | Một lần chuyển khoản thật gia hạn được gói |
 | **BE7** 🟡 | Hợp đồng đã có (mục 5.9): `api.org.members.*`, `api.org.branches.*`, `api.reports.summary` | Vỏ Doanh nghiệp: nhân viên, chi nhánh, báo cáo tổng; `BRANCH_LIMIT` | DN hai chi nhánh: mỗi nhân viên chỉ thấy phiếu chi nhánh mình; owner thấy tổng khớp; tạo chi nhánh vượt gói → `BRANCH_LIMIT` |
 | **BE8** 🟡 | Hợp đồng đã có (mục 5.11): `api.attachments.upload(id, blob)`, `api.attachments.url(id)` | Ảnh chụp lúc mất mạng xếp hàng; có mạng thì xin URL rồi `PUT` thẳng lên Storage; xem ảnh bằng URL có hạn | Ảnh chụp offline lên được khi có mạng; máy thứ hai xem được; URL hết hạn thì không mở được |
-| **BE9** | `POST /v1/events` (danh mục sự kiện có kiểu trong contracts) | `track()` đi qua hàng đợi; Sentry cho web; sửa trang Quyền riêng tư cùng PR; TWA + CH Play thử nghiệm kín | Một vòng luồng BE5 trên staging → phễu có đủ sự kiện đúng thứ tự, tách được theo `orgType` |
+| **BE9** 🟡 | Hợp đồng đã có (mục 5.12): `api.events.track`, danh mục `TrackedEvent` | `track()` đi qua hàng đợi; Sentry cho web; sửa trang Quyền riêng tư cùng PR; TWA + CH Play thử nghiệm kín | Một vòng luồng BE5 trên staging → phễu có đủ sự kiện đúng thứ tự, tách được theo `orgType` |
 | **BE10** | Production: URL, CORS, bật `features` cho nhóm pilot | Đổi env sang production; nộp bản CH Play | Pilot một tuần không có op `rejected` ngoài dự kiến |
 
 Ghi chú từng bước:
@@ -745,11 +763,12 @@ Ghi chú từng bước:
   giấy phép NHNN. Hết gói không giữ dữ liệu làm con tin: vẫn đọc và xuất file được.
 - **BE9 — tên sự kiện** theo dạng `đối_tượng_hành_động`, tiếng Anh, `snake_case`, thì quá khứ
   (việc đã xong):
-  - Danh mục: `app_opened` · `sign_up_completed` · `login_succeeded` · `login_failed` ·
-    `link_accepted` · `order_created` · `order_accepted` · `order_scheduled` · `receipt_created` ·
-    `receipt_shared` · `debt_payment_recorded` · `import_completed` · `quota_wall_shown` ·
-    `plans_viewed` · `checkout_started` · `member_invited` · `contact_clicked` · `account_deleted`.
-  - `plan_activated` và `order_fulfilled` do **server** bắn.
+  - Danh mục của app (chính xác: `TrackedEvent` trong contracts, mục 5.12): `app_opened` ·
+    `sign_up_completed` · `login_succeeded` · `login_failed` · `order_created` · `order_accepted` ·
+    `order_scheduled` · `receipt_created` · `receipt_shared` · `debt_payment_recorded` ·
+    `import_completed` · `quota_wall_shown` · `plans_viewed` · `checkout_started` · `member_invited` ·
+    `contact_clicked` · `account_deleted`.
+  - `plan_activated`, `order_fulfilled`, `link_accepted` do **server** bắn (BE9 chốt — đáng tin hơn).
   - Không gửi tên, số điện thoại, email hay số tiền cụ thể.
 - **Sau BE10** (chưa làm, mỗi mục có điều kiện bật riêng): Realtime thay cho hỏi 60 giây ·
   thông báo đẩy/SMS/Zalo · giao hàng nhiều chặng · nhập/xuất kho tường minh · bản đồ và chợ mở ·

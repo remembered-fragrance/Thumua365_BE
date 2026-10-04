@@ -6,7 +6,13 @@
  */
 
 import { normalizePhone } from '@mambo/core/identifier';
-import type { AdminActivatePlanInput, AdminActivatePlanResult, AdminResetPasswordInput } from '@mambo/contracts';
+import type {
+  AdminActivatePlanInput,
+  AdminActivatePlanResult,
+  AdminFunnel,
+  AdminFunnelQuery,
+  AdminResetPasswordInput,
+} from '@mambo/contracts';
 import { OrgType } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
@@ -118,6 +124,36 @@ export class AdminService {
       await this.auth.setPassword(userId, input.newPassword);
     });
     return { ok: true };
+  }
+
+  /** Phễu đo lường theo loại tổ chức (BE9) — đọc `analytics_events`, bảng api_service không đọc được. */
+  funnel(query: AdminFunnelQuery): Promise<AdminFunnel> {
+    return privileged(this.db).run(async (tx) => {
+      const rows = await tx.$queryRaw<
+        { org_type: string | null; name: string; events: number; organizations: number; devices: number; first_at: Date; last_at: Date }[]
+      >`
+        select org_type, name, count(*)::int as events,
+               count(distinct organization_id)::int as organizations,
+               count(distinct anon_id)::int as devices,
+               min(created_at) as first_at, max(created_at) as last_at
+        from analytics_events
+        where created_at >= ${new Date(query.from)} and created_at < ${new Date(query.to)}
+        group by org_type, name
+        order by min(created_at), name`;
+      return {
+        from: new Date(query.from).toISOString(),
+        to: new Date(query.to).toISOString(),
+        rows: rows.map((r) => ({
+          orgType: r.org_type ? OrgType.parse(r.org_type) : null,
+          name: r.name,
+          events: r.events,
+          organizations: r.organizations,
+          devices: r.devices,
+          firstAt: r.first_at.toISOString(),
+          lastAt: r.last_at.toISOString(),
+        })),
+      };
+    });
   }
 
   /** Theo id, hoặc theo số của CHỦ — chỉ khi người đó chủ đúng một tổ chức (không đoán hộ). */

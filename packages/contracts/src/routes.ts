@@ -11,6 +11,7 @@
 import type { z } from 'zod';
 import { AttachmentDownloadUrl, AttachmentIdParams, AttachmentUploadInput, AttachmentUploadUrl } from './attachments.js';
 import { ResolveIdentifierInput, ResolveIdentifierResult } from './auth.js';
+import { AdminFunnel, AdminFunnelQuery, EventsTrackInput, EventsTrackRequest, EventsTrackResult } from './events.js';
 import { Health } from './health.js';
 import {
   LinkedBalance,
@@ -145,6 +146,26 @@ export const routes = {
   ...orderRoutes,
   ...orgRoutes,
   ...accountRoutes,
+  eventsTrack: {
+    method: 'POST',
+    path: '/v1/events',
+    summary:
+      'Một lô sự kiện đo lường (≤ 50). Đăng nhập là tuỳ chọn: có token + X-Organization-Id thì gắn tổ chức. Sự kiện sai bị bỏ riêng, không 422 cả lô',
+    auth: 'public',
+    optionalAuth: true,
+    body: EventsTrackInput,
+    docBody: EventsTrackRequest,
+    response: EventsTrackResult,
+    rateLimitPerMinute: 60,
+  },
+  adminFunnel: {
+    method: 'GET',
+    path: '/v1/admin/funnel',
+    summary: 'Phễu đo lường theo loại tổ chức và tên sự kiện trong khoảng thời gian',
+    auth: 'admin',
+    query: AdminFunnelQuery,
+    response: AdminFunnel,
+  },
   attachmentsUploadUrl: {
     method: 'POST',
     path: '/v1/attachments/upload-url',

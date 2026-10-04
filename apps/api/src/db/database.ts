@@ -51,6 +51,15 @@ export class Database {
   }
 
   /**
+   * Việc của HỆ THỐNG trong ngữ cảnh một tổ chức, không có người gọi — listener sau commit (đo
+   * lường của server: gói vừa mở bởi webhook ngân hàng). `app.user_id` để trống: policy cần người
+   * dùng đều ra NULL; chỉ policy theo `app.org_id` cho qua.
+   */
+  system<T>(orgId: string, work: (tx: Tx) => Promise<T>): Promise<T> {
+    return this.scoped({ userId: '', orgId }, work);
+  }
+
+  /**
    * Transaction KHÔNG có ngữ cảnh — người gọi chưa đăng nhập. Mọi policy RLS so
    * sánh ra NULL ⇒ không đọc/ghi được bảng nào; chỉ gọi được hàm security definer
    * đã cấp cho api_service (find_login_user).

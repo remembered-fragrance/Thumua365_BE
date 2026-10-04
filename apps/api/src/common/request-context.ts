@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { Logger } from 'winston';
 import type { AuthUser } from '../auth/auth-user';
 import type { MembershipContext } from '../auth/membership';
+import { httpDuration, routeLabel } from '../metrics/metrics';
 
 /** Những gì các guard gắn vào request trên đường đi. */
 export interface ApiRequest extends Request {
@@ -39,6 +40,10 @@ export const requestContext =
 
     const started = process.hrtime.bigint();
     res.on('finish', () => {
+      const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+      if (req.path !== '/metrics') {
+        httpDuration.observe({ method: req.method, route: routeLabel(req), status: `${Math.floor(res.statusCode / 100)}xx` }, seconds);
+      }
       logger.info('request', {
         requestId: request.requestId,
         method: req.method,

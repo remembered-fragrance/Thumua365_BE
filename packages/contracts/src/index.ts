@@ -2,6 +2,7 @@ export * from './account.js';
 export * from './attachments.js';
 export * from './auth.js';
 export * from './errors.js';
+export * from './events.js';
 export * from './health.js';
 export * from './links.js';
 export * from './me.js';

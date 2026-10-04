@@ -11,6 +11,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import * as Sentry from '@sentry/node';
 import type { Logger } from 'winston';
 import { DATABASE, type Database, type Tx } from '../db/database';
+import { notificationFailures } from '../metrics/metrics';
 import { type DomainEventMap, LOGGER, type OrderChanged, type OrderEventName } from '../events/domain-events';
 
 const ON = { async: true, suppressErrors: true } as const;
@@ -78,6 +79,7 @@ export class NotificationsListener {
     try {
       await this.db.scoped({ userId, orgId }, work);
     } catch (err) {
+      notificationFailures.inc({ kind });
       this.logger.error('notification.failed', { kind, orgId, error: err instanceof Error ? err.message : String(err) });
       if (Sentry.isInitialized()) Sentry.captureException(err, { tags: { kind } });
     }
