@@ -29,6 +29,7 @@ const errorStatuses = (route: RouteDef): number[] => {
     statuses.add(ERROR_STATUS.FORBIDDEN);
     statuses.add(ERROR_STATUS.VALIDATION_FAILED); // header X-Organization-Id thiếu hoặc sai
   }
+  if (route.auth === 'admin') statuses.add(ERROR_STATUS.FORBIDDEN);
   if (route.body || route.query || route.params) statuses.add(ERROR_STATUS.VALIDATION_FAILED);
   for (const code of route.errors ?? []) statuses.add(ERROR_STATUS[code]);
   return [...statuses].sort((a, b) => a - b);

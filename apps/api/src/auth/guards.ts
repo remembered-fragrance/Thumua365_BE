@@ -86,13 +86,21 @@ export class OrgContextGuard implements CanActivate {
 @Injectable()
 export class PermissionGuard implements CanActivate {
   private readonly reflector: Reflector;
+  private readonly admins: ReadonlySet<string>;
 
-  constructor(reflector: Reflector) {
+  constructor(reflector: Reflector, @Inject(ENV) env: Env) {
     this.reflector = reflector;
+    this.admins = new Set(env.ADMIN_USER_IDS.map((id) => id.toLowerCase()));
   }
 
   canActivate(ctx: ExecutionContext): boolean {
     const route = routeOf(this.reflector, ctx);
+    if (route?.auth === 'admin') {
+      // Quản trị viên = id tài khoản nằm trong ADMIN_USER_IDS. Không ai khác, kể cả chủ tổ chức.
+      const userId = ctx.switchToHttp().getRequest<ApiRequest>().user?.id.toLowerCase() ?? '';
+      if (!this.admins.has(userId)) throw new ApiException('FORBIDDEN', 'Chỉ quản trị viên');
+      return true;
+    }
     if (route?.auth !== 'org' || !route.permission) return true;
 
     const membership = ctx.switchToHttp().getRequest<ApiRequest>().membership;

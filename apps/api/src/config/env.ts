@@ -4,6 +4,9 @@
  * rồi hỏng ở request đầu tiên.
  *
  * Bí mật từ BE2: DATABASE_URL (mật khẩu role api_service) và SUPABASE_SECRET_KEY.
+ * Bí mật từ BE6: PRIVILEGED_DATABASE_URL (role api_privileged), BANK_WEBHOOK_SECRET. Hai biến này
+ * tuỳ chọn để bản deploy trước khi điền vẫn chạy — thiếu thì webhook / quản trị / xoá tài khoản báo
+ * lỗi rõ ràng, phần còn lại của API không ảnh hưởng.
  * Chỉ nằm trong apps/api/.env (đã .gitignore) và biến môi trường của Render.
  */
 
@@ -39,6 +42,23 @@ const EnvSchema = z
     DATABASE_URL: z
       .string()
       .refine((v) => /^postgres(ql)?:\/\//.test(v), 'phải là chuỗi kết nối postgresql://'),
+    /**
+     * Postgres bằng role `api_privileged` (BYPASSRLS, có DELETE) — CHỈ webhook ngân hàng, quản
+     * trị, xoá tài khoản dùng (KH §5). Supabase: Transaction pooler, user `api_privileged.<ref>`.
+     */
+    PRIVILEGED_DATABASE_URL: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v : undefined))
+      .pipe(z.string().regex(/^postgres(ql)?:\/\//, 'phải là chuỗi kết nối postgresql://').optional()),
+    /** Bí mật dùng chung với Casso / SePay. Dài ≥ 24 ký tự ngẫu nhiên. */
+    BANK_WEBHOOK_SECRET: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v : undefined))
+      .pipe(z.string().min(24, 'ít nhất 24 ký tự').optional()),
+    /** Id tài khoản (auth.users) của quản trị viên, cách nhau bằng dấu phẩy. Trống = không ai. */
+    ADMIN_USER_IDS: csv.pipe(z.array(z.uuid())),
     CORS_ORIGINS: csv,
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
     LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),

@@ -45,6 +45,8 @@ export interface DomainEventMap {
   'order.cancelled': OrderChanged;
   /** Phát từ đồng bộ sổ: phiếu theo đơn vừa lên. */
   'order.fulfilled': OrderChanged;
+  /** Gói vừa mở / gia hạn (BE6) — đo lường `plan_activated` (BE9). Thông báo đã ghi cùng transaction. */
+  'plan.activated': { readonly organizationId: string; readonly months: number; readonly source: 'webhook' | 'admin' };
 }
 
 /** Ai (tổ chức, người) vừa đổi đơn nào. Bên kia = bên còn lại trong hai bên bán/mua. */

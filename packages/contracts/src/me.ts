@@ -3,6 +3,7 @@
  * (KH backend §3.2). `permissions` chỉ để ẩn/hiện; server luôn kiểm lại.
  */
 
+import { isPhoneLike } from '@mambo/core/identifier';
 import type { PlanTier as CorePlanTier, SubscriptionStatus as CoreSubscriptionStatus } from '@mambo/core/subscription';
 import { z } from 'zod';
 import { MemberRole, OrgType } from './organization.js';
@@ -71,6 +72,18 @@ export type Me = z.infer<typeof Me>;
  * doanh nghiệp) trong MỘT transaction. Idempotent: người đã có tổ chức gọi lại
  * nhận về `Me` hiện tại, không tạo tổ chức thứ hai.
  */
+/**
+ * Tên đăng nhập: 3–32 ký tự a-z, 0-9, `.`, `_`, không phân biệt hoa thường — và KHÔNG được giống số
+ * điện thoại: đăng nhập một ô tra SĐT trước, tên "0912345678" sẽ chen vào việc đăng nhập bằng số đó.
+ * Database giữ cùng luật (`profiles_username_not_phone`).
+ */
+export const Username = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9._]{3,32}$/)
+  .refine((u) => !isPhoneLike(u), 'Tên đăng nhập không được giống số điện thoại');
+
 export const MeBootstrapInput = z.strictObject({
   orgType: OrgType,
   /** Tên hiển thị của tổ chức: "Vựa Tư Hùng", "Hộ cô Mai". */
@@ -82,12 +95,7 @@ export const MeBootstrapInput = z.strictObject({
    * (email nội bộ `84…@id.thumua365.vn`) lấy số từ chính tài khoản — trường này bị bỏ qua.
    */
   phone: z.string().trim().min(1).max(20).optional(),
-  /** Tên đăng nhập tuỳ chọn: 3–32 ký tự a-z, 0-9, `.`, `_`. Không phân biệt hoa thường. */
-  username: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9._]{3,32}$/)
-    .optional(),
+  /** Tên đăng nhập tuỳ chọn — xem `Username`. */
+  username: Username.optional(),
 });
 export type MeBootstrapInput = z.input<typeof MeBootstrapInput>;

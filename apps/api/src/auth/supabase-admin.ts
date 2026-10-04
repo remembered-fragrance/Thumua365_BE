@@ -21,8 +21,10 @@ export interface SupabaseAdmin {
   loginEmail(userId: string): Promise<string | null>;
   /** Tạo tài khoản; `'exists'` khi email đăng nhập đã có người dùng. */
   createUser(account: NewAccount): Promise<{ readonly id: string } | 'exists'>;
-  /** Xoá tài khoản — chỉ để dọn tài khoản vừa tạo khi bước ghi database sau đó hỏng. */
+  /** Xoá tài khoản: dọn tài khoản vừa tạo khi bước database hỏng (BE7); xoá tài khoản thật (BE6). */
   deleteUser(userId: string): Promise<void>;
+  /** Quản trị viên đặt lại mật khẩu (BE6) — sau khi đã xác minh danh tính ngoài app. */
+  setPassword(userId: string, password: string): Promise<void>;
 }
 
 export const SUPABASE_ADMIN = Symbol('SUPABASE_ADMIN');
@@ -69,6 +71,16 @@ export class SupabaseAdminHttp implements SupabaseAdmin {
     }
     if (!res.ok) throw new Error(`Supabase Auth Admin trả ${res.status} khi tạo tài khoản`);
     return { id: AdminUser.parse(await res.json()).id };
+  }
+
+  async setPassword(userId: string, password: string): Promise<void> {
+    const res = await fetch(`${this.url}/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      headers: this.headers,
+      body: JSON.stringify({ password }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`Supabase Auth Admin trả ${res.status} khi đặt mật khẩu`);
   }
 
   async deleteUser(userId: string): Promise<void> {

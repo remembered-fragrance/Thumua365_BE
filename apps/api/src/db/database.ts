@@ -29,6 +29,8 @@ export interface Scope {
 }
 
 export const DATABASE = Symbol('DATABASE');
+/** Khai ở đây (không import privileged-database.ts) để không có vòng phụ thuộc. */
+export const PRIVILEGED_DATABASE = Symbol('PRIVILEGED_DATABASE');
 
 export class Database {
   private readonly client: PrismaClient;
@@ -67,11 +69,15 @@ export class Database {
 export class DatabaseShutdown implements OnApplicationShutdown {
   private readonly db: Database;
 
-  constructor(@Inject(DATABASE) db: Database) {
+  private readonly privileged: { close(): Promise<void> } | null;
+
+  constructor(@Inject(DATABASE) db: Database, @Inject(PRIVILEGED_DATABASE) privileged: { close(): Promise<void> } | null) {
     this.db = db;
+    this.privileged = privileged;
   }
 
-  onApplicationShutdown(): Promise<void> {
-    return this.db.close();
+  async onApplicationShutdown(): Promise<void> {
+    await this.db.close();
+    await this.privileged?.close();
   }
 }
