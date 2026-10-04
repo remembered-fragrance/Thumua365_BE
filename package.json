@@ -23,10 +23,11 @@
     "boundaries": "depcruise packages apps --config .dependency-cruiser.cjs",
     "openapi": "npm run openapi -w @mambo/contracts",
     "mock": "npx -y @stoplight/prism-cli@5 mock packages/contracts/openapi.json",
-    "verify": "npm run lint && npm run build:packages && npm run typecheck && npm run boundaries && npm run test && npm run build -w @mambo/api",
+    "verify": "npm run lint && npm run security:check && npm run build:packages && npm run typecheck && npm run boundaries && npm run test && npm run build -w @mambo/api",
     "smoke:me": "node scripts/smoke-me.mjs",
     "smoke:links": "node scripts/smoke-links.mjs",
-    "login-test": "node tools/login-test/serve.mjs"
+    "login-test": "node tools/login-test/serve.mjs",
+    "security:check": "node scripts/security-check.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",

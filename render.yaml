@@ -1,6 +1,8 @@
 # Render Blueprint — áp dụng: Render Dashboard → Blueprints → New Blueprint Instance → chọn repo.
 #
-# Chỉ có STAGING. Production thêm vào đây ở BE10 (gói trả phí, luôn chạy, deploy tay).
+# Chỉ có STAGING. Service production (`thumua365-api`, gói starter, deploy TAY) thêm vào đây đúng lúc
+# làm mục 6 của ops/PRODUCTION.md — thêm sớm thì Blueprint tạo ngay service trả phí khi chưa có bí
+# mật, mà API production (cố ý) không lên nếu thiếu bí mật.
 # Biến `sync: false` là bí mật hoặc tuỳ môi trường: Render hỏi giá trị lúc tạo,
 # KHÔNG ghi giá trị thật vào file này.
 
@@ -52,3 +54,4 @@ services:
       # ghi đè, client không giả được). Thiếu nó thì hạn mức theo IP không có tác dụng.
       - key: CLIENT_IP_HEADER
         value: cf-connecting-ip
+

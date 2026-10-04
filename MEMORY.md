@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 → BE9 đang làm** (gom từ nhánh `be/nestjs-be10`, chưa lên staging) · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 → BE10 đã merge vào `master` (04/10)** — gom từ `be/nestjs-be10`, staging đã migrate, **chưa nghiệm thu từng bước, chưa phát hành `0.6.0`** · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -904,7 +904,7 @@ chủ: tổng = hai chi nhánh cộng lại; chi nhánh thứ 3 với gói 2 →
 - [ ] Vỏ Doanh nghiệp ở frontend.
 
 **Gom về repo BE** (nhánh `be7/doanh-nghiep`, 03/10): cherry-pick `e6f746a` giữ tác giả, không sửa code. `verify`
-xanh; `test:db` **134/134** trên database dựng lại từ đầu; schema khớp migration.
+xanh; `test:db` **135/135** (soát lần 2, 04/10) trên database dựng lại từ đầu; schema khớp migration.
 
 ---
 
@@ -971,7 +971,7 @@ cũng được chặn theo, vì dùng chung `Username`.
 | Việc | Kết quả |
 |---|---|
 | `npm run verify` | Xanh — contracts 80 · core 315 · sdk 12 · api 42 |
-| `npm run test:db` (database dựng lại từ đầu, 8 migration) | **155/155** — thêm 3 test cho chỗ sửa (đỏ trước khi sửa) + 1 test chốt tên toàn chữ số |
+| `npm run test:db` (database dựng lại từ đầu, 8 migration) | **156/156** (soát lần 2, 04/10) — thêm 3 test cho chỗ sửa (đỏ trước khi sửa) + 1 test chốt tên toàn chữ số |
 | `schema.prisma` ↔ migration | `No difference detected` |
 
 ---
@@ -1007,7 +1007,7 @@ lúc mất mạng → có mạng xin URL, tải lên, đẩy phiếu → máy c�
 
 
 **Gom về repo BE** (nhánh `be8/anh-chung-tu`, 03/10): cherry-pick `1c19ff4` giữ tác giả, không sửa code. `verify`
-xanh; `test:db` **160/160**. Còn để ý: hợp đồng sync cho tối đa 10 ảnh mỗi phiếu / nháp, app cũ giới hạn 5
+xanh; `test:db` **161/161** (soát lần 2, 04/10). Còn để ý: hợp đồng sync cho tối đa 10 ảnh mỗi phiếu / nháp, app cũ giới hạn 5
 (`MAX_ATTACHMENTS`) — chốt một số khi frontend làm màn ảnh.
 
 ---
@@ -1058,8 +1058,98 @@ nối → đơn → phiếu theo đơn → gói mở) cho ra phễu 6 bước đ
 
 
 **Gom về repo BE** (nhánh `be9/do-luong`, 03/10): cherry-pick `8e8f53c` giữ tác giả; `package-lock.json` cài lại trên
-repo BE (chỉ thêm `prom-client` và phụ thuộc của nó). `verify` xanh (api 45); `test:db` **164/164**. Để ý: npm
-báo `prom-client@15` đã ngừng, thay bằng `@prometheus-io/client` — đổi khi nâng phụ thuộc, không chặn.
+repo BE (chỉ thêm `prom-client` và phụ thuộc của nó). `verify` xanh (api 45); `test:db` **165/165** (soát lần 2, 04/10). Để ý: npm
+báo `prom-client@15` đã ngừng, thay bằng `@prometheus-io/client` — đổi khi nâng phụ thuộc, không chặn. Bản sửa
+`truncateAll` (mục "Lỗi bắt được" ở trên) đã chuyển xuống BE5 — commit BE9 không còn đụng `tests/db/db.ts`.
+
+---
+
+## BE10 — Lên production: phần code · nhánh `be10/production` · 03/10/2026
+
+**Kết quả:** mọi việc BE10 làm được không cần tài khoản của nhóm đã xong; phần còn lại là bảng kiểm
+vận hành **`ops/PRODUCTION.md`** (gom mọi "còn lại" của BE4–BE10, theo thứ tự làm).
+
+### Làm gì
+
+- **Backup** `ops/backup/backup.sh`: `pg_dump` public (+ dữ liệu `auth.users`, `auth.identities` trên
+  Supabase) → AES-256 (`BACKUP_PASSPHRASE`) → kho S3-compatible khác Supabase, giữ 30 ngày; kèm tệp
+  số dòng. `restore-check.sh`: phục hồi vào database trống, so số dòng. Workflow `backup.yml`: 02:00
+  mỗi ngày, thử phục hồi mỗi Chủ nhật trong runner (Postgres 17 + PostGIS); chưa có secrets → bỏ qua.
+- **Rà lộ khoá** `scripts/security-check.mjs` (`npm run security:check`, trong CI và `verify`): tệp
+  `.env`/khoá riêng, `sb_secret_`, JWT service_role, khoá AWS, chuỗi Postgres có mật khẩu thật,
+  frontend nhắc tới khoá bí mật. Chỉ in tệp:dòng, không in bí mật.
+- **`env.ts` production**: `CORS_ORIGINS` chỉ `https://`, không localhost; bắt buộc
+  `PRIVILEGED_DATABASE_URL`, `BANK_WEBHOOK_SECRET`, `METRICS_TOKEN` — thiếu là API không lên.
+- `render.yaml`: service production `thumua365-api` (starter, Singapore, `autoDeployTrigger: off`).
+
+### Chạy thật đã kiểm
+
+| Việc | Kết quả |
+|---|---|
+| Backup → phục hồi (container Postgres 17 ở máy dev) | 1 tổ chức · 25 phiếu · 25 lần trả · 2 dòng sổ đối soát: khớp; tệp đã mã hoá (`Salted__`); sai khoá → `pg_restore` từ chối |
+| `security:check` | 538 tệp sạch; tự thử với khoá giả, chuỗi kết nối thật, `.env` → bắt đủ 3 |
+| Image API sau BE5–BE9 | 473MB; `/v1/health` 200; `/metrics` không token 404, có token ra số đo; thiếu `PRIVILEGED_DATABASE_URL` → cảnh báo, không sập (staging) |
+
+### Còn lại — xem `ops/PRODUCTION.md`
+
+
+### Gom về repo BE · nhánh `be10/production` · 03/10/2026
+
+Cherry-pick `a4d0643` giữ tác giả (giữ lệnh `security:check`, bỏ phần `verify` của web). Sửa khi gom:
+
+- **Phục hồi backup vào một Postgres mới bị hỏng** — đính chính dòng "Backup → phục hồi … khớp" ở trên: lần thử đó
+  phục hồi trong CÙNG cluster, nơi role có sẵn. Policy RLS ghi `TO api_service`, role là của cả cluster nên bản dump
+  không mang theo ⇒ phục hồi vào cluster / project mới dừng ngay ở policy đầu tiên (job thử phục hồi Chủ nhật của
+  `backup.yml` sẽ luôn đỏ). Sửa: `restore-check.sh` tạo role trước khi phục hồi; `ops/backup/roundtrip-check.sh`
+  sao lưu Postgres của docker compose rồi phục hồi vào một cluster mới tinh — đỏ trước khi sửa, xanh sau; **CI job
+  `db` chạy nó sau `test:db`**.
+- Chưa thêm service production vào `render.yaml` (Blueprint sẽ tạo ngay service trả phí khi chưa có bí mật) — thêm lúc
+  làm mục 6 của `ops/PRODUCTION.md`. `security:check` soi `tools/login-test` thay `apps/web/src`.
+  `ops/PRODUCTION.md` theo mã kết nối (Phone provider để tắt) và repo chỉ backend.
+
+| Việc | Kết quả |
+|---|---|
+| `npm run verify` | Xanh — contracts 83 · core 315 · sdk 13 · api 46; không lộ bí mật |
+| `npm run test:db` (database dựng lại từ đầu, 8 migration) | **165/165** (soát lần 2, 04/10) |
+| `schema.prisma` ↔ migration | `No difference detected` |
+| `bash ops/backup/roundtrip-check.sh` | Phục hồi vào cluster trống, số dòng khớp |
+
+---
+
+## Gom BE5 → BE10 vào `master` · 04/10/2026
+
+Quyết định của Tài (04/10): merge cả chuỗi vào `master` **trước** khi nghiệm thu từng bước trên staging — bỏ qua
+luật "Xong khi" cho BE5 → BE10. Mỗi bước vẫn một PR, merge theo thứ tự BE5, BE7, BE6, BE8, BE9, BE10. Merge cũng là
+chốt các quyết định BE5 → BE10 tự đặt ra: đơn sang `fulfilled` từ mọi trạng thái còn mở; chủ tạo tài khoản kèm mật
+khẩu cho nhân viên; xoá tài khoản xoá luôn đơn và kết nối với bên kia; vựa không giới hạn chi nhánh; xem gói cần
+`billing:manage`; mua gói lúc dùng thử không cộng dồn ngày thử.
+
+### Soát lần 2 (03/10 tối → 04/10)
+
+- So bản gom với `be/nestjs-be10` (`28ba7ca`, không đổi thêm) theo từng tệp: đủ mọi tệp; mọi chỗ lệch là mã kết nối
+  BE4, gỡ xung đột, hay bản sửa L1–L4 — không mất hunk nào.
+- Hai lỗi sửa trên BE5 (mục "Gom về repo BE" của BE5): `test:db` BE5 / BE6 deadlock ngẫu nhiên (`truncateAll`), lịch
+  sử đơn ghi sai bước trước khi đơn vừa được nhận ở máy khác.
+- Đọc kỹ BE6 → BE9 (webhook, kích hoạt gói, xoá tài khoản, quản trị, nhân viên, chi nhánh, báo cáo, ảnh, đo lường,
+  hàm security definer): không thấy lỗi mới. Để ý, chưa sửa: lưu trữ chi nhánh đúng lúc gán người vào nó → người
+  gắn vào chi nhánh đã lưu trữ (chỉ chủ tự làm, hiếm); `billing_guard` không chặn `trial_ends_at` quá xa khi tạo gói
+  dùng thử (code hiện tại đúng — thiếu một lớp phòng thủ). L6 (backup bằng role `postgres`) → `ops/PRODUCTION.md` §4.
+- Cả 6 nhánh: `verify` xanh, `test:db` 124 → 165 trên database dựng lại từ đầu, schema khớp migration, BE10 thử
+  backup → phục hồi vào cluster trống.
+
+### Staging
+
+| Việc | Kết quả |
+|---|---|
+| Soát trước (chỉ đọc) | Đúng project `bldlrkmszjmhifubxjvl`; có 4 migration (tới BE4); 0 tên đăng nhập giống SĐT, 0 email khôi phục trùng; 7 tổ chức · 4 phiếu · 1 kết nối · 0 đơn |
+| `prisma migrate deploy` | ✅ Tài chạy tay 04/10 (máy chặn Claude ghi vào staging): `be5_don_hang`, `be7_doanh_nghiep`, `be6_goi_thanh_toan`, `be6_dinh_danh_dang_nhap` — đủ 8 migration |
+| Image BE4 trên schema mới | `/v1/health` 200 (`48a7489`), `/v1/me` không token 401 |
+
+### Còn lại
+
+- [ ] Nghiệm thu từng bước trên staging (R2 bằng `smoke:orders` — chưa viết; BE6 webhook với bí mật thử; BE7 tạo
+      nhân viên thật; BE8 bucket `attachments`; BE9 `/metrics`) — xem "Còn lại" của từng bước và `ops/PRODUCTION.md`.
+- [ ] Phát hành `0.6.0` sau khi nghiệm thu (CHANGELOG đang ghi "chưa phát hành").
 
 ---
 

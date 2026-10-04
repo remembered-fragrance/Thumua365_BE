@@ -88,6 +88,24 @@ const EnvSchema = z
   .refine((env) => env.APP_ENV === 'development' || env.CORS_ORIGINS.length > 0, {
     message: 'CORS_ORIGINS bắt buộc ở staging và production',
     path: ['CORS_ORIGINS'],
+  })
+  // BE10 — production: chỉ domain https thật (không localhost), và đủ bí mật của thu tiền, quản trị,
+  // giám sát. Thiếu là API không lên — không có chuyện lên production rồi webhook ngân hàng mới hỏng.
+  .refine((env) => env.APP_ENV !== 'production' || env.CORS_ORIGINS.every((o) => o.startsWith('https://') && !o.includes('localhost')), {
+    message: 'production chỉ cho domain https thật, không localhost',
+    path: ['CORS_ORIGINS'],
+  })
+  .refine((env) => env.APP_ENV !== 'production' || Boolean(env.PRIVILEGED_DATABASE_URL), {
+    message: 'PRIVILEGED_DATABASE_URL bắt buộc ở production (webhook ngân hàng, quản trị, xoá tài khoản)',
+    path: ['PRIVILEGED_DATABASE_URL'],
+  })
+  .refine((env) => env.APP_ENV !== 'production' || Boolean(env.BANK_WEBHOOK_SECRET), {
+    message: 'BANK_WEBHOOK_SECRET bắt buộc ở production',
+    path: ['BANK_WEBHOOK_SECRET'],
+  })
+  .refine((env) => env.APP_ENV !== 'production' || Boolean(env.METRICS_TOKEN), {
+    message: 'METRICS_TOKEN bắt buộc ở production',
+    path: ['METRICS_TOKEN'],
   });
 
 export type Env = z.infer<typeof EnvSchema>;
