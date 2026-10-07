@@ -4,9 +4,11 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **03/10/2026** · Hợp đồng đã phát hành **`v0.5.0`** (BE0–BE4: tài khoản, tổ chức,
-> đồng bộ sổ, kết nối bằng **mã kết nối** + phần xem của nông dân; OTP tạm ẩn) · Tiếp theo: BE5 (đơn,
-> đặt lịch, thông báo).
+> Cập nhật **07/10/2026** · Hợp đồng đã phát hành **`v0.11.0`** (BE0–BE10: tài khoản, tổ chức,
+> đồng bộ sổ, kết nối bằng **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân
+> viên, chi nhánh, báo cáo; gói, chuyển khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. OTP tạm
+> ẩn) · Đã nghiệm thu trên staging: tới BE5. BE6–BE9 chạy trên staging nhưng chưa nghiệm thu — một số
+> phần cần cấu hình staging trước (mục 5.10–5.12).
 > **Backend làm trước, frontend làm sau** (chốt 28/09/2026): file này cùng `openapi.json` và các
 > trang thử trong `tools/login-test` là bản mô tả đầy đủ để dựng app khi tới lượt frontend.
 > File này được sửa **cùng PR** với mọi thay đổi hợp đồng. Nếu thấy lệch với code thì code
@@ -81,9 +83,9 @@ khi backend đổi thì chỉ phải sửa một thư mục:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-core-0.5.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-contracts-0.5.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.5.0/mambo-sdk-0.5.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.11.0/mambo-core-0.11.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.11.0/mambo-contracts-0.11.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.11.0/mambo-sdk-0.11.0.tgz",
     "@supabase/supabase-js": "^2.116.0",
     "zod": "^4.1.0"
   }
@@ -144,7 +146,7 @@ export const api = createClient({
 });
 ```
 
-Các hàm SDK đã có ở `v0.5.0`:
+Các hàm SDK đã có ở `v0.11.0`:
 
 | Hàm | Endpoint | Cần | Trả về |
 |---|---|---|---|
@@ -157,6 +159,14 @@ Các hàm SDK đã có ở `v0.5.0`:
 | `api.linked.receipts({ orgId })` · `api.linked.balance()` | `/v1/linked/…` (BE4) | tổ chức + `linked:read` | mục 5.6 |
 | `api.sync.push({ deviceId, ops })` | `POST /v1/sync/push` | đăng nhập + tổ chức + quyền `book:sync` | `{ results }` — mục 7.3 |
 | `api.sync.pull({ cursor, limit })` | `GET /v1/sync/pull` | đăng nhập + tổ chức + quyền `book:sync` | `{ cursor, hasMore, resetRequired, changes }` — mục 7.4 |
+| `api.orders.list` · `.create` · `.get` · `.accept` · `.reject` · `.schedule` · `.cancel` | `/v1/orders…` (BE5) | tổ chức + `order:create` / `order:respond` | mục 5.8 |
+| `api.notifications.list()` · `.read({ ids })` | `/v1/notifications…` (BE5) | tổ chức | mục 5.8 |
+| `api.org.members.list` · `.create` · `.update` · `.remove` · `api.org.branches.list` · `.create` · `.update` | `/v1/org/…` (BE7) | tổ chức + `staff:manage` / `branch:manage` | mục 5.9 |
+| `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view` | mục 5.9 |
+| `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |
+| `api.billing.subscription()` · `.intents()` · `.createIntent({ months })` | `/v1/me/subscription`, `/v1/billing/intents` (BE6) | tổ chức + `billing:manage` | mục 5.10 |
+| `api.attachments.upload(id, blob)` · `.uploadUrl(input)` · `.url(id)` | `/v1/attachments/…` (BE8) | tổ chức | mục 5.11 |
+| `api.events.track({ events })` | `POST /v1/events` (BE9) | — (gửi token nếu có) | mục 5.12 |
 
 Ví dụ chạy được với đúng các hàm này: [`tools/login-test/app.js`](../tools/login-test/app.js) (tài
 khoản) và [`tools/login-test/sync.js`](../tools/login-test/sync.js) (sổ offline: hàng đợi, đẩy, kéo,
@@ -412,7 +422,7 @@ Luật:
   `sale` — họ bán cho mình (**mình nợ họ**). `balance` đã cộng sẵn thành `theyOwe` / `youOwe`.
 - Cùng cơ chế cho vựa ↔ doanh nghiệp.
 
-### 5.8 Đơn hàng, đặt lịch, thông báo — BE5 (hợp đồng đã có, chưa phát hành)
+### 5.8 Đơn hàng, đặt lịch, thông báo — BE5 (`v0.11.0`, đã nghiệm thu trên staging 04/10)
 
 Đơn **cần mạng** (id do server sinh, không nằm trong sổ offline) và chỉ gửi được cho tổ chức **đã
 kết nối đúng chiều** — chưa thì `LINK_REQUIRED` ("Cần kết nối trước"). Danh sách tổ chức chọn được
@@ -457,7 +467,7 @@ về sau `member.*`, `plan.activated`), `from` (tổ chức gây ra việc), `or
 `pickupAt` hoặc `linkId`. Gặp `kind` chưa biết vẽ thì bỏ qua. Thông báo là của **tổ chức** — mọi
 thành viên cùng thấy, cùng trạng thái đã đọc.
 
-### 5.9 Nhân viên, chi nhánh, báo cáo — BE7 (hợp đồng đã có, chưa phát hành)
+### 5.9 Nhân viên, chi nhánh, báo cáo — BE7 (`v0.11.0`, chưa nghiệm thu trên staging)
 
 **Chủ tạo tài khoản cho người của mình** — người cân / quản lý không tự đăng ký, không cần OTP:
 
@@ -485,7 +495,7 @@ const report = await api.reports.summary({ from, to, branchId }); // report:view
   `{ count, netWeight, amount, paid, debt }`. Người gắn chi nhánh chỉ thấy chi nhánh mình. Nông dân
   cũng gọi được: số là phiếu các vựa ghi về mình, nhìn từ phía mình (`sale` = mình bán).
 
-### 5.10 Gói, chuyển khoản, hồ sơ, xoá tài khoản — BE6 (hợp đồng đã có, chưa phát hành)
+### 5.10 Gói, chuyển khoản, hồ sơ, xoá tài khoản — BE6 (`v0.11.0`, chưa nghiệm thu — staging chưa đặt bí mật webhook / role đặc quyền)
 
 **Màn Gói** — chỉ hiện với người có `billing:manage`; nông dân không có màn này:
 
@@ -519,7 +529,7 @@ chủ duy nhất, hồ sơ, rồi tài khoản đăng nhập. Hỏi xác nhận 
 phiếu). `ORG_HAS_MEMBERS` → "Gỡ nhân viên trước". Xong thì xoá sổ, hàng đợi, ảnh trong IndexedDB
 và đăng xuất — máy có thể là máy mượn. Nhân viên xoá tài khoản chỉ rời tổ chức.
 
-### 5.11 Ảnh chứng từ — BE8 (hợp đồng đã có, chưa phát hành)
+### 5.11 Ảnh chứng từ — BE8 (`v0.11.0`, chưa nghiệm thu — staging chưa có bucket `attachments`)
 
 Ảnh đi thẳng giữa app và Supabase Storage; API chỉ ký URL. App không cầm khoá Storage nào.
 
@@ -538,7 +548,7 @@ const { url, expiresAt } = await api.attachments.url(id);  // hết hạn sau 10
 - Người cân chi nhánh A không xem được ảnh phiếu chi nhánh B — cùng phạm vi như sổ.
 - Xoá tài khoản xoá cả thư mục ảnh của tổ chức (mục 5.10).
 
-### 5.12 Đo lường — BE9 (hợp đồng đã có, chưa phát hành)
+### 5.12 Đo lường — BE9 (`v0.11.0`, chưa nghiệm thu trên staging)
 
 `track(name, props)` ghi vào hàng đợi riêng trong IndexedDB (giống hàng đợi op, nhưng mất thì thôi),
 xả lô ≤ 50 qua `api.events.track({ events })` khi có mạng — kể cả lúc chưa đăng nhập.

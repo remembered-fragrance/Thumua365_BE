@@ -1,7 +1,7 @@
 {
   "name": "thumua365-be",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.11.0",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -26,6 +26,7 @@
     "verify": "npm run lint && npm run security:check && npm run build:packages && npm run typecheck && npm run boundaries && npm run test && npm run build -w @mambo/api",
     "smoke:me": "node scripts/smoke-me.mjs",
     "smoke:links": "node scripts/smoke-links.mjs",
+    "smoke:orders": "node scripts/smoke-orders.mjs",
     "login-test": "node tools/login-test/serve.mjs",
     "security:check": "node scripts/security-check.mjs"
   },
