@@ -3,7 +3,13 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
-## 0.10.0 — chưa phát hành (BE9)
+## 0.11.0 — 07/10/2026 (BE10 · phát hành chung BE5 → BE10)
+
+Bản phát hành đầu tiên sau `0.5.0`. Gồm mọi thay đổi của 0.6.0 → 0.10.0 dưới đây — các số đó chưa từng
+được gắn tag riêng (BE5 → BE10 vào `master` cùng lúc, 04/10). BE10 không đổi hợp đồng: API production
+từ chối khởi động khi thiếu bí mật, backup, rà lộ khoá — không đụng tới gói này.
+
+## 0.10.0 — phát hành trong 0.11.0 (BE9)
 
 - `routes.eventsTrack` — `POST /v1/events` (công khai, `optionalAuth`), thân `{ events: TrackedEvent[] }`
   (≤ 50) → `{ accepted, dropped }`. Sự kiện sai bị bỏ riêng, không 422 cả lô.
@@ -14,7 +20,7 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
 - `routes.adminFunnel` — `GET /v1/admin/funnel?from=&to=` (quản trị viên) → `AdminFunnel`.
 - `@mambo/sdk`: `events.track`; route có `optionalAuth` gửi token nếu `getAccessToken` trả được.
 
-## 0.9.0 — chưa phát hành (BE8)
+## 0.9.0 — phát hành trong 0.11.0 (BE8)
 
 - `routes.attachmentsUploadUrl` — `POST /v1/attachments/upload-url` (`receipt:create`), thân
   `AttachmentUploadInput { attachmentId, contentType: image/jpeg|png|webp, size ≤ 3MB }` →
@@ -24,7 +30,7 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
 - Hằng số `ATTACHMENT_MAX_BYTES`, `ATTACHMENT_TYPES`.
 - `@mambo/sdk`: `attachments.uploadUrl/upload/url` — `upload(id, blob)` xin URL, PUT, coi 409 là xong.
 
-## 0.8.0 — chưa phát hành (BE6)
+## 0.8.0 — phát hành trong 0.11.0 (BE6)
 
 - `RouteAuth` thêm `'admin'`: JWT của tài khoản có id trong `ADMIN_USER_IDS` của API; người khác → 403.
 - `routes.meProfile` · `meProfileUpdate` — `GET/PATCH /v1/me/profile` (`MeProfile`, `MeProfilePatch
@@ -45,7 +51,7 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
   `POST /v1/admin/users/reset-password`. Cả hai bắt buộc `approvedBy`, ghi `admin_access_log`.
 - `@mambo/sdk`: `account.profile/updateProfile/claimReferral/delete`, `billing.subscription/intents/createIntent`.
 
-## 0.7.0 — chưa phát hành (BE7)
+## 0.7.0 — phát hành trong 0.11.0 (BE7)
 
 - `routes.orgMembersList` — `GET /v1/org/members` (`staff:manage`) → `OrgMembersList { members: OrgMember[] }`.
 - `routes.orgMembersCreate` — `POST /v1/org/members` (`staff:manage`), thân `OrgMemberCreateInput
@@ -64,7 +70,7 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
 - Kiểu mới: `IdParams`, `BranchRef`, `MemberStatus`, `AssignableRole`.
 - `@mambo/sdk`: `org.members.list/create/update/remove`, `org.branches.list/create/update`, `reports.summary`.
 
-## 0.6.0 — chưa phát hành (BE5)
+## 0.6.0 — phát hành trong 0.11.0 (BE5)
 
 - `routes.ordersList` — `GET /v1/orders?role=&status=&cursor=&limit=` → `OrdersListResult
   { orders: OrderSummary[], cursor }`, mới tạo trước. Cần `order:create` hoặc `order:respond`.

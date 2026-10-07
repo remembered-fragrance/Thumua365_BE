@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
 | Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
 | Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 → BE10 đã merge vào `master` (04/10)** — gom từ `be/nestjs-be10`, staging đã migrate, **chưa nghiệm thu từng bước, chưa phát hành `0.6.0`** · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 → BE10 đã merge vào `master` (04/10), phát hành chung `v0.11.0` (07/10)** — gom từ `be/nestjs-be10`, staging đã migrate; **BE5 đã nghiệm thu, BE6 → BE9 chưa** · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
 
 ---
 
@@ -830,7 +830,7 @@ từ `master` của monorepo (đã gồm BE4 chưa merge).
 - [ ] Kênh email (nhà cung cấp + pg-boss).
 - [x] Lên staging sau BE4; nghiệm thu — bằng `npm run smoke:orders` (04/10, xem dưới) thay trang thử.
 - [ ] Một test Playwright chạy luồng R2 trong CI (cần app web đã có màn đơn).
-- [ ] Phát hành `0.6.0`.
+- [x] Phát hành — chung trong `v0.11.0` (07/10, xem mục "Gom BE5 → BE10 vào `master`").
 
 ### Gom về repo BE · nhánh `be5/don-hang` · 03/10/2026
 
@@ -1169,7 +1169,22 @@ khẩu cho nhân viên; xoá tài khoản xoá luôn đơn và kết nối với
 - [x] BE5: luồng R2 bằng `smoke:orders` — ĐẠT (04/10, xem mục BE5); `smoke:links` chạy lại ĐẠT.
 - [ ] Nghiệm thu BE6 (webhook với bí mật thử), BE7 (tạo nhân viên thật), BE8 (bucket `attachments`), BE9
       (`/metrics`) — xem "Còn lại" của từng bước và `ops/PRODUCTION.md`.
-- [ ] Phát hành `0.6.0` sau khi nghiệm thu (CHANGELOG đang ghi "chưa phát hành").
+- [x] Phát hành — `v0.11.0` (xem dưới).
+
+### Phát hành `v0.11.0` · 07/10/2026
+
+Quyết định của Tài (07/10): gắn tag "hoàn chỉnh tới BE10" ngay, **trước** khi nghiệm thu BE6 → BE9. Một bản gộp,
+không gắn tag riêng cho từng bước: lúc BE5 → BE10 vào `master` mọi gói vẫn ghi `0.5.0`, mà `release.yml` dừng
+khi tag lệch version. Số `0.11.0` theo quy ước BEn = `v0.(n+1).0` (BE4 = `v0.5.0`) và trùng thứ tự CHANGELOG
+(BE5 0.6 · BE7 0.7 · BE6 0.8 · BE8 0.9 · BE9 0.10 · BE10 0.11). CHANGELOG giữ các mục 0.6.0 → 0.10.0, ghi "phát
+hành trong 0.11.0".
+
+- Nâng mọi gói lên `0.11.0` (như `7aa81eb` của 0.5.0): `package.json` ×5, `package-lock.json`, `openapi.json`
+  sinh lại; URL cài gói ở `README.md`, `docs/FRONTEND.md` trỏ `v0.11.0`.
+- `docs/FRONTEND.md`: đầu trang theo `v0.11.0`; bảng "Các hàm SDK" thêm `orders`, `notifications`, `org`,
+  `reports`, `account`, `billing`, `attachments`, `events` (trước chỉ tới BE4); mục 5.8 → 5.12 ghi đã / chưa
+  nghiệm thu thay "chưa phát hành".
+- Tag `v0.11.0` gắn trên `master` SAU khi PR phát hành merge — `release.yml` đóng gói ba `.tgz` vào GitHub Release.
 
 ---
 
