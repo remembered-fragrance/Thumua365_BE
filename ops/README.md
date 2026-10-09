@@ -37,7 +37,7 @@ production (gói trả phí), không bật cho staging.
 ## Dashboard
 
 `grafana/thumua365-api.json` — Grafana → Dashboards → Import → chọn nguồn Prometheus. Ngưỡng p95
-300ms vẽ sẵn (một trong "bốn số phải giữ trong tầm" của MEMORY).
+300ms vẽ sẵn (một trong "ba số phải giữ trong tầm" của MEMORY).
 
 ## Phễu đo lường
 

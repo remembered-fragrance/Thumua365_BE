@@ -1188,14 +1188,31 @@ hành trong 0.11.0".
 
 ---
 
-## Bốn số phải giữ trong tầm
+## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
+
+Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
+đếm dòng), chỉ áp cho `packages/*/src` trong khi `apps/api` đã có file 430 dòng (`sync/sync-push.service.ts`) và 368
+dòng (`links/links.service.ts`), lại đếm cả dòng trống, comment và dòng do formatter tách. Từ nay việc tách file do
+review quyết theo trách nhiệm của file.
+
+- Bảng chỉ số dưới đây còn ba số; số đo cũ ghi ở chú thích dưới bảng. Mục BE5 (tách `route-def.ts`,
+  `sync-records-core.ts` để file ≤ 300 dòng) giữ nguyên như nhật ký.
+- `ops/README.md`: "bốn số" → "ba số".
+- Repo frontend bỏ luật cùng loại cùng ngày, kèm bước kiểm trong `scripts/check-rules.mjs`
+  (mambo365_deploymentphase#7).
+
+---
+
+## Ba số phải giữ trong tầm
 
 | Chỉ số | Ngưỡng | Cuối BE0 |
 |---|---|---|
 | Phủ test `core` | ≥ 80% dòng | **97,7%** |
 | Vi phạm ranh giới | 0 | **0** |
-| File dài nhất trong `packages/*/src` | ≤ 300 dòng | 285 (`sheetImport.ts`, bê từ frontend) · BE3: 300 (`contracts/src/sync-records.ts`) |
 | Thời gian phản hồi p95 API | ≤ 300ms ở staging | `/v1/health` ~300ms từ máy dev (gồm mạng VN → Singapore); đo p95 thật từ BE9 |
+
+Đã bỏ 09/10/2026: "File dài nhất trong `packages/*/src`" (≤ 300 dòng), đo được cuối BE0 285 (`sheetImport.ts`),
+BE3 300 (`contracts/src/sync-records.ts`). Xem mục "Bỏ chỉ số 300 dòng mỗi file" ở trên.
 
 ---
 
