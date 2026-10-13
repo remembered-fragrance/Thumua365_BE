@@ -92,13 +92,13 @@ export class AccountDeletionService {
       return { owned, left: mine.filter((m) => m.role !== 'owner').map((m) => m.organizationId), busy: busy.map((b) => b.organizationId) };
     });
     if (plan.left.length > 0) {
-      throw new ApiException('VALIDATION_FAILED', 'Bác còn làm cho tổ chức khác — nhờ chủ gỡ bác ra trước rồi mới xoá tài khoản', {
+      throw new ApiException('VALIDATION_FAILED', 'Bạn còn làm cho tổ chức khác — nhờ chủ gỡ bạn ra trước rồi mới xoá tài khoản', {
         reason: 'STILL_MEMBER',
         organizations: plan.left,
       });
     }
     if (plan.busy.length > 0) {
-      throw new ApiException('VALIDATION_FAILED', 'Tổ chức của bác còn người đang làm — gỡ họ trước rồi xoá tài khoản', {
+      throw new ApiException('VALIDATION_FAILED', 'Tổ chức của bạn còn người đang làm — gỡ họ trước rồi xoá tài khoản', {
         reason: 'ORG_HAS_MEMBERS',
         organizations: plan.busy,
       });

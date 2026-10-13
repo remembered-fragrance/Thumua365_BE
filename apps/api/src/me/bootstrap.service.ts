@@ -76,7 +76,7 @@ const uniqueViolation = (err: unknown): ApiException | null => {
 };
 
 /**
- * Bước "Bác là ai?" — hồ sơ + tổ chức + chủ + (vựa, DN) gói dùng thử và mặt hàng mặc định,
+ * Bước "Bạn là ai?" — hồ sơ + tổ chức + chủ + (vựa, DN) gói dùng thử và mặt hàng mặc định,
  * MỘT transaction.
  *
  * Idempotent: người đã thuộc một tổ chức gọi lại thì không tạo gì thêm. Khoá

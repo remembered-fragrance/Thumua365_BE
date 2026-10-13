@@ -196,7 +196,7 @@ const main = async () => {
       const f = await signIn(farmerId, farmerPassword);
       const me = await clientFor(f.token, null).me();
       const m = me.memberships.find((x) => x.organization.type === 'farmer');
-      if (!m) throw new Error('tài khoản này chưa có tổ chức nông dân — đăng ký, chọn "Nông dân" ở bước "Bác là ai?"');
+      if (!m) throw new Error('tài khoản này chưa có tổ chức nông dân — đăng ký, chọn "Nông dân" ở bước "Bạn là ai?"');
       farmer = { ...f, org: m.organization, api: clientFor(f.token, m.organization.id) };
       pass('Nông dân đăng nhập', `${m.organization.name}`);
     } catch (err) {

@@ -255,10 +255,10 @@ const { data, error } = await supabase.auth.signUp({
 });
 // data.user.identities rỗng = số đã có tài khoản (Supabase không báo lỗi để khỏi lộ) → "Số này đã có tài khoản".
 // data.session phải có ngay (staging đã tắt "Confirm email"). Không có session = lỗi cấu hình, báo backend.
-const me = await api.me();                     // memberships: [] → sang bước "Bác là ai?"
+const me = await api.me();                     // memberships: [] → sang bước "Bạn là ai?"
 ```
 
-Bước **"Bác là ai?"**:
+Bước **"Bạn là ai?"**:
 
 ```ts
 const me = await api.meBootstrap({
@@ -280,7 +280,7 @@ const me = await api.meBootstrap({
 - Tài khoản cũ đăng ký bằng email thật mà không gửi `phone`: server lấy số trong `user_metadata.phone`.
 - Tên đăng nhập hoặc số đã có người dùng → `VALIDATION_FAILED`, `details.fields.username` /
   `details.fields.phone`.
-- **Xoá sạch form "Bác là ai?" khi đăng xuất và sau khi tạo xong.** Lỗi này đã gặp thật khi
+- **Xoá sạch form "Bạn là ai?" khi đăng xuất và sau khi tạo xong.** Lỗi này đã gặp thật khi
   nghiệm thu: form giữ lựa chọn của người trước, nên tài khoản sau tạo nhầm loại tổ chức.
 
 ### 5.2 Đăng nhập bằng một ô
@@ -318,7 +318,7 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
 
 | Tình huống | Làm gì |
 |---|---|
-| `memberships` rỗng | Màn "Bác là ai?" |
+| `memberships` rỗng | Màn "Bạn là ai?" |
 | Một tổ chức | Chọn luôn |
 | Nhiều tổ chức | Màn chọn tổ chức; nhớ lựa chọn theo người dùng |
 | Tổ chức đã nhớ không còn trong `memberships` | Bỏ lựa chọn cũ, chọn lại |
@@ -500,7 +500,7 @@ const { members } = await api.reports.members({ from, to });   // v0.13.0 — ch
 ```
 
 - Người được tạo đăng nhập bằng **số điện thoại + mật khẩu chủ đặt** (màn đăng nhập một ô như mọi
-  người), rồi tự đổi mật khẩu. App của họ thấy ngay tổ chức trong `/v1/me` — **không** hiện "Bác là
+  người), rồi tự đổi mật khẩu. App của họ thấy ngay tổ chức trong `/v1/me` — **không** hiện "Bạn là
   ai?" (đã có membership).
 - Lỗi khi tạo: `details.reason` `ACCOUNT_EXISTS` → "Số này đã có tài khoản ở nơi khác";
   `ALREADY_MEMBER` → "Người này đã ở trong tổ chức". Số từng bị gỡ khỏi tổ chức → được bật lại với
@@ -511,7 +511,7 @@ const { members } = await api.reports.members({ from, to });   // v0.13.0 — ch
   thấy ô sửa tên).
 - **Người làm không tự rời** (`v0.13.0`): không có nút "Rời khỏi vựa / doanh nghiệp"; chỉ chủ gỡ ra ở màn
   Nhân viên. Xoá tài khoản cũng không phải đường rời: còn trong tổ chức → 422 `STILL_MEMBER` ("Nhờ chủ gỡ
-  bác ra trước"). Bị gỡ rồi thì `/v1/me` hết membership → về "Bác là ai?", xoá tài khoản được.
+  bạn ra trước"). Bị gỡ rồi thì `/v1/me` hết membership → về "Bạn là ai?", xoá tài khoản được.
 - Việc của từng người (`v0.13.0`, chỉ chủ): mỗi người `receipts` (như `figures` của báo cáo tổng, chỉ
   phiếu người đó lập), `payments { count, amount }` (lần trả người đó ghi), `lastActiveAt`. Thứ tự sẵn:
   chủ → người đang làm → người đã gỡ (chỉ khi có việc trong khoảng).
@@ -588,7 +588,7 @@ track('receipt_created', { kind: 'purchase', lines: 2, offline: !navigator.onLin
   lúc biên dịch. Thuộc tính lạ (số tiền, SĐT, tên) làm server **bỏ** sự kiện (`dropped`).
 - KHÔNG gửi `plan_activated`, `order_fulfilled`, `link_accepted` — server tự bắn.
 - Đã đăng nhập: SDK gửi kèm token + tổ chức (route có `optionalAuth`), server gắn tổ chức và
-  `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bác là ai?").
+  `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bạn là ai?").
 - `dropped > 0` là lỗi của app (sai danh mục) — xoá khỏi hàng đợi, ghi Sentry, không gửi lại.
 
 ### 5.7 Đăng xuất
@@ -770,7 +770,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 
 | Bước | Backend mở ra | Frontend làm | Xong khi (nghiệm thu chung) |
 |---|---|---|---|
-| **BE0–BE2 ✅** | `v0.3.0`: `me`, `meBootstrap`, `resolveIdentifier`, `discoverLinks`, ma trận quyền, mã lỗi | Mục 2 và 5: cài gói, client, đăng ký, "Bác là ai?", đăng nhập một ô, chọn tổ chức, chọn vỏ, màn OTP (giao diện) | Đăng ký thật trên staging bằng cả ba loại tổ chức, đăng nhập lại trên máy khác |
+| **BE0–BE2 ✅** | `v0.3.0`: `me`, `meBootstrap`, `resolveIdentifier`, `discoverLinks`, ma trận quyền, mã lỗi | Mục 2 và 5: cài gói, client, đăng ký, "Bạn là ai?", đăng nhập một ô, chọn tổ chức, chọn vỏ, màn OTP (giao diện) | Đăng ký thật trên staging bằng cả ba loại tổ chức, đăng nhập lại trên máy khác |
 | **BE3 ✅** | `v0.4.0`: `sync.push` · `sync.pull`, hình dạng 8 loại bản ghi, quyền từng op | Mục 7: sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức | Hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → sau khi đồng bộ khớp từng đồng |
 | **BE4 ✅** | `v0.5.0` (mục 5.6): `GET /v1/links` · `POST /v1/links/invite { partnerKind, partnerId }` (trả `inviteCode`) · `POST /v1/links/claim { code }` · `POST /v1/links/:id/revoke` · `GET /v1/linked/receipts?orgId=&cursor=&limit=` · `GET /v1/linked/balance`. OTP (`discover`, `accept`) tạm ẩn | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); ô "Nhập mã kết nối"; nút "Mời kết nối" hiện mã trên trang nông hộ của vựa. Không làm màn OTP | Vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, nhập mã → thấy đúng phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền xem ngay |
 | **BE5** 🟡 | Hợp đồng đã có (mục 5.8): `api.orders.*` (list/create/get/accept/reject/schedule/cancel, kèm `version`) · `api.notifications.list/read` · `orderId` trong op phiếu/nháp | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |

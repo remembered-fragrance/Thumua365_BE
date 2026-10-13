@@ -66,7 +66,7 @@ export const Me = z.object({
 export type Me = z.infer<typeof Me>;
 
 /**
- * `POST /v1/me/bootstrap` — bước "Bác là ai?" ngay sau khi đăng ký (KH §6).
+ * `POST /v1/me/bootstrap` — bước "Bạn là ai?" ngay sau khi đăng ký (KH §6).
  *
  * Tạo hồ sơ + tổ chức + membership `owner` (+ gói dùng thử 30 ngày cho vựa và
  * doanh nghiệp) trong MỘT transaction. Idempotent: người đã có tổ chức gọi lại

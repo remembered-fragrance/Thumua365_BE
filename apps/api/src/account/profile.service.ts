@@ -20,7 +20,7 @@ const toProfile = (row: Profile): MeProfile => ({
   referred: row.referredBy !== null,
 });
 
-const noProfile = (): ApiException => new ApiException('NOT_FOUND', 'Chưa có hồ sơ — làm bước "Bác là ai?" trước');
+const noProfile = (): ApiException => new ApiException('NOT_FOUND', 'Chưa có hồ sơ — làm bước "Bạn là ai?" trước');
 
 @Injectable()
 export class ProfileService {

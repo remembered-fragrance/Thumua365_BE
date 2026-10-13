@@ -437,7 +437,7 @@ tắt giống vậy (ghi vào bảng kiểm BE10).
 ### Công cụ nghiệm thu — `npm run login-test`
 
 Trang thử nâng thành đủ luồng tài khoản của frontend: đăng ký (email nội bộ từ số, như
-`data/auth.ts`) → "Bác là ai?" (`sdk.meBootstrap`) → chọn tổ chức (header
+`data/auth.ts`) → "Bạn là ai?" (`sdk.meBootstrap`) → chọn tổ chức (header
 `X-Organization-Id`) → OTP (`updateUser({ phone })` → `verifyOtp({ type: 'phone_change' })`)
 → "Dò kết nối" (`sdk.discoverLinks`); đăng nhập một ô qua `sdk.resolveIdentifier`. Dùng
 `@mambo/core/identifier` qua import map. Máy chủ tĩnh vẫn chặn `../` tới `apps/api/.env`.
@@ -457,7 +457,7 @@ Mỗi tài khoản đúng một tổ chức; mọi dòng audit khớp người t
 
 **Lỗi bắt được khi nghiệm thu — ở trang thử, không ở API:** lần đầu ra hai doanh nghiệp,
 không có vựa. Audit ghi `"type": "enterprise"` ⇒ API lưu đúng cái được gửi. Nguyên nhân: form
-"Bác là ai?" giữ lựa chọn cũ sau khi đăng xuất — tài khoản sau "thừa hưởng" loại tổ chức của
+"Bạn là ai?" giữ lựa chọn cũ sau khi đăng xuất — tài khoản sau "thừa hưởng" loại tổ chức của
 người trước. Sửa: xoá form khi đăng xuất và sau khi tạo xong; thông báo ghi rõ loại vừa tạo.
 **Frontend thật cần làm y như vậy.**
 
@@ -900,7 +900,7 @@ chủ: tổng = hai chi nhánh cộng lại; chi nhánh thứ 3 với gói 2 →
 ### Quyết định
 
 1. **Chủ tạo tài khoản cho nhân viên, không mời.** Bảng có sẵn trạng thái `invited` nhưng mời cần
-   người kia tự đăng ký — mà "Bác là ai?" luôn tạo một tổ chức mới — và cần OTP (chưa có). Cách tạo
+   người kia tự đăng ký — mà "Bạn là ai?" luôn tạo một tổ chức mới — và cần OTP (chưa có). Cách tạo
    tài khoản giống phần mềm bán hàng phổ biến; người cân chỉ cần SĐT + mật khẩu.
 2. **Số đã có tài khoản nơi khác → `ACCOUNT_EXISTS`.** Một người làm cho hai nơi: để sau (luồng mời).
    Người từng bị gỡ khỏi chính tổ chức → bật lại, **không** đổi mật khẩu của họ.

@@ -128,7 +128,7 @@ export const createClient = (options: ClientOptions) => {
   return {
     health: () => call('health'),
     me: () => call('me'),
-    /** Ngay sau `supabase.auth.signUp` — bước "Bác là ai?". Gọi lại an toàn. */
+    /** Ngay sau `supabase.auth.signUp` — bước "Bạn là ai?". Gọi lại an toàn. */
     meBootstrap: (input: RouteBody<'meBootstrap'>) => send('meBootstrap', input),
     /** Trước `signInWithPassword`. Luôn trả một email — sai thì báo MỘT câu chung. */
     resolveIdentifier: (input: RouteBody<'resolveIdentifier'>) => send('resolveIdentifier', input),
