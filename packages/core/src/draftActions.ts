@@ -78,6 +78,7 @@ export const completeDraft = (
     payments: [],
     note: draft.note,
     attachmentIds: draft.attachmentIds,
+    orderId: draft.orderId,
   });
 
   return { data: deleteDraft(result.data, draftId), transaction: result.transaction };

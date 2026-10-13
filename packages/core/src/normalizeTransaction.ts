@@ -130,6 +130,7 @@ export const normalizeTransaction = (raw: Record<string, unknown>): Transaction 
     attachmentIds: Array.isArray(raw.attachmentIds)
       ? (raw.attachmentIds as unknown[]).map(String)
       : undefined,
+    orderId: raw.orderId ? String(raw.orderId) : undefined,
     syncState: raw.syncState === 'pending' || raw.syncState === 'conflict' ? raw.syncState : undefined,
   } satisfies Omit<Transaction, 'lines'>;
 
