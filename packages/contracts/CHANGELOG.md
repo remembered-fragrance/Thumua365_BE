@@ -12,6 +12,12 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
   `NOT_A_MEMBER`. Chủ thêm lại cùng số thì bật lại tài khoản cũ như sau khi gỡ.
 - `@mambo/sdk`: `org.update(patch)`, `org.leave()`.
 
+## 0.11.1 — 13/10/2026
+
+Không đổi hợp đồng. `@mambo/core`: `upsertDraft` lưu đè nháp đã có thì giữ `createdAt` của bản cũ (trước đây
+lấy theo input, thiếu thì là giờ hiện tại ⇒ mỗi lần lưu nháp "ngày tạo" nhảy về hôm nay). Bản sửa đã có ở
+`src/core` của repo frontend — đưa về đây để frontend bỏ bản chép, cài `@mambo/core`.
+
 ## 0.11.0 — 07/10/2026 (BE10 · phát hành chung BE5 → BE10)
 
 Bản phát hành đầu tiên sau `0.5.0`. Gồm mọi thay đổi của 0.6.0 → 0.10.0 dưới đây — các số đó chưa từng
