@@ -28,8 +28,8 @@ release của repo này.
 
 - [ ] `prisma migrate deploy` lên staging — migration của từng bước (BE5, BE7, BE6), bước nào lên bước đó. Chạy TRƯỚC khi
       merge/deploy code mới (migration chỉ thêm, image cũ vẫn chạy).
-- [ ] Đặt mật khẩu role `api_privileged` (như `npm run db:role-password -w @mambo/api` làm cho
-      `api_service`), điền `PRIVILEGED_DATABASE_URL` (user `api_privileged.<ref>`, cổng 6543).
+- [ ] Đặt mật khẩu role `api_privileged`: `npm run db:role-password -w @mambo/api -- --role api_privileged`
+      → `PRIVILEGED_DATABASE_URL` (user `api_privileged.<ref>`, cổng 6543) trong `apps/api/.env`, chép sang Render.
 - [ ] Render env: `BANK_WEBHOOK_SECRET` (≥ 24 ký tự ngẫu nhiên), `ADMIN_USER_IDS` (id tài khoản của
       người quản trị), `METRICS_TOKEN`, `CORS_ORIGINS` thêm domain preview của app web.
 - [ ] Supabase Storage: bucket `attachments` **riêng tư**, giới hạn 3MB, chỉ
@@ -48,9 +48,12 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 
 - [ ] Tạo bucket ở R2 / B2 (nhà cung cấp KHÁC Supabase), khoá truy cập chỉ ghi / đọc bucket đó.
 - [ ] **Role riêng chỉ đọc cho sao lưu**, đừng dùng `postgres`: chuỗi kết nối nằm trong GitHub secrets, mà
-      `pg_dump` chỉ cần đọc. Tạo role (vd. `backup_reader`: `LOGIN`, `BYPASSRLS`, `USAGE` + `SELECT` mọi bảng /
-      sequence của `public`, `SELECT` trên `auth.users`, `auth.identities`), chạy thử `backup.sh` bằng nó rồi mới
-      đặt secret. Supabase không cho tạo role như vậy thì mới dùng `postgres` — ghi vào MEMORY là chấp nhận rủi ro.
+      `pg_dump` chỉ cần đọc. Migration `20261013000000_be10_backup_reader` tạo `backup_reader` (`NOLOGIN`,
+      `BYPASSRLS`, chỉ `SELECT` bảng / sequence của `public`, kể cả bảng tạo sau; `SELECT` trên `auth.users`,
+      `auth.identities` nếu Supabase cho grant). Đặt mật khẩu: `npm run db:role-password -w @mambo/api -- --role
+      backup_reader` → `BACKUP_DATABASE_URL` (Session pooler 5432). Xem log `prisma migrate deploy`: có notice
+      "không grant được SELECT trên auth.users" thì phần dump `auth` cần role khác — ghi MEMORY.
+      Đã thử trên Postgres máy dev (13/10): dump `public` được; `insert` / `truncate` bị từ chối.
 - [ ] GitHub secrets: `BACKUP_DATABASE_URL` (role ở mục trên, của **production**, Session pooler 5432),
       `BACKUP_PASSPHRASE` (≥ 32 ký tự — **cất thêm một bản ngoài GitHub**), `BACKUP_S3_BUCKET`,
       `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`.
