@@ -162,7 +162,7 @@ export type AdminDoneResult = z.infer<typeof AdminDoneResult>;
 export const AccountDeleteResult = z.object({
   /** Tổ chức bị xoá theo (mình là chủ, không còn ai khác). */
   deletedOrganizations: z.array(z.uuid()),
-  /** Tổ chức mình chỉ rời đi (không phải chủ). */
+  /** @deprecated 0.13.0 — luôn rỗng: còn làm thuê ở đâu thì 422 `STILL_MEMBER`, chủ gỡ ra trước. */
   leftOrganizations: z.array(z.uuid()),
 });
 export type AccountDeleteResult = z.infer<typeof AccountDeleteResult>;

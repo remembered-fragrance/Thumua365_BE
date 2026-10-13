@@ -9,6 +9,7 @@
 import {
   ErrorBody,
   OrgBranch,
+  MemberActivityReport,
   OrgBranchesList,
   OrgMember,
   OrgMembersList,
@@ -250,7 +251,7 @@ describe('người trong tổ chức', () => {
   });
 });
 
-describe('tổ chức: đổi tên, tự rời', () => {
+describe('tổ chức: đổi tên, không tự rời', () => {
   it('chỉ chủ đổi được tên; tên rỗng → 422; ghi nhật ký', async () => {
     const owner = await as(dnOwner, dn);
     const manager = OrgMember.parse(
@@ -275,35 +276,82 @@ describe('tổ chức: đổi tên, tự rời', () => {
     expect(audit.rows).toEqual([{ before: { name: 'Công ty Cao su Bình Long' }, after: { name: 'Cao su Bình Long 2' } }]);
   });
 
-  it('người cân tự rời → mất quyền ngay; chủ không rời được; chủ thêm lại được', async () => {
+  it('🔴 không ai tự rời được — người cân vẫn làm tiếp; chủ gỡ ra mới mất quyền', async () => {
     const owner = await as(vuaOwner, vua);
     const staff = OrgMember.parse(
       (await owner.post('/v1/org/members', { name: 'Người cân', phone: '0901 444 444', password: 'matkhau-12', role: 'staff' }).expect(200)).body,
     );
     const staffApi = await as(staff.userId, vua);
-    await staffApi.get('/v1/orders').expect(200);
 
-    const left = OrgMember.parse((await staffApi.post('/v1/org/leave').expect(200)).body);
-    expect(left).toMatchObject({ id: staff.id, userId: staff.userId, status: 'removed', isMe: true, name: 'Người cân' });
-    expect(ErrorBody.parse((await staffApi.get('/v1/orders').expect(403)).body).error.code).toBe('NOT_A_MEMBER');
-    await staffApi.post('/v1/org/leave').expect(403); // đã rời: không còn là thành viên
-
-    const denied = await owner.post('/v1/org/leave').expect(403);
+    const denied = await staffApi.post('/v1/org/leave').expect(403);
     expect(ErrorBody.parse(denied.body).error.code).toBe('FORBIDDEN');
-    const list = OrgMembersList.parse((await owner.get('/v1/org/members').expect(200)).body);
-    expect(list.members.map((x) => [x.role, x.status])).toEqual([
-      ['owner', 'active'],
-      ['staff', 'removed'],
+    await staffApi.get('/v1/orders').expect(200);
+    expect(ErrorBody.parse((await owner.post('/v1/org/leave').expect(403)).body).error.code).toBe('FORBIDDEN');
+
+    await owner.del(`/v1/org/members/${staff.id}`).expect(200);
+    expect(ErrorBody.parse((await staffApi.get('/v1/orders').expect(403)).body).error.code).toBe('NOT_A_MEMBER');
+
+    const { rows } = await admin.query(`select action from audit_log where organization_id = $1 and entity = 'membership' order by created_at`, [vua]);
+    expect(rows.map((r) => r.action)).toEqual(['member.added', 'member.removed']);
+  });
+});
+
+describe('việc của từng người', () => {
+  it('phiếu và lần trả theo người lập; người đã gỡ chỉ hiện khi có việc trong khoảng; chỉ chủ xem', async () => {
+    const owner = await as(dnOwner, dn);
+    const add = async (name: string, phone: string, role: 'manager' | 'staff') =>
+      OrgMember.parse((await owner.post('/v1/org/members', { name, phone, password: 'matkhau-12', role }).expect(200)).body);
+    const an = await add('An', '0901 111 111', 'staff');
+    const binh = await add('Bình', '0901 222 222', 'manager');
+    const cu = await add('Cũ', '0901 333 333', 'staff');
+    const xa = await add('Xa', '0901 555 555', 'staff');
+
+    const supplier = await createSupplier(dn, '0912 345 678', 'Cô Mai');
+    const receipt = async (by: string, date: string) => {
+      const id = newId();
+      await admin.query(
+        `insert into transactions (id, organization_id, created_by, date, kind, counterparty_id, supplier_name, lines)
+         values ($1, $2, $3, $4, 'purchase', $5, 'Cô Mai', $6)`,
+        [id, dn, by, date, supplier, JSON.stringify([rubberLine()])],
+      );
+      return id;
+    };
+    const pay = (by: string, txId: string, amount: number, date: string) =>
+      admin.query(`insert into payments (id, organization_id, transaction_id, created_by, date, amount) values ($1, $2, $3, $4, $5, $6)`, [
+        newId(),
+        dn,
+        txId,
+        by,
+        date,
+        amount,
+      ]);
+
+    const t1 = await receipt(an.userId, NOW);
+    await receipt(an.userId, NOW);
+    await pay(binh.userId, t1, 438_000, NOW); // Bình trả cho phiếu An lập
+    await receipt(cu.userId, NOW);
+    await receipt(xa.userId, '2025-01-01T00:00:00Z'); // ngoài khoảng
+    await owner.del(`/v1/org/members/${cu.id}`).expect(200);
+    await owner.del(`/v1/org/members/${xa.id}`).expect(200);
+
+    const report = MemberActivityReport.parse((await owner.get('/v1/reports/members', RANGE).expect(200)).body);
+    expect(report.members.map((a) => [a.member.name, a.member.role, a.member.status])).toEqual([
+      [null, 'owner', 'active'], // chủ tạo bằng tay trong test: chưa có hồ sơ
+      ['Bình', 'manager', 'active'],
+      ['An', 'staff', 'active'],
+      ['Cũ', 'staff', 'removed'],
     ]);
+    const byName = new Map(report.members.map((a) => [a.member.name, a]));
+    expect(byName.get('An')?.receipts.purchase).toEqual({ count: 2, netWeight: 60, amount: 2_876_000, paid: 438_000, debt: 2_438_000 });
+    expect(byName.get('An')?.payments).toEqual({ count: 0, amount: 0 });
+    expect(byName.get('Bình')?.receipts.purchase.count).toBe(0);
+    expect(byName.get('Bình')?.payments).toEqual({ count: 1, amount: 438_000 });
+    expect(byName.get('Bình')?.lastActiveAt).not.toBeNull();
+    expect(report.members[0]).toMatchObject({ lastActiveAt: null, member: { isMe: true } });
 
-    const back = OrgMember.parse(
-      (await owner.post('/v1/org/members', { name: 'Người cân', phone: '0901444444', password: 'matkhau-moi', role: 'staff' }).expect(200)).body,
-    );
-    expect(back).toMatchObject({ id: staff.id, status: 'active' });
-
-    const { rows } = await admin.query(`select action, actor_user_id from audit_log where organization_id = $1 and entity = 'membership' order by created_at`, [vua]);
-    expect(rows.map((r) => r.action)).toEqual(['member.added', 'member.left', 'member.added']);
-    expect(rows[1]?.actor_user_id).toBe(staff.userId);
+    const denied = await (await as(binh.userId, dn)).get('/v1/reports/members', RANGE).expect(403);
+    expect(ErrorBody.parse(denied.body).error.code).toBe('FORBIDDEN');
+    await owner.get('/v1/reports/members', { from: RANGE.to, to: RANGE.from }).expect(422);
   });
 });
 

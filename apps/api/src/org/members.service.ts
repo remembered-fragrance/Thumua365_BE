@@ -34,7 +34,7 @@ import type { Prisma } from '../generated/prisma/client';
 type CreateInput = z.output<typeof OrgMemberCreateInput>;
 type PatchInput = z.output<typeof OrgMemberPatch>;
 
-interface MemberRow {
+export interface MemberRow {
   id: string;
   user_id: string;
   role: string;
@@ -53,7 +53,7 @@ const ASSIGNABLE: Readonly<Record<OrgType, readonly AssignableRole[]>> = {
   enterprise: ['manager', 'staff'],
 };
 
-const toMember = (row: MemberRow, me: string): OrgMember => ({
+export const toMember = (row: MemberRow, me: string): OrgMember => ({
   id: row.id,
   userId: row.user_id,
   name: row.name,
@@ -221,24 +221,6 @@ export class MembersService {
         await audit(tx, user, m, 'member.removed', id, requestId, { role: row.role, branchId: row.branchId });
       }
       return findMember(tx, id, user.id);
-    });
-  }
-
-  /**
-   * Tự rời tổ chức đang làm việc: mất quyền ngay như bị gỡ. Chủ không rời được — tổ chức không thể
-   * không có chủ (xoá tài khoản thay). Đọc dòng của mình TRƯỚC khi rời: rời rồi thì `org_members()`
-   * không trả gì cho mình nữa.
-   */
-  leave(user: AuthUser, m: MembershipContext, requestId: string): Promise<OrgMember> {
-    if (m.role === 'owner') {
-      throw new ApiException('FORBIDDEN', 'Chủ không rời được tổ chức của mình — muốn thôi dùng thì xoá tài khoản');
-    }
-    return this.db.scoped({ userId: user.id, orgId: m.organizationId }, async (tx) => {
-      const row = (await tx.$queryRaw<MemberRow[]>`select * from public.org_members()`).find((r) => r.user_id === user.id);
-      if (!row) throw notFound();
-      await tx.membership.update({ where: { id: row.id }, data: { status: 'removed' }, select: { id: true } });
-      await audit(tx, user, m, 'member.left', row.id, requestId, { role: row.role, branchId: row.branch_id });
-      return { ...toMember(row, user.id), status: 'removed' };
     });
   }
 

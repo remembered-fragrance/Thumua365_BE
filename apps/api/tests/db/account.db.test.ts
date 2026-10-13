@@ -210,16 +210,23 @@ describe('xoá tài khoản', () => {
     expect(await count('transactions where organization_id = $1', [vua])).toBe(1);
   });
 
-  it('người làm thuê xoá tài khoản: chỉ rời tổ chức, sổ của chủ còn nguyên', async () => {
+  it('🔴 người làm thuê còn trong tổ chức → 422 STILL_MEMBER, không xoá gì; chủ gỡ ra rồi mới xoá được', async () => {
     const { owner, vua } = await fullTrader();
     const staff = newId();
     await addMember(vua, staff, 'staff');
     await profile(staff, 'Người cân', '+84907777777');
+
+    const blocked = await (await as(staff)).del('/v1/me').expect(422);
+    expect(ErrorBody.parse(blocked.body).error.details).toMatchObject({ reason: 'STILL_MEMBER', organizations: [vua] });
+    expect(auth.deleted).toEqual([]);
+    expect(await count(`memberships where user_id = $1 and status = 'active'`, [staff])).toBe(1);
+    expect(await count('profiles where id = $1', [staff])).toBe(1);
+
+    await admin.query(`update memberships set status = 'removed' where user_id = $1`, [staff]);
     const res = AccountDeleteResult.parse((await (await as(staff)).del('/v1/me').expect(200)).body);
-    expect(res).toEqual({ deletedOrganizations: [], leftOrganizations: [vua] });
+    expect(res).toEqual({ deletedOrganizations: [], leftOrganizations: [] });
     expect(storage.removed).toEqual([]);
     expect(auth.deleted).toEqual([staff]);
-    expect(await count(`memberships where user_id = $1 and status = 'removed'`, [staff])).toBe(1);
     expect(await count('transactions where organization_id = $1', [vua])).toBe(1);
     expect(await count('profiles where id = $1', [owner])).toBe(1);
   });

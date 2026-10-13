@@ -18,6 +18,7 @@ import type { AuthUser } from '../auth/auth-user';
 import { CurrentMembership } from '../auth/current-membership';
 import { CurrentUser } from '../auth/current-user';
 import type { MembershipContext } from '../auth/membership';
+import { ApiException } from '../common/api-exception';
 import { ContractParams } from '../common/contract-query';
 import { Endpoint } from '../common/endpoint';
 import { RequestId } from '../common/request-id';
@@ -47,9 +48,10 @@ export class OrgController {
     return this.organization.update(user, m, patch, requestId);
   }
 
+  /** Bỏ dần (0.13.0): người làm không tự rời được — chỉ chủ gỡ ra. Chủ thì không rời được tổ chức của mình. */
   @Endpoint(routes.orgLeave)
-  leave(@CurrentUser() user: AuthUser, @CurrentMembership() m: MembershipContext, @RequestId() requestId: string): Promise<OrgMember> {
-    return this.members.leave(user, m, requestId);
+  leave(): Promise<OrgMember> {
+    throw new ApiException('FORBIDDEN', 'Không tự rời tổ chức được — chỉ chủ gỡ người ra ở màn Nhân viên');
   }
 
   @Endpoint(routes.orgMembersList)

@@ -3,6 +3,20 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.13.0 — 14/10/2026 (người làm không tự rời · việc của từng người)
+
+- `routes.reportsMembers` — `GET /v1/reports/members?from&to` → `MemberActivityReport { from, to, members:
+  MemberActivity[] }`. Chỉ chủ (`staff:manage`). Mỗi người: `member` (`OrgMember`), `receipts` (`ReportFigures`
+  của phiếu người đó lập trong khoảng), `payments { count, amount }` (lần trả người đó ghi trong khoảng),
+  `lastActiveAt` (lần cuối lập phiếu / ghi lần trả, mọi thời điểm; `null` = chưa làm gì). Người đã gỡ chỉ có mặt
+  khi có việc trong khoảng. Khoảng như `reportsSummary`: `to` không gồm, tối đa 366 ngày.
+- `routes.orgLeave` — **bỏ dần**: luôn 403 `FORBIDDEN`. Người làm không tự rời được, chỉ chủ gỡ ra
+  (`orgMemberRemove`). Bỏ hẳn ở bản phát hành sau.
+- `routes.meDelete` — người còn làm thuê ở tổ chức nào (membership không phải chủ, chưa bị gỡ) → 422
+  `VALIDATION_FAILED`, `details.reason: 'STILL_MEMBER'`, `details.organizations`. Chủ gỡ ra rồi mới xoá được.
+  `AccountDeleteResult.leftOrganizations` từ nay luôn rỗng (bỏ dần).
+- `@mambo/sdk`: `reports.members({ from, to })`; `org.leave()` đánh dấu `@deprecated`.
+
 ## 0.12.0 — 13/10/2026 (màn Tài khoản theo vai)
 
 - `routes.orgUpdate` — `PATCH /v1/org`, thân `OrgPatch { name }` (1–120 ký tự) → `OrgProfile { id, type,

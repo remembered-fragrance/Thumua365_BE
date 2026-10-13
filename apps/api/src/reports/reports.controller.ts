@@ -1,4 +1,4 @@
-import { type ReportSummary, type ReportSummaryQuery, routes } from '@mambo/contracts';
+import { type MemberActivityQuery, type MemberActivityReport, type ReportSummary, type ReportSummaryQuery, routes } from '@mambo/contracts';
 import { Controller } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentMembership } from '../auth/current-membership';
@@ -23,5 +23,14 @@ export class ReportsController {
     @ContractQuery() query: ReportSummaryQuery,
   ): Promise<ReportSummary> {
     return this.reports.summary(user, m, query);
+  }
+
+  @Endpoint(routes.reportsMembers)
+  members(
+    @CurrentUser() user: AuthUser,
+    @CurrentMembership() m: MembershipContext,
+    @ContractQuery() query: MemberActivityQuery,
+  ): Promise<MemberActivityReport> {
+    return this.reports.members(user, m, query);
   }
 }

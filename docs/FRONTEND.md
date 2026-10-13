@@ -4,7 +4,7 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **13/10/2026** · Hợp đồng đã phát hành **`v0.12.0`** (BE0–BE10 + đổi tên / tự rời tổ chức: tài khoản, tổ chức,
+> Cập nhật **14/10/2026** · Hợp đồng **`v0.13.0`** (BE0–BE10 + đổi tên tổ chức, việc của từng người; người làm không tự rời: tài khoản, tổ chức,
 > đồng bộ sổ, kết nối bằng **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân
 > viên, chi nhánh, báo cáo; gói, chuyển khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. OTP tạm
 > ẩn) · Đã nghiệm thu trên staging: tới BE5. BE6–BE9 chạy trên staging nhưng chưa nghiệm thu — một số
@@ -161,9 +161,10 @@ Các hàm SDK đã có ở `v0.12.0`:
 | `api.sync.pull({ cursor, limit })` | `GET /v1/sync/pull` | đăng nhập + tổ chức + quyền `book:sync` | `{ cursor, hasMore, resetRequired, changes }` — mục 7.4 |
 | `api.orders.list` · `.create` · `.get` · `.accept` · `.reject` · `.schedule` · `.cancel` | `/v1/orders…` (BE5) | tổ chức + `order:create` / `order:respond` | mục 5.8 |
 | `api.notifications.list()` · `.read({ ids })` | `/v1/notifications…` (BE5) | tổ chức | mục 5.8 |
-| `api.org.update({ name })` · `api.org.leave()` | `PATCH /v1/org` · `POST /v1/org/leave` (`v0.12.0`) | tổ chức; đổi tên chỉ chủ, rời thì không phải chủ | mục 5.9 |
+| `api.org.update({ name })` | `PATCH /v1/org` (`v0.12.0`) | tổ chức; chỉ chủ | mục 5.9 |
 | `api.org.members.list` · `.create` · `.update` · `.remove` · `api.org.branches.list` · `.create` · `.update` | `/v1/org/…` (BE7) | tổ chức + `staff:manage` / `branch:manage` | mục 5.9 |
 | `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view` | mục 5.9 |
+| `api.reports.members({ from, to })` | `GET /v1/reports/members` (`v0.13.0`) | tổ chức + `staff:manage` | mục 5.9 |
 | `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |
 | `api.billing.subscription()` · `.intents()` · `.createIntent({ months })` | `/v1/me/subscription`, `/v1/billing/intents` (BE6) | tổ chức + `billing:manage` | mục 5.10 |
 | `api.attachments.upload(id, blob)` · `.uploadUrl(input)` · `.url(id)` | `/v1/attachments/…` (BE8) | tổ chức | mục 5.11 |
@@ -494,7 +495,8 @@ await api.org.branches.create({ name, address });                 // vượt gó
 await api.org.branches.update(id, { archived: true });            // còn người gắn → VALIDATION_FAILED
 const report = await api.reports.summary({ from, to, branchId }); // report:view
 await api.org.update({ name: 'Vựa Tư Hùng 2' });                // v0.12.0 — chỉ chủ, người khác FORBIDDEN
-await api.org.leave();                                           // v0.12.0 — không phải chủ tự rời; chủ FORBIDDEN
+const { members } = await api.reports.members({ from, to });   // v0.13.0 — chủ: việc của từng người
+// api.org.leave() — bỏ dần từ v0.13.0, luôn FORBIDDEN: người làm không tự rời, chủ gỡ ra.
 ```
 
 - Người được tạo đăng nhập bằng **số điện thoại + mật khẩu chủ đặt** (màn đăng nhập một ô như mọi
@@ -505,9 +507,14 @@ await api.org.leave();                                           // v0.12.0 — 
   tài khoản (và mật khẩu) cũ — báo chủ "đã thêm lại, dùng mật khẩu cũ".
 - Vai trò chọn được: vựa — chỉ `staff` (người cân); doanh nghiệp — `manager`, `staff`. Không có nút
   sửa / gỡ trên dòng của chủ và của chính mình (server cũng chặn).
-- Đổi tên tổ chức / tự rời (`v0.12.0`): không phải quyền trong `permissions` — app quyết bằng `role`
-  (`owner` thấy ô sửa tên; người khác thấy nút "Rời khỏi vựa / doanh nghiệp"). Rời xong gọi lại `/v1/me`:
-  hết membership thì về "Bác là ai?".
+- Đổi tên tổ chức (`v0.12.0`): không phải quyền trong `permissions` — app quyết bằng `role` (`owner`
+  thấy ô sửa tên).
+- **Người làm không tự rời** (`v0.13.0`): không có nút "Rời khỏi vựa / doanh nghiệp"; chỉ chủ gỡ ra ở màn
+  Nhân viên. Xoá tài khoản cũng không phải đường rời: còn trong tổ chức → 422 `STILL_MEMBER` ("Nhờ chủ gỡ
+  bác ra trước"). Bị gỡ rồi thì `/v1/me` hết membership → về "Bác là ai?", xoá tài khoản được.
+- Việc của từng người (`v0.13.0`, chỉ chủ): mỗi người `receipts` (như `figures` của báo cáo tổng, chỉ
+  phiếu người đó lập), `payments { count, amount }` (lần trả người đó ghi), `lastActiveAt`. Thứ tự sẵn:
+  chủ → người đang làm → người đã gỡ (chỉ khi có việc trong khoảng).
 - Báo cáo: `from`/`to` là mốc ISO có múi giờ (app tính đầu ngày giờ Việt Nam), `to` không gồm, tối đa
   366 ngày. `totals` + từng `branches[]` (chi nhánh `null` = phiếu không gắn chi nhánh); mỗi bên
   `{ count, netWeight, amount, paid, debt }`. Người gắn chi nhánh chỉ thấy chi nhánh mình. Nông dân
@@ -545,7 +552,7 @@ thì báo chung "Mã không dùng được", không nói vì sao.
 **Xoá tài khoản** (`api.account.delete()`) là xoá THẬT: ảnh, sổ, đơn, kết nối của tổ chức mình là
 chủ duy nhất, hồ sơ, rồi tài khoản đăng nhập. Hỏi xác nhận hai lần, nêu hậu quả bằng số (bao nhiêu
 phiếu). `ORG_HAS_MEMBERS` → "Gỡ nhân viên trước". Xong thì xoá sổ, hàng đợi, ảnh trong IndexedDB
-và đăng xuất — máy có thể là máy mượn. Nhân viên xoá tài khoản chỉ rời tổ chức.
+và đăng xuất — máy có thể là máy mượn. Người còn làm thuê ở đâu → 422 `STILL_MEMBER`: chủ gỡ ra trước (`v0.13.0`).
 
 ### 5.11 Ảnh chứng từ — BE8 (`v0.11.0`, chưa nghiệm thu — staging chưa có bucket `attachments`)
 

@@ -1200,6 +1200,24 @@ Cho màn Tài khoản theo vai bên frontend (chủ sửa tên vựa / doanh ngh
 - Test: `org.db.test.ts` mục "tổ chức: đổi tên, tự rời".
 - Mọi gói `0.12.0`; tag `v0.12.0` gắn trên `master` SAU khi PR merge.
 
+## Người làm không tự rời · việc của từng người · `v0.13.0` · 14/10/2026
+
+Đổi quyết định của `v0.12.0` theo yêu cầu nhóm: **người làm của vựa / doanh nghiệp không tự rời được — quyền
+đó thuộc về chủ**. Không migration.
+
+- `POST /v1/org/leave` luôn 403 `FORBIDDEN` (controller ném thẳng, `MembersService.leave` bị bỏ). Route còn
+  trong hợp đồng, đánh dấu bỏ dần — luật CHANGELOG: bỏ route là thay đổi phá vỡ, giữ ít nhất một bản phát hành.
+  Frontend chưa từng gọi route này (đang ở `0.11.2`).
+- `DELETE /v1/me`: còn membership không phải chủ, chưa bị gỡ → 422 `STILL_MEMBER` (`details.organizations`),
+  không xoá gì. Lý do: xoá tài khoản là đường tự rời thứ hai — đóng cả hai. Bị chủ gỡ rồi thì xoá được như
+  thường; `leftOrganizations` vì thế luôn rỗng.
+- `GET /v1/reports/members` (`staff:manage`) cho màn quản lý nhân viên: theo `created_by` của `transactions`
+  (phiếu, tính bằng `transactionTotals` như báo cáo tổng) và `payments` (lần trả). `lastActiveAt` mọi thời
+  điểm. Người đã gỡ chỉ hiện khi có việc trong khoảng. Đếm lần trả và lần làm gần nhất bằng SQL thô — oxlint
+  cấm `_sum` / `_max` của Prisma `groupBy` (`no-underscore-dangle`).
+- Test: `org.db.test.ts` "không ai tự rời được", "việc của từng người"; `account.db.test.ts` "STILL_MEMBER".
+- Mọi gói `0.13.0`; tag `v0.13.0` gắn trên `master` SAU khi PR merge.
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
