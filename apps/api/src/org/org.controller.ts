@@ -8,6 +8,8 @@ import {
   OrgMemberCreateInput,
   OrgMemberPatch,
   type OrgMembersList,
+  OrgPatch,
+  type OrgProfile,
   routes,
 } from '@mambo/contracts';
 import { Body, Controller } from '@nestjs/common';
@@ -21,15 +23,33 @@ import { Endpoint } from '../common/endpoint';
 import { RequestId } from '../common/request-id';
 import { BranchesService } from './branches.service';
 import { MembersService } from './members.service';
+import { OrganizationService } from './organization.service';
 
 @Controller()
 export class OrgController {
   private readonly members: MembersService;
   private readonly branches: BranchesService;
+  private readonly organization: OrganizationService;
 
-  constructor(members: MembersService, branches: BranchesService) {
+  constructor(members: MembersService, branches: BranchesService, organization: OrganizationService) {
     this.members = members;
     this.branches = branches;
+    this.organization = organization;
+  }
+
+  @Endpoint(routes.orgUpdate)
+  updateOrg(
+    @CurrentUser() user: AuthUser,
+    @CurrentMembership() m: MembershipContext,
+    @Body() patch: z.output<typeof OrgPatch>,
+    @RequestId() requestId: string,
+  ): Promise<OrgProfile> {
+    return this.organization.update(user, m, patch, requestId);
+  }
+
+  @Endpoint(routes.orgLeave)
+  leave(@CurrentUser() user: AuthUser, @CurrentMembership() m: MembershipContext, @RequestId() requestId: string): Promise<OrgMember> {
+    return this.members.leave(user, m, requestId);
   }
 
   @Endpoint(routes.orgMembersList)

@@ -40,6 +40,7 @@ import { NotificationsService } from './notifications/notifications.service';
 import { OrdersController } from './orders/orders.controller';
 import { OrdersService } from './orders/orders.service';
 import { BranchesService } from './org/branches.service';
+import { OrganizationService } from './org/organization.service';
 import { MembersService } from './org/members.service';
 import { OrgController } from './org/org.controller';
 import { ReportsController } from './reports/reports.controller';
@@ -105,6 +106,7 @@ export class AppModule {
         NotificationsListener,
         MembersService,
         BranchesService,
+        OrganizationService,
         ReportsService,
         ProfileService,
         AccountDeletionService,

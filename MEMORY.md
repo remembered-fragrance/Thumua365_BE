@@ -1188,6 +1188,18 @@ hành trong 0.11.0".
 
 ---
 
+## Đổi tên / tự rời tổ chức · phát hành `v0.12.0` · 13/10/2026
+
+Cho màn Tài khoản theo vai bên frontend (chủ sửa tên vựa / doanh nghiệp; nhân viên tự rời). Không migration.
+
+- `PATCH /v1/org` (`orgUpdate`) — chỉ chủ, kiểm `m.role === 'owner'` trong `org/organization.service.ts`;
+  **không** thêm quyền vào ma trận (đổi ma trận cần hai người duyệt). Audit `organization.updated` (before/after tên).
+- `POST /v1/org/leave` (`orgLeave`) — `MembersService.leave`: chủ → `FORBIDDEN`; còn lại `status = 'removed'`,
+  audit `member.left` (người rời là actor). Đọc dòng `org_members()` TRƯỚC khi rời vì sau đó hàm không trả gì.
+  RLS `org_update` của `memberships` đã cho ghi trong tổ chức đang làm việc; trigger `memberships_guard` không cản.
+- Test: `org.db.test.ts` mục "tổ chức: đổi tên, tự rời".
+- Mọi gói `0.12.0`; tag `v0.12.0` gắn trên `master` SAU khi PR merge.
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không

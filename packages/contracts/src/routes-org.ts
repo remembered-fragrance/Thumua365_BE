@@ -10,12 +10,29 @@ import {
   OrgMemberCreateInput,
   OrgMemberPatch,
   OrgMembersList,
+  OrgPatch,
+  OrgProfile,
   ReportSummary,
   ReportSummaryQuery,
 } from './org.js';
 import type { RouteDef } from './route-def.js';
 
 export const orgRoutes = {
+  orgUpdate: {
+    method: 'PATCH',
+    path: '/v1/org',
+    summary: 'Chủ đổi tên tổ chức đang làm việc — người khác FORBIDDEN',
+    auth: 'org',
+    body: OrgPatch,
+    response: OrgProfile,
+  },
+  orgLeave: {
+    method: 'POST',
+    path: '/v1/org/leave',
+    summary: 'Tự rời tổ chức đang làm việc — mất quyền ngay. Chủ không rời được (FORBIDDEN)',
+    auth: 'org',
+    response: OrgMember,
+  },
   orgMembersList: {
     method: 'GET',
     path: '/v1/org/members',

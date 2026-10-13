@@ -224,6 +224,24 @@ export class MembersService {
     });
   }
 
+  /**
+   * Tự rời tổ chức đang làm việc: mất quyền ngay như bị gỡ. Chủ không rời được — tổ chức không thể
+   * không có chủ (xoá tài khoản thay). Đọc dòng của mình TRƯỚC khi rời: rời rồi thì `org_members()`
+   * không trả gì cho mình nữa.
+   */
+  leave(user: AuthUser, m: MembershipContext, requestId: string): Promise<OrgMember> {
+    if (m.role === 'owner') {
+      throw new ApiException('FORBIDDEN', 'Chủ không rời được tổ chức của mình — muốn thôi dùng thì xoá tài khoản');
+    }
+    return this.db.scoped({ userId: user.id, orgId: m.organizationId }, async (tx) => {
+      const row = (await tx.$queryRaw<MemberRow[]>`select * from public.org_members()`).find((r) => r.user_id === user.id);
+      if (!row) throw notFound();
+      await tx.membership.update({ where: { id: row.id }, data: { status: 'removed' }, select: { id: true } });
+      await audit(tx, user, m, 'member.left', row.id, requestId, { role: row.role, branchId: row.branch_id });
+      return { ...toMember(row, user.id), status: 'removed' };
+    });
+  }
+
   /** Không ai sửa / gỡ được chủ, và không tự sửa / gỡ chính mình. */
   private async editable(tx: Tx, user: AuthUser, m: MembershipContext, id: string) {
     const row = await tx.membership.findFirst({
