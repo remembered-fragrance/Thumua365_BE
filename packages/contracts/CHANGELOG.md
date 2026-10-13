@@ -12,6 +12,12 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
   `NOT_A_MEMBER`. Chủ thêm lại cùng số thì bật lại tài khoản cũ như sau khi gỡ.
 - `@mambo/sdk`: `org.update(patch)`, `org.leave()`.
 
+## 0.11.2 — 13/10/2026
+
+Không đổi hợp đồng (hợp đồng đã có `orderId` từ 0.6.0). `@mambo/core`: `Transaction` và `DraftReceipt` có
+`orderId?` — phiếu / nháp lập theo đơn (ô "Theo đơn" ở màn Tạo phiếu, FRONTEND §5.8). `normalize` giữ trường
+này khi đọc lại sổ; `completeDraft` chuyển `orderId` từ nháp sang phiếu.
+
 ## 0.11.1 — 13/10/2026
 
 Không đổi hợp đồng. `@mambo/core`: `upsertDraft` lưu đè nháp đã có thì giữ `createdAt` của bản cũ (trước đây

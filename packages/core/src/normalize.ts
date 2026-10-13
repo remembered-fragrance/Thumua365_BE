@@ -99,6 +99,7 @@ const normalizeDraft = (raw: Record<string, unknown>): DraftReceipt => {
     attachmentIds: Array.isArray(raw.attachmentIds)
       ? (raw.attachmentIds as unknown[]).map(String)
       : undefined,
+    orderId: text(raw.orderId),
     createdAt: String(raw.createdAt || now),
     updatedAt: String(raw.updatedAt || now),
   };

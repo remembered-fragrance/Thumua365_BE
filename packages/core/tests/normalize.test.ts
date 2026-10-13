@@ -49,6 +49,7 @@ const V3_TX = {
   adjustments: [{ id: 'adj-1', kind: 'logistics', label: 'Phí xe đến lấy', amount: -50_000 }],
   creditTerms: [{ dueDate: '2026-08-10T02:00:00.000Z', amount: 400_000 }],
   attachmentIds: ['att-1', 'att-2'],
+  orderId: 'ord-1',
 };
 
 describe('L1 — không bao giờ tự gieo dữ liệu mẫu', () => {
@@ -130,12 +131,13 @@ describe('v3 — đọc lại KHÔNG được làm mất field nào', () => {
     expect(t.amountPaid).toBe(1_000_000);
   });
 
-  it('giữ chiều giao dịch, đối tác, khoản cộng/trừ, kỳ hạn, ảnh chứng từ', () => {
+  it('giữ chiều giao dịch, đối tác, khoản cộng/trừ, kỳ hạn, ảnh chứng từ, đơn', () => {
     expect(t.kind).toBe('sale');
     expect(t.counterpartyId).toBe('buy-1');
     expect(t.adjustments).toHaveLength(1);
     expect(t.creditTerms).toEqual([{ dueDate: '2026-08-10T02:00:00.000Z', amount: 400_000 }]);
     expect(t.attachmentIds).toEqual(['att-1', 'att-2']);
+    expect(t.orderId).toBe('ord-1');
   });
 
   it('chuẩn hoá hai lần cho kết quả y hệt (mở app lần thứ n không mất gì)', () => {
