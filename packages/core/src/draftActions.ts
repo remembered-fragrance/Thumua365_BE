@@ -21,7 +21,7 @@ export const upsertDraft = (
   const draft: DraftReceipt = {
     ...input,
     id: input.id ?? newId(),
-    createdAt: input.createdAt ?? now,
+    createdAt: data.drafts.find((existing) => existing.id === input.id)?.createdAt ?? input.createdAt ?? now,
     updatedAt: now,
   };
   const exists = data.drafts.some((d) => d.id === draft.id);

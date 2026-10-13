@@ -133,7 +133,7 @@ describe('phiếu nháp', () => {
   });
 
   it('lưu nháp mới rồi lưu đè lên chính nó, không sinh nháp thứ hai', () => {
-    const first = upsertDraft(data(), draftInput());
+    const first = upsertDraft(data(), { ...draftInput(), createdAt: '2020-01-01T00:00:00.000Z' });
     const second = upsertDraft(first.data, { ...draftInput(), id: first.draft.id });
     expect(second.data.drafts).toHaveLength(1);
     expect(second.draft.createdAt).toBe(first.draft.createdAt);
