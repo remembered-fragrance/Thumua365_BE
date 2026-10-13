@@ -68,6 +68,24 @@ describe('meUserFrom', () => {
       meUserFrom({ id: 'u', email: 'mai@gmail.com', phone: '', phone_confirmed_at: null, user_metadata: {} }),
     ).toEqual({ id: 'u', name: null, phone: null, email: 'mai@gmail.com', phoneVerified: false });
   });
+
+  it('đăng ký bằng SĐT: số lấy từ email nội bộ, email = email khôi phục khai lúc đăng ký', () => {
+    expect(
+      meUserFrom({
+        id: 'u',
+        email: '84912345678@id.thumua365.vn',
+        phone: null,
+        phone_confirmed_at: null,
+        user_metadata: { name: 'Mai', recoveryEmail: 'Mai@Gmail.com' },
+      }),
+    ).toEqual({ id: 'u', name: 'Mai', phone: '+84912345678', email: 'mai@gmail.com', phoneVerified: false });
+  });
+
+  it('đăng ký bằng SĐT, không khai email → email null (email nội bộ vẫn bị giấu)', () => {
+    expect(
+      meUserFrom({ id: 'u', email: '84912345678@id.thumua365.vn', phone: null, phone_confirmed_at: null, user_metadata: {} }),
+    ).toMatchObject({ phone: '+84912345678', email: null });
+  });
 });
 
 describe('email đăng nhập', () => {

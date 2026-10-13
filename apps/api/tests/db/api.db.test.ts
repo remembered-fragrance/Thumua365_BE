@@ -144,6 +144,41 @@ describe('POST /v1/me/bootstrap', () => {
     expect(rows[0]?.phone).toBe('+84987654321');
   });
 
+  it('tài khoản cũ đăng ký bằng email thật, không gửi phone → lấy số khai trong user_metadata', async () => {
+    users.account = {
+      ...users.account,
+      email: 'hung@gmail.com',
+      phone: null,
+      phone_confirmed_at: null,
+      user_metadata: { name: 'Hùng', phone: '+84987654321' },
+    };
+    await bootstrap({ orgType: 'trader', orgName: 'Vựa', name: 'Hùng' }).expect(200);
+    const { rows } = await admin.query<{ phone: string }>('select phone from profiles where id = $1', [USER_ID]);
+    expect(rows[0]?.phone).toBe('+84987654321');
+  });
+
+  it('email khai lúc đăng ký thành email khôi phục → đăng nhập bằng email ra đúng tài khoản SĐT', async () => {
+    users.account = { ...users.account, user_metadata: { name: 'Tư Hùng', recoveryEmail: 'Hung@Gmail.com' } };
+    await bootstrap({ orgType: 'trader', orgName: 'Vựa', name: 'Hùng' }).expect(200);
+    const { rows } = await admin.query<{ recovery_email: string }>('select recovery_email from profiles where id = $1', [
+      USER_ID,
+    ]);
+    expect(rows[0]?.recovery_email).toBe('hung@gmail.com');
+    const found = await admin.query<{ id: string }>(`select public.find_login_user('hung@gmail.com')::text as id`);
+    expect(found.rows[0]?.id).toBe(USER_ID);
+  });
+
+  it('email khôi phục đã thuộc tài khoản khác → vẫn tạo xong, chỉ bỏ email', async () => {
+    await admin.query(`insert into profiles (id, name, recovery_email) values ($1, 'Người khác', 'hung@gmail.com')`, [newId()]);
+    users.account = { ...users.account, user_metadata: { name: 'Tư Hùng', recoveryEmail: 'hung@gmail.com' } };
+    await bootstrap({ orgType: 'trader', orgName: 'Vựa', name: 'Hùng' }).expect(200);
+    const { rows } = await admin.query<{ recovery_email: string | null }>(
+      'select recovery_email from profiles where id = $1',
+      [USER_ID],
+    );
+    expect(rows[0]?.recovery_email).toBeNull();
+  });
+
   it('tên đăng nhập đã có người dùng → 422 chỉ đúng trường, không tạo gì', async () => {
     await admin.query(`insert into profiles (id, name, username) values ($1, 'Người khác', 'vuatuhung')`, [newId()]);
     const res = await bootstrap({ orgType: 'trader', orgName: 'Vựa', name: 'Hùng', username: 'VuaTuHung' }).expect(422);

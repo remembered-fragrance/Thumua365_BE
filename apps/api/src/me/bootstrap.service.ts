@@ -6,11 +6,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 import { recordAudit } from '../audit/audit';
 import type { AuthUser } from '../auth/auth-user';
-import { phoneFromLoginEmail } from '../auth/login-email';
+import { isInternalEmail, phoneFromLoginEmail } from '../auth/login-email';
 import type { SupabaseAccount } from '../auth/supabase-users';
 import { ApiException } from '../common/api-exception';
 import { TRIAL_DAYS } from '../config/plans';
-import { DATABASE, type Database } from '../db/database';
+import { DATABASE, type Database, type Tx } from '../db/database';
 import { DomainEvents } from '../events/domain-events';
 import { Prisma } from '../generated/prisma/client';
 
@@ -29,19 +29,49 @@ const DAY_MS = 86_400_000;
 const profilePhone = (account: SupabaseAccount, input: Input): string | null => {
   const fromLogin = phoneFromLoginEmail(account.email);
   if (fromLogin) return fromLogin;
-  if (!input.phone) return null;
-  const phone = normalizePhone(input.phone);
+  // Tài khoản cũ đăng ký bằng email thật: số khai lúc đăng ký nằm trong user_metadata.
+  const raw = input.phone ?? metadataText(account, 'phone');
+  if (!raw) return null;
+  const phone = normalizePhone(raw);
   if (!phone) throw new ApiException('VALIDATION_FAILED', 'Số điện thoại chưa đúng', { fields: { phone: 'Số điện thoại chưa đúng' } });
   return phone;
 };
 
-/** Trùng tên đăng nhập / số điện thoại với tài khoản khác → 422 chỉ đúng trường. */
+const metadataText = (account: SupabaseAccount, key: string): string | null => {
+  const value = account.user_metadata?.[key];
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+};
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Email khôi phục = email thật người dùng khai lúc đăng ký (`user_metadata.recoveryEmail`).
+ * Đăng nhập bằng email đó đi qua `find_login_user` → cùng tài khoản với SĐT (issue FE#9).
+ * Email nội bộ `84…@id.thumua365.vn` không bao giờ là email khôi phục.
+ */
+const profileRecoveryEmail = (account: SupabaseAccount): string | null => {
+  const raw = metadataText(account, 'recoveryEmail')?.toLowerCase() ?? null;
+  if (!raw || raw.length > 200 || !EMAIL.test(raw) || isInternalEmail(raw)) return null;
+  return raw;
+};
+
+/** Trùng tên đăng nhập / email khôi phục / số điện thoại với tài khoản khác → 422 chỉ đúng trường. */
 const uniqueViolation = (err: unknown): ApiException | null => {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return null;
   const where = `${JSON.stringify(err.meta ?? {})} ${err.message}`;
-  const field = where.includes('username') ? 'username' : where.includes('phone') ? 'phone' : null;
+  const field = where.includes('username')
+    ? 'username'
+    : where.includes('recovery_email')
+      ? 'recoveryEmail'
+      : where.includes('phone')
+        ? 'phone'
+        : null;
   if (!field) return null;
-  const message = field === 'username' ? 'Tên đăng nhập đã có người dùng' : 'Số điện thoại đã gắn với tài khoản khác';
+  const message = {
+    username: 'Tên đăng nhập đã có người dùng',
+    recoveryEmail: 'Email này đã gắn với tài khoản khác',
+    phone: 'Số điện thoại đã gắn với tài khoản khác',
+  }[field];
   return new ApiException('VALIDATION_FAILED', message, { fields: { [field]: message } });
 };
 
@@ -65,7 +95,19 @@ export class BootstrapService {
   /** Trả `true` nếu lần gọi này tạo tổ chức mới. */
   async run(user: AuthUser, account: SupabaseAccount, input: Input, requestId: string): Promise<boolean> {
     const phone = profilePhone(account, input);
+    const recoveryEmail = profileRecoveryEmail(account);
     const organizationId = randomUUID();
+
+    // Email đã là định danh của tài khoản khác (index `profiles_recovery_email_live`) thì bỏ qua:
+    // không chặn cả bước đăng ký vì một trường người dùng không sửa được ở màn này. Người đó vẫn
+    // đăng nhập bằng SĐT, đặt email khác sau ở PATCH /v1/me/profile. RLS chỉ cho thấy hồ sơ của
+    // chính mình ⇒ hỏi qua `find_login_user` (security definer), giống /v1/auth/resolve-identifier.
+    const freeEmail = async (tx: Tx): Promise<string | null> => {
+      if (!recoveryEmail) return null;
+      const rows = await tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${recoveryEmail})::text as id`;
+      const owner = rows[0]?.id;
+      return owner && owner !== user.id ? null : recoveryEmail;
+    };
 
     let created: boolean;
     try {
@@ -78,7 +120,7 @@ export class BootstrapService {
         const profile = await tx.profile.findUnique({ where: { id: user.id }, select: { id: true } });
         if (!profile) {
           await tx.profile.create({
-            data: { id: user.id, name: input.name, phone, username: input.username ?? null },
+            data: { id: user.id, name: input.name, phone, username: input.username ?? null, recoveryEmail: await freeEmail(tx) },
             select: { id: true },
           });
         }

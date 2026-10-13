@@ -242,9 +242,16 @@ mã của hợp đồng, còn hai trường hợp nữa:
 import { normalizePhone } from '@mambo/core/identifier';
 
 const phone = normalizePhone(rawPhone);        // '' nếu sai → báo "Số điện thoại chưa đúng"
-// Có email thật thì dùng email đó; không có thì dùng email nội bộ tạo từ số: 849…@id.thumua365.vn
-const email = realEmail || `${phone.replace('+', '')}@id.thumua365.vn`;
-const { data, error } = await supabase.auth.signUp({ email, password });
+// Khoá đăng nhập LUÔN là email nội bộ tạo từ số: 849…@id.thumua365.vn — mỗi SĐT đúng một tài khoản.
+// Email thật (nếu có) chỉ là email khôi phục: để trong user_metadata, bootstrap ghi vào hồ sơ.
+// (Trước đây có email thật thì dùng email làm khoá ⇒ một người thành hai tài khoản — FE#9.)
+const email = `${phone.replace('+', '')}@id.thumua365.vn`;
+const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: { data: { name, phone, ...(realEmail ? { recoveryEmail: realEmail.toLowerCase() } : {}) } },
+});
+// data.user.identities rỗng = số đã có tài khoản (Supabase không báo lỗi để khỏi lộ) → "Số này đã có tài khoản".
 // data.session phải có ngay (staging đã tắt "Confirm email"). Không có session = lỗi cấu hình, báo backend.
 const me = await api.me();                     // memberships: [] → sang bước "Bác là ai?"
 ```
@@ -265,6 +272,10 @@ const me = await api.meBootstrap({
   nghiệp). Nông dân không có gói.
 - **Gọi lại an toàn:** người đã có tổ chức gọi lại thì nhận về `Me` hiện tại, không tạo tổ chức thứ hai.
 - Tài khoản đăng ký bằng số điện thoại: server lấy số từ chính tài khoản, bỏ qua trường `phone`.
+- `user_metadata.recoveryEmail` → `profiles.recovery_email`, nên đăng nhập bằng email đó qua
+  `resolve-identifier` ra đúng tài khoản SĐT. Email đã là định danh của tài khoản khác thì bỏ qua
+  (không chặn bước này); đặt lại sau ở `PATCH /v1/me/profile`.
+- Tài khoản cũ đăng ký bằng email thật mà không gửi `phone`: server lấy số trong `user_metadata.phone`.
 - Tên đăng nhập hoặc số đã có người dùng → `VALIDATION_FAILED`, `details.fields.username` /
   `details.fields.phone`.
 - **Xoá sạch form "Bác là ai?" khi đăng xuất và sau khi tạo xong.** Lỗi này đã gặp thật khi
@@ -273,8 +284,9 @@ const me = await api.meBootstrap({
 ### 5.2 Đăng nhập bằng một ô
 
 ```ts
-const { email } = await api.resolveIdentifier({ identifier });   // tên tài khoản / SĐT / email
+const { email } = await api.resolveIdentifier({ identifier });   // tên tài khoản / SĐT / email khôi phục
 const { error } = await supabase.auth.signInWithPassword({ email, password });
+// App thật thử thẳng trước (SĐT → email nội bộ; email → chính nó cho tài khoản cũ), rồi mới hỏi API.
 if (error) showError('Tài khoản hoặc mật khẩu không đúng');       // MỘT câu cho mọi trường hợp
 ```
 
