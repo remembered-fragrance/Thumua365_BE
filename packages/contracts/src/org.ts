@@ -13,10 +13,13 @@
  * Chi nhánh: số chi nhánh còn dùng ≤ `branchLimit` của gói (null = không giới hạn); vượt →
  * 402 `BRANCH_LIMIT` kèm `details.limit`. Chi nhánh chỉ lưu trữ (ẩn), không xoá — phiếu cũ vẫn trỏ
  * tới nó; còn người đang gắn thì không lưu trữ được.
+ *
+ * Tổ chức: chỉ CHỦ đổi được tên (kiểm ở service, không phải một quyền trong ma trận). Người không
+ * phải chủ tự rời được tổ chức — mất quyền ngay như bị gỡ; chủ không rời được (xoá tài khoản thay).
  */
 
 import { z } from 'zod';
-import { MemberRole } from './organization.js';
+import { MemberRole, OrgType } from './organization.js';
 
 const Time = z.iso.datetime({ offset: true });
 const Name = z.string().trim().min(1).max(120);
@@ -27,6 +30,14 @@ export type IdParams = z.infer<typeof IdParams>;
 
 export const BranchRef = z.object({ id: z.uuid(), name: z.string() });
 export type BranchRef = z.infer<typeof BranchRef>;
+
+// ─── Tổ chức ─────────────────────────────────────────────────────────────────
+
+export const OrgProfile = z.object({ id: z.uuid(), type: OrgType, name: z.string() });
+export type OrgProfile = z.infer<typeof OrgProfile>;
+
+export const OrgPatch = z.strictObject({ name: Name });
+export type OrgPatch = z.input<typeof OrgPatch>;
 
 // ─── Nhân viên ───────────────────────────────────────────────────────────────
 

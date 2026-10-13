@@ -4,7 +4,7 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **07/10/2026** · Hợp đồng đã phát hành **`v0.11.0`** (BE0–BE10: tài khoản, tổ chức,
+> Cập nhật **13/10/2026** · Hợp đồng đã phát hành **`v0.12.0`** (BE0–BE10 + đổi tên / tự rời tổ chức: tài khoản, tổ chức,
 > đồng bộ sổ, kết nối bằng **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân
 > viên, chi nhánh, báo cáo; gói, chuyển khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. OTP tạm
 > ẩn) · Đã nghiệm thu trên staging: tới BE5. BE6–BE9 chạy trên staging nhưng chưa nghiệm thu — một số
@@ -83,9 +83,9 @@ khi backend đổi thì chỉ phải sửa một thư mục:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.11.0/mambo-core-0.11.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.11.0/mambo-contracts-0.11.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.11.0/mambo-sdk-0.11.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.12.0/mambo-core-0.12.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.12.0/mambo-contracts-0.12.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.12.0/mambo-sdk-0.12.0.tgz",
     "@supabase/supabase-js": "^2.116.0",
     "zod": "^4.1.0"
   }
@@ -146,7 +146,7 @@ export const api = createClient({
 });
 ```
 
-Các hàm SDK đã có ở `v0.11.0`:
+Các hàm SDK đã có ở `v0.12.0`:
 
 | Hàm | Endpoint | Cần | Trả về |
 |---|---|---|---|
@@ -161,6 +161,7 @@ Các hàm SDK đã có ở `v0.11.0`:
 | `api.sync.pull({ cursor, limit })` | `GET /v1/sync/pull` | đăng nhập + tổ chức + quyền `book:sync` | `{ cursor, hasMore, resetRequired, changes }` — mục 7.4 |
 | `api.orders.list` · `.create` · `.get` · `.accept` · `.reject` · `.schedule` · `.cancel` | `/v1/orders…` (BE5) | tổ chức + `order:create` / `order:respond` | mục 5.8 |
 | `api.notifications.list()` · `.read({ ids })` | `/v1/notifications…` (BE5) | tổ chức | mục 5.8 |
+| `api.org.update({ name })` · `api.org.leave()` | `PATCH /v1/org` · `POST /v1/org/leave` (`v0.12.0`) | tổ chức; đổi tên chỉ chủ, rời thì không phải chủ | mục 5.9 |
 | `api.org.members.list` · `.create` · `.update` · `.remove` · `api.org.branches.list` · `.create` · `.update` | `/v1/org/…` (BE7) | tổ chức + `staff:manage` / `branch:manage` | mục 5.9 |
 | `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view` | mục 5.9 |
 | `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |
@@ -492,6 +493,8 @@ const { branches, limit, used } = await api.org.branches.list();  // branch:mana
 await api.org.branches.create({ name, address });                 // vượt gói → BRANCH_LIMIT (details.limit)
 await api.org.branches.update(id, { archived: true });            // còn người gắn → VALIDATION_FAILED
 const report = await api.reports.summary({ from, to, branchId }); // report:view
+await api.org.update({ name: 'Vựa Tư Hùng 2' });                // v0.12.0 — chỉ chủ, người khác FORBIDDEN
+await api.org.leave();                                           // v0.12.0 — không phải chủ tự rời; chủ FORBIDDEN
 ```
 
 - Người được tạo đăng nhập bằng **số điện thoại + mật khẩu chủ đặt** (màn đăng nhập một ô như mọi
@@ -502,6 +505,9 @@ const report = await api.reports.summary({ from, to, branchId }); // report:view
   tài khoản (và mật khẩu) cũ — báo chủ "đã thêm lại, dùng mật khẩu cũ".
 - Vai trò chọn được: vựa — chỉ `staff` (người cân); doanh nghiệp — `manager`, `staff`. Không có nút
   sửa / gỡ trên dòng của chủ và của chính mình (server cũng chặn).
+- Đổi tên tổ chức / tự rời (`v0.12.0`): không phải quyền trong `permissions` — app quyết bằng `role`
+  (`owner` thấy ô sửa tên; người khác thấy nút "Rời khỏi vựa / doanh nghiệp"). Rời xong gọi lại `/v1/me`:
+  hết membership thì về "Bác là ai?".
 - Báo cáo: `from`/`to` là mốc ISO có múi giờ (app tính đầu ngày giờ Việt Nam), `to` không gồm, tối đa
   366 ngày. `totals` + từng `branches[]` (chi nhánh `null` = phiếu không gắn chi nhánh); mỗi bên
   `{ count, netWeight, amount, paid, debt }`. Người gắn chi nhánh chỉ thấy chi nhánh mình. Nông dân

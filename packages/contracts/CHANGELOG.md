@@ -3,6 +3,15 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.12.0 — 13/10/2026 (màn Tài khoản theo vai)
+
+- `routes.orgUpdate` — `PATCH /v1/org`, thân `OrgPatch { name }` (1–120 ký tự) → `OrgProfile { id, type,
+  name }`. Chỉ **chủ**; người khác → 403 `FORBIDDEN`. Kiểm ở service — ma trận quyền không đổi.
+- `routes.orgLeave` — `POST /v1/org/leave` → `OrgMember` (`status: 'removed'`). Người không phải chủ tự
+  rời tổ chức đang làm việc, mất quyền ngay như bị gỡ; chủ → 403 `FORBIDDEN`. Đã rời mà gọi lại → 403
+  `NOT_A_MEMBER`. Chủ thêm lại cùng số thì bật lại tài khoản cũ như sau khi gỡ.
+- `@mambo/sdk`: `org.update(patch)`, `org.leave()`.
+
 ## 0.11.0 — 07/10/2026 (BE10 · phát hành chung BE5 → BE10)
 
 Bản phát hành đầu tiên sau `0.5.0`. Gồm mọi thay đổi của 0.6.0 → 0.10.0 dưới đây — các số đó chưa từng

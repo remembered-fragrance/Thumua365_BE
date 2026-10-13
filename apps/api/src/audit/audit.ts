@@ -14,6 +14,7 @@ import type { Tx } from '../db/database';
 /** Tên hành động: `đối_tượng.hành_động`, thể đã xong. Thêm tên mới ở đây. */
 export type AuditAction =
   | 'organization.bootstrapped'
+  | 'organization.updated'
   | 'receipt.deleted'
   | 'payment.voided'
   | 'member.role_changed'
@@ -22,6 +23,7 @@ export type AuditAction =
   | 'link.revoked'
   | 'member.added'
   | 'member.removed'
+  | 'member.left'
   | 'branch.created'
   | 'branch.updated';
 

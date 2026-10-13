@@ -231,8 +231,12 @@ export const createClient = (options: ClientOptions) => {
       /** Chủ vựa định chuyển khoản: trả mã đối soát + nội dung chuyển khoản cho mã QR. */
       createIntent: (input: RouteBody<'billingIntentsCreate'>) => send('billingIntentsCreate', input),
     },
-    /** Nhân viên và chi nhánh (BE7) — màn của chủ vựa / doanh nghiệp. */
+    /** Tổ chức đang làm việc, nhân viên và chi nhánh (BE7) — phần lớn là màn của chủ vựa / doanh nghiệp. */
     org: {
+      /** Chỉ chủ đổi được tên — người khác `FORBIDDEN`. */
+      update: (patch: RouteBody<'orgUpdate'>) => send('orgUpdate', patch),
+      /** Tự rời tổ chức đang làm việc — mất quyền ngay. Chủ không rời được (`FORBIDDEN`). */
+      leave: () => call('orgLeave'),
       members: {
         list: () => call('orgMembersList'),
         /**

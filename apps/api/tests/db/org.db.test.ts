@@ -12,6 +12,7 @@ import {
   OrgBranchesList,
   OrgMember,
   OrgMembersList,
+  OrgProfile,
   ReportSummary,
   SyncPullResult,
   SyncPushResult,
@@ -246,6 +247,63 @@ describe('người trong tổ chức', () => {
     expect(auth.deleted).toHaveLength(1);
     const { rows } = await admin.query(`select count(*)::int as n from memberships where organization_id = $1`, [dn]);
     expect(rows[0]?.n).toBe(1); // chỉ còn chủ
+  });
+});
+
+describe('tổ chức: đổi tên, tự rời', () => {
+  it('chỉ chủ đổi được tên; tên rỗng → 422; ghi nhật ký', async () => {
+    const owner = await as(dnOwner, dn);
+    const manager = OrgMember.parse(
+      (await owner.post('/v1/org/members', { name: 'Quản lý', phone: '0901 111 111', password: 'matkhau-ql', role: 'manager' }).expect(200)).body,
+    );
+
+    const saved = OrgProfile.parse((await owner.patch('/v1/org', { name: '  Cao su Bình Long 2  ' }).expect(200)).body);
+    expect(saved).toEqual({ id: dn, type: 'enterprise', name: 'Cao su Bình Long 2' });
+    const { rows } = await admin.query(`select name from organizations where id = $1`, [dn]);
+    expect(rows[0]?.name).toBe('Cao su Bình Long 2');
+
+    const denied = await (await as(manager.userId, dn)).patch('/v1/org', { name: 'Của tôi' }).expect(403);
+    expect(ErrorBody.parse(denied.body).error.code).toBe('FORBIDDEN');
+    await owner.patch('/v1/org', { name: '   ' }).expect(422);
+    await owner.patch('/v1/org', {}).expect(422);
+    await owner.patch('/v1/org', { name: 'X', type: 'trader' }).expect(422);
+
+    // Không đụng được tổ chức khác dù gửi header của nó: không phải thành viên.
+    await (await as(dnOwner, vua)).patch('/v1/org', { name: 'Cướp' }).expect(403);
+
+    const audit = await admin.query(`select before, after from audit_log where organization_id = $1 and action = 'organization.updated'`, [dn]);
+    expect(audit.rows).toEqual([{ before: { name: 'Công ty Cao su Bình Long' }, after: { name: 'Cao su Bình Long 2' } }]);
+  });
+
+  it('người cân tự rời → mất quyền ngay; chủ không rời được; chủ thêm lại được', async () => {
+    const owner = await as(vuaOwner, vua);
+    const staff = OrgMember.parse(
+      (await owner.post('/v1/org/members', { name: 'Người cân', phone: '0901 444 444', password: 'matkhau-12', role: 'staff' }).expect(200)).body,
+    );
+    const staffApi = await as(staff.userId, vua);
+    await staffApi.get('/v1/orders').expect(200);
+
+    const left = OrgMember.parse((await staffApi.post('/v1/org/leave').expect(200)).body);
+    expect(left).toMatchObject({ id: staff.id, userId: staff.userId, status: 'removed', isMe: true, name: 'Người cân' });
+    expect(ErrorBody.parse((await staffApi.get('/v1/orders').expect(403)).body).error.code).toBe('NOT_A_MEMBER');
+    await staffApi.post('/v1/org/leave').expect(403); // đã rời: không còn là thành viên
+
+    const denied = await owner.post('/v1/org/leave').expect(403);
+    expect(ErrorBody.parse(denied.body).error.code).toBe('FORBIDDEN');
+    const list = OrgMembersList.parse((await owner.get('/v1/org/members').expect(200)).body);
+    expect(list.members.map((x) => [x.role, x.status])).toEqual([
+      ['owner', 'active'],
+      ['staff', 'removed'],
+    ]);
+
+    const back = OrgMember.parse(
+      (await owner.post('/v1/org/members', { name: 'Người cân', phone: '0901444444', password: 'matkhau-moi', role: 'staff' }).expect(200)).body,
+    );
+    expect(back).toMatchObject({ id: staff.id, status: 'active' });
+
+    const { rows } = await admin.query(`select action, actor_user_id from audit_log where organization_id = $1 and entity = 'membership' order by created_at`, [vua]);
+    expect(rows.map((r) => r.action)).toEqual(['member.added', 'member.left', 'member.added']);
+    expect(rows[1]?.actor_user_id).toBe(staff.userId);
   });
 });
 
