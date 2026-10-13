@@ -3,7 +3,7 @@ import { Body, Controller, Inject } from '@nestjs/common';
 import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/current-user';
-import { isInternalEmail } from '../auth/login-email';
+import { isInternalEmail, phoneFromLoginEmail } from '../auth/login-email';
 import { MEMBERSHIP_LOOKUP, type MembershipLookup } from '../auth/membership';
 import { SUPABASE_USERS, type SupabaseAccount, type SupabaseUsers } from '../auth/supabase-users';
 import { Endpoint } from '../common/endpoint';
@@ -16,14 +16,20 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 const e164 = (phone: string | null | undefined): string | null =>
   phone ? `+${phone.replace(/^\+/, '')}` : null;
 
-/** Email nội bộ (người chỉ có SĐT) là khoá đăng nhập — không trả ra như thể họ có email. */
+/**
+ * Email nội bộ (người đăng ký bằng SĐT) là khoá đăng nhập — không trả ra như thể họ có email.
+ * Thay vào đó: `phone` = số mã hoá trong email nội bộ, `email` = email khôi phục khai lúc đăng ký
+ * (`user_metadata.recoveryEmail`). Nhờ vậy cùng một tài khoản hiện đủ SĐT lẫn email (FE#9).
+ */
 export const meUserFrom = (account: SupabaseAccount): Me['user'] => {
   const email = text(account.email);
+  const internal = email !== null && isInternalEmail(email);
+  const recovery = text(account.user_metadata?.recoveryEmail)?.toLowerCase() ?? null;
   return {
     id: account.id,
     name: text(account.user_metadata?.name),
-    phone: e164(account.phone),
-    email: email && !isInternalEmail(email) ? email : null,
+    phone: e164(account.phone) ?? (internal ? phoneFromLoginEmail(email) : null),
+    email: internal ? (recovery && !isInternalEmail(recovery) ? recovery : null) : email,
     phoneVerified: Boolean(account.phone_confirmed_at),
   };
 };
