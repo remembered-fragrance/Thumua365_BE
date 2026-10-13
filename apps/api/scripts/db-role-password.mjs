@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
- * Đặt (hoặc đổi) mật khẩu cho role `api_service` rồi ghi DATABASE_URL vào apps/api/.env.
+ * Đặt (hoặc đổi) mật khẩu cho một role rồi ghi chuỗi kết nối của nó vào apps/api/.env.
  *
- *   npm run db:role-password -w @mambo/api
+ *   npm run db:role-password -w @mambo/api                              # api_service    → DATABASE_URL
+ *   npm run db:role-password -w @mambo/api -- --role api_privileged     # api_privileged → PRIVILEGED_DATABASE_URL
+ *   npm run db:role-password -w @mambo/api -- --role backup_reader      # backup_reader  → BACKUP_DATABASE_URL
  *
  * Chạy MỘT lần cho mỗi project Supabase, sau khi migration đầu tiên đã tạo role
  * (NOLOGIN). Chạy lại = đổi mật khẩu (cũ hết hiệu lực ngay) — nhớ cập nhật Render.
@@ -20,7 +22,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
-const ROLE = 'api_service';
+/** Role → biến chứa chuỗi kết nối, cổng pooler. API đi Transaction pooler; pg_dump cần Session pooler. */
+const TARGETS = {
+  api_service: { envVar: 'DATABASE_URL', port: '6543' },
+  api_privileged: { envVar: 'PRIVILEGED_DATABASE_URL', port: '6543' },
+  backup_reader: { envVar: 'BACKUP_DATABASE_URL', port: '5432' },
+};
+const roleFlag = process.argv.indexOf('--role');
+const ROLE = roleFlag > 0 ? process.argv[roleFlag + 1] : 'api_service';
+const TARGET = TARGETS[ROLE];
 // `--env <file>` để thử trên Postgres ở máy; mặc định apps/api/.env.
 const envFlag = process.argv.indexOf('--env');
 const envPath =
@@ -32,6 +42,8 @@ const fail = (message) => {
   console.error(`✘ ${message}`);
   process.exit(1);
 };
+
+if (!TARGET) fail(`--role phải là một trong: ${Object.keys(TARGETS).join(', ')}`);
 
 if (!existsSync(envPath)) fail(`Chưa có ${envPath}`);
 const envText = readFileSync(envPath, 'utf8');
@@ -64,7 +76,7 @@ const serviceUrl = (password) => {
   const [, projectRef] = decodeURIComponent(url.username).split('.');
   url.username = projectRef ? `${ROLE}.${projectRef}` : ROLE;
   url.password = encodeURIComponent(password);
-  if (url.hostname.endsWith('.pooler.supabase.com')) url.port = '6543';
+  if (url.hostname.endsWith('.pooler.supabase.com')) url.port = TARGET.port;
   url.search = '';
   return url.toString();
 };
@@ -87,9 +99,10 @@ try {
 }
 
 const url = serviceUrl(password);
-const next = /^DATABASE_URL=.*$/m.test(envText)
-  ? envText.replace(/^DATABASE_URL=.*$/m, `DATABASE_URL=${url}`)
-  : `${envText.trimEnd()}\nDATABASE_URL=${url}\n`;
+const envLine = new RegExp(`^${TARGET.envVar}=.*$`, 'm');
+const next = envLine.test(envText)
+  ? envText.replace(envLine, `${TARGET.envVar}=${url}`)
+  : `${envText.trimEnd()}\n${TARGET.envVar}=${url}\n`;
 writeFileSync(envPath, next);
 
 // Thử ngay bằng chính chuỗi mới — qua pooler, đúng đường API sẽ đi.
@@ -105,7 +118,7 @@ for (let attempt = 1; ; attempt++) {
     break;
   } catch (err) {
     // Pooler có thể cần vài giây để thấy mật khẩu mới.
-    if (attempt >= 5) fail(`Đã đặt mật khẩu nhưng chưa kết nối được bằng DATABASE_URL mới: ${err.message}`);
+    if (attempt >= 5) fail(`Đã đặt mật khẩu nhưng chưa kết nối được bằng ${TARGET.envVar} mới: ${err.message}`);
     await new Promise((r) => setTimeout(r, 2000));
   } finally {
     await check.end().catch(() => undefined);
@@ -115,6 +128,10 @@ for (let attempt = 1; ; attempt++) {
 const say = (line) => process.stdout.write(`${line}
 `);
 say(`✔ Đặt mật khẩu mới cho ${ROLE} trên ${host}`);
-say(`✔ Ghi DATABASE_URL (user ${new URL(url).username}, cổng ${new URL(url).port || 5432}) vào ${envPath}`);
+say(`✔ Ghi ${TARGET.envVar} (user ${new URL(url).username}, cổng ${new URL(url).port || 5432}) vào ${envPath}`);
 say(`✔ Kết nối thử: current_user = ${who.role}, bypass RLS = ${who.bypass}`);
-say('→ Chép DATABASE_URL từ apps/api/.env sang biến môi trường của Render (không dán qua chat).');
+say(
+  ROLE === 'backup_reader'
+    ? `→ Chép ${TARGET.envVar} sang GitHub secrets (không dán qua chat).`
+    : `→ Chép ${TARGET.envVar} từ apps/api/.env sang biến môi trường của Render (không dán qua chat).`,
+);
