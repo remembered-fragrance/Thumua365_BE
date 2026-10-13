@@ -187,6 +187,8 @@ export interface Transaction {
   readonly adjustments?: readonly PriceAdjustment[];
   /** ID các chứng từ đính kèm (blob trong IndexedDB) */
   readonly attachmentIds?: readonly string[];
+  /** (BE5) Phiếu lập theo đơn — đồng bộ lên thì đơn tự sang `fulfilled`. */
+  readonly orderId?: string;
   /** Trạng thái đồng bộ với máy chủ. Tầng dữ liệu (giai đoạn C) đặt giá trị. */
   readonly syncState?: SyncState;
 }
@@ -222,6 +224,8 @@ export interface DraftReceipt {
   readonly amountPaid: number;
   readonly note?: string;
   readonly attachmentIds?: readonly string[];
+  /** (BE5) Nháp lập theo đơn — chốt thành phiếu thì phiếu mang `orderId` này. */
+  readonly orderId?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

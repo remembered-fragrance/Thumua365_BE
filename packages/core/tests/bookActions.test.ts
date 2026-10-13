@@ -153,6 +153,11 @@ describe('phiếu nháp', () => {
     expect(result.data.transactions).toHaveLength(1);
   });
 
+  it('nháp theo đơn: chốt thành phiếu mang đúng orderId (để đơn tự hoàn thành)', () => {
+    const first = upsertDraft(data({ suppliers: [supplier()] }), draftInput({ orderId: 'ord-1' }));
+    expect(completeDraft(first.data, first.draft.id).transaction?.orderId).toBe('ord-1');
+  });
+
   it('bỏ dòng chưa đủ thông tin, giữ dòng đủ', () => {
     const first = upsertDraft(
       data(),

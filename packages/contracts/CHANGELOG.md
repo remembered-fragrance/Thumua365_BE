@@ -3,6 +3,12 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.11.2 — 13/10/2026
+
+Không đổi hợp đồng (hợp đồng đã có `orderId` từ 0.6.0). `@mambo/core`: `Transaction` và `DraftReceipt` có
+`orderId?` — phiếu / nháp lập theo đơn (ô "Theo đơn" ở màn Tạo phiếu, FRONTEND §5.8). `normalize` giữ trường
+này khi đọc lại sổ; `completeDraft` chuyển `orderId` từ nháp sang phiếu.
+
 ## 0.11.1 — 13/10/2026
 
 Không đổi hợp đồng. `@mambo/core`: `upsertDraft` lưu đè nháp đã có thì giữ `createdAt` của bản cũ (trước đây
