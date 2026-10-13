@@ -4,7 +4,7 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **13/10/2026** · Hợp đồng đã phát hành **`v0.12.0`** (BE0–BE10 + đổi tên / tự rời tổ chức: tài khoản, tổ chức,
+> Cập nhật **14/10/2026** · Hợp đồng **`v0.13.0`** (BE0–BE10 + đổi tên tổ chức, việc của từng người; người làm không tự rời: tài khoản, tổ chức,
 > đồng bộ sổ, kết nối bằng **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân
 > viên, chi nhánh, báo cáo; gói, chuyển khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. OTP tạm
 > ẩn) · Đã nghiệm thu trên staging: tới BE5. BE6–BE9 chạy trên staging nhưng chưa nghiệm thu — một số
@@ -161,9 +161,10 @@ Các hàm SDK đã có ở `v0.12.0`:
 | `api.sync.pull({ cursor, limit })` | `GET /v1/sync/pull` | đăng nhập + tổ chức + quyền `book:sync` | `{ cursor, hasMore, resetRequired, changes }` — mục 7.4 |
 | `api.orders.list` · `.create` · `.get` · `.accept` · `.reject` · `.schedule` · `.cancel` | `/v1/orders…` (BE5) | tổ chức + `order:create` / `order:respond` | mục 5.8 |
 | `api.notifications.list()` · `.read({ ids })` | `/v1/notifications…` (BE5) | tổ chức | mục 5.8 |
-| `api.org.update({ name })` · `api.org.leave()` | `PATCH /v1/org` · `POST /v1/org/leave` (`v0.12.0`) | tổ chức; đổi tên chỉ chủ, rời thì không phải chủ | mục 5.9 |
+| `api.org.update({ name })` | `PATCH /v1/org` (`v0.12.0`) | tổ chức; chỉ chủ | mục 5.9 |
 | `api.org.members.list` · `.create` · `.update` · `.remove` · `api.org.branches.list` · `.create` · `.update` | `/v1/org/…` (BE7) | tổ chức + `staff:manage` / `branch:manage` | mục 5.9 |
 | `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view` | mục 5.9 |
+| `api.reports.members({ from, to })` | `GET /v1/reports/members` (`v0.13.0`) | tổ chức + `staff:manage` | mục 5.9 |
 | `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |
 | `api.billing.subscription()` · `.intents()` · `.createIntent({ months })` | `/v1/me/subscription`, `/v1/billing/intents` (BE6) | tổ chức + `billing:manage` | mục 5.10 |
 | `api.attachments.upload(id, blob)` · `.uploadUrl(input)` · `.url(id)` | `/v1/attachments/…` (BE8) | tổ chức | mục 5.11 |
@@ -254,10 +255,10 @@ const { data, error } = await supabase.auth.signUp({
 });
 // data.user.identities rỗng = số đã có tài khoản (Supabase không báo lỗi để khỏi lộ) → "Số này đã có tài khoản".
 // data.session phải có ngay (staging đã tắt "Confirm email"). Không có session = lỗi cấu hình, báo backend.
-const me = await api.me();                     // memberships: [] → sang bước "Bác là ai?"
+const me = await api.me();                     // memberships: [] → sang bước "Bạn là ai?"
 ```
 
-Bước **"Bác là ai?"**:
+Bước **"Bạn là ai?"**:
 
 ```ts
 const me = await api.meBootstrap({
@@ -279,7 +280,7 @@ const me = await api.meBootstrap({
 - Tài khoản cũ đăng ký bằng email thật mà không gửi `phone`: server lấy số trong `user_metadata.phone`.
 - Tên đăng nhập hoặc số đã có người dùng → `VALIDATION_FAILED`, `details.fields.username` /
   `details.fields.phone`.
-- **Xoá sạch form "Bác là ai?" khi đăng xuất và sau khi tạo xong.** Lỗi này đã gặp thật khi
+- **Xoá sạch form "Bạn là ai?" khi đăng xuất và sau khi tạo xong.** Lỗi này đã gặp thật khi
   nghiệm thu: form giữ lựa chọn của người trước, nên tài khoản sau tạo nhầm loại tổ chức.
 
 ### 5.2 Đăng nhập bằng một ô
@@ -317,7 +318,7 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
 
 | Tình huống | Làm gì |
 |---|---|
-| `memberships` rỗng | Màn "Bác là ai?" |
+| `memberships` rỗng | Màn "Bạn là ai?" |
 | Một tổ chức | Chọn luôn |
 | Nhiều tổ chức | Màn chọn tổ chức; nhớ lựa chọn theo người dùng |
 | Tổ chức đã nhớ không còn trong `memberships` | Bỏ lựa chọn cũ, chọn lại |
@@ -494,20 +495,26 @@ await api.org.branches.create({ name, address });                 // vượt gó
 await api.org.branches.update(id, { archived: true });            // còn người gắn → VALIDATION_FAILED
 const report = await api.reports.summary({ from, to, branchId }); // report:view
 await api.org.update({ name: 'Vựa Tư Hùng 2' });                // v0.12.0 — chỉ chủ, người khác FORBIDDEN
-await api.org.leave();                                           // v0.12.0 — không phải chủ tự rời; chủ FORBIDDEN
+const { members } = await api.reports.members({ from, to });   // v0.13.0 — chủ: việc của từng người
+// api.org.leave() — bỏ dần từ v0.13.0, luôn FORBIDDEN: người làm không tự rời, chủ gỡ ra.
 ```
 
 - Người được tạo đăng nhập bằng **số điện thoại + mật khẩu chủ đặt** (màn đăng nhập một ô như mọi
-  người), rồi tự đổi mật khẩu. App của họ thấy ngay tổ chức trong `/v1/me` — **không** hiện "Bác là
+  người), rồi tự đổi mật khẩu. App của họ thấy ngay tổ chức trong `/v1/me` — **không** hiện "Bạn là
   ai?" (đã có membership).
 - Lỗi khi tạo: `details.reason` `ACCOUNT_EXISTS` → "Số này đã có tài khoản ở nơi khác";
   `ALREADY_MEMBER` → "Người này đã ở trong tổ chức". Số từng bị gỡ khỏi tổ chức → được bật lại với
   tài khoản (và mật khẩu) cũ — báo chủ "đã thêm lại, dùng mật khẩu cũ".
 - Vai trò chọn được: vựa — chỉ `staff` (người cân); doanh nghiệp — `manager`, `staff`. Không có nút
   sửa / gỡ trên dòng của chủ và của chính mình (server cũng chặn).
-- Đổi tên tổ chức / tự rời (`v0.12.0`): không phải quyền trong `permissions` — app quyết bằng `role`
-  (`owner` thấy ô sửa tên; người khác thấy nút "Rời khỏi vựa / doanh nghiệp"). Rời xong gọi lại `/v1/me`:
-  hết membership thì về "Bác là ai?".
+- Đổi tên tổ chức (`v0.12.0`): không phải quyền trong `permissions` — app quyết bằng `role` (`owner`
+  thấy ô sửa tên).
+- **Người làm không tự rời** (`v0.13.0`): không có nút "Rời khỏi vựa / doanh nghiệp"; chỉ chủ gỡ ra ở màn
+  Nhân viên. Xoá tài khoản cũng không phải đường rời: còn trong tổ chức → 422 `STILL_MEMBER` ("Nhờ chủ gỡ
+  bạn ra trước"). Bị gỡ rồi thì `/v1/me` hết membership → về "Bạn là ai?", xoá tài khoản được.
+- Việc của từng người (`v0.13.0`, chỉ chủ): mỗi người `receipts` (như `figures` của báo cáo tổng, chỉ
+  phiếu người đó lập), `payments { count, amount }` (lần trả người đó ghi), `lastActiveAt`. Thứ tự sẵn:
+  chủ → người đang làm → người đã gỡ (chỉ khi có việc trong khoảng).
 - Báo cáo: `from`/`to` là mốc ISO có múi giờ (app tính đầu ngày giờ Việt Nam), `to` không gồm, tối đa
   366 ngày. `totals` + từng `branches[]` (chi nhánh `null` = phiếu không gắn chi nhánh); mỗi bên
   `{ count, netWeight, amount, paid, debt }`. Người gắn chi nhánh chỉ thấy chi nhánh mình. Nông dân
@@ -545,7 +552,7 @@ thì báo chung "Mã không dùng được", không nói vì sao.
 **Xoá tài khoản** (`api.account.delete()`) là xoá THẬT: ảnh, sổ, đơn, kết nối của tổ chức mình là
 chủ duy nhất, hồ sơ, rồi tài khoản đăng nhập. Hỏi xác nhận hai lần, nêu hậu quả bằng số (bao nhiêu
 phiếu). `ORG_HAS_MEMBERS` → "Gỡ nhân viên trước". Xong thì xoá sổ, hàng đợi, ảnh trong IndexedDB
-và đăng xuất — máy có thể là máy mượn. Nhân viên xoá tài khoản chỉ rời tổ chức.
+và đăng xuất — máy có thể là máy mượn. Người còn làm thuê ở đâu → 422 `STILL_MEMBER`: chủ gỡ ra trước (`v0.13.0`).
 
 ### 5.11 Ảnh chứng từ — BE8 (`v0.11.0`, chưa nghiệm thu — staging chưa có bucket `attachments`)
 
@@ -581,7 +588,7 @@ track('receipt_created', { kind: 'purchase', lines: 2, offline: !navigator.onLin
   lúc biên dịch. Thuộc tính lạ (số tiền, SĐT, tên) làm server **bỏ** sự kiện (`dropped`).
 - KHÔNG gửi `plan_activated`, `order_fulfilled`, `link_accepted` — server tự bắn.
 - Đã đăng nhập: SDK gửi kèm token + tổ chức (route có `optionalAuth`), server gắn tổ chức và
-  `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bác là ai?").
+  `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bạn là ai?").
 - `dropped > 0` là lỗi của app (sai danh mục) — xoá khỏi hàng đợi, ghi Sentry, không gửi lại.
 
 ### 5.7 Đăng xuất
@@ -763,7 +770,7 @@ làm song song trên mock. Endpoint của các bước chưa làm lấy từ k�
 
 | Bước | Backend mở ra | Frontend làm | Xong khi (nghiệm thu chung) |
 |---|---|---|---|
-| **BE0–BE2 ✅** | `v0.3.0`: `me`, `meBootstrap`, `resolveIdentifier`, `discoverLinks`, ma trận quyền, mã lỗi | Mục 2 và 5: cài gói, client, đăng ký, "Bác là ai?", đăng nhập một ô, chọn tổ chức, chọn vỏ, màn OTP (giao diện) | Đăng ký thật trên staging bằng cả ba loại tổ chức, đăng nhập lại trên máy khác |
+| **BE0–BE2 ✅** | `v0.3.0`: `me`, `meBootstrap`, `resolveIdentifier`, `discoverLinks`, ma trận quyền, mã lỗi | Mục 2 và 5: cài gói, client, đăng ký, "Bạn là ai?", đăng nhập một ô, chọn tổ chức, chọn vỏ, màn OTP (giao diện) | Đăng ký thật trên staging bằng cả ba loại tổ chức, đăng nhập lại trên máy khác |
 | **BE3 ✅** | `v0.4.0`: `sync.push` · `sync.pull`, hình dạng 8 loại bản ghi, quyền từng op | Mục 7: sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức | Hai máy thật, một máy tắt mạng, ghi phiếu + trả nợ + huỷ lần trả → sau khi đồng bộ khớp từng đồng |
 | **BE4 ✅** | `v0.5.0` (mục 5.6): `GET /v1/links` · `POST /v1/links/invite { partnerKind, partnerId }` (trả `inviteCode`) · `POST /v1/links/claim { code }` · `POST /v1/links/:id/revoke` · `GET /v1/linked/receipts?orgId=&cursor=&limit=` · `GET /v1/linked/balance`. OTP (`discover`, `accept`) tạm ẩn | Vỏ Nông dân phần xem (phiếu, còn nợ, vựa đã kết nối); ô "Nhập mã kết nối"; nút "Mời kết nối" hiện mã trên trang nông hộ của vựa. Không làm màn OTP | Vựa ghi phiếu có nợ → mời, đưa mã → nông dân đăng ký, nhập mã → thấy đúng phiếu, đúng số nợ; mã đã dùng / hết hạn → không nhập được; huỷ kết nối → mất quyền xem ngay |
 | **BE5** 🟡 | Hợp đồng đã có (mục 5.8): `api.orders.*` (list/create/get/accept/reject/schedule/cancel, kèm `version`) · `api.notifications.list/read` · `orderId` trong op phiếu/nháp | Nông dân tạo đơn bán, xem lịch sử đơn; vựa xem danh sách đơn, hẹn lịch; ô "Theo đơn" ở màn Tạo phiếu; hỏi thông báo khi mở app và mỗi 60 giây | Nông dân tạo đơn → vựa nhận, hẹn lịch → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự hoàn thành → nông dân thấy phiếu và số còn nợ |

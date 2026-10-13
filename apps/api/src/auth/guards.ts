@@ -76,7 +76,7 @@ export class OrgContextGuard implements CanActivate {
     // JwtAuthGuard chạy trước nên user luôn có ở đây.
     const userId = req.user?.id ?? '';
     const membership = await this.memberships.find(userId, orgId.toLowerCase());
-    if (!membership) throw new ApiException('NOT_A_MEMBER', 'Bác không thuộc tổ chức này');
+    if (!membership) throw new ApiException('NOT_A_MEMBER', 'Bạn không thuộc tổ chức này');
 
     req.membership = membership;
     return true;

@@ -39,7 +39,7 @@ export const accountRoutes = {
     method: 'DELETE',
     path: '/v1/me',
     summary:
-      'Xoá tài khoản THẬT: ảnh → dữ liệu của tổ chức mình là chủ duy nhất → tài khoản đăng nhập. Còn người khác trong tổ chức → 422',
+      'Xoá tài khoản THẬT: ảnh → dữ liệu của tổ chức mình là chủ duy nhất → tài khoản đăng nhập. Còn người khác trong tổ chức (ORG_HAS_MEMBERS) hoặc mình còn làm thuê ở đâu (STILL_MEMBER) → 422',
     auth: 'user',
     response: AccountDeleteResult,
     rateLimitPerMinute: 5,

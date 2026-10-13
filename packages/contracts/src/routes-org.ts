@@ -2,6 +2,8 @@
 
 import {
   IdParams,
+  MemberActivityQuery,
+  MemberActivityReport,
   OrgBranch,
   OrgBranchCreateInput,
   OrgBranchesList,
@@ -26,10 +28,14 @@ export const orgRoutes = {
     body: OrgPatch,
     response: OrgProfile,
   },
+  /**
+   * @deprecated 0.13.0 — luôn 403 `FORBIDDEN`: người làm không tự rời được, chỉ chủ gỡ ra
+   * (`orgMemberRemove`). Giữ route một bản phát hành theo luật CHANGELOG rồi bỏ.
+   */
   orgLeave: {
     method: 'POST',
     path: '/v1/org/leave',
-    summary: 'Tự rời tổ chức đang làm việc — mất quyền ngay. Chủ không rời được (FORBIDDEN)',
+    summary: '(Bỏ dần) Luôn FORBIDDEN — người làm không tự rời tổ chức, chủ gỡ ra ở màn Nhân viên',
     auth: 'org',
     response: OrgMember,
   },
@@ -111,5 +117,14 @@ export const orgRoutes = {
     query: ReportSummaryQuery,
     response: ReportSummary,
     errors: ['NOT_FOUND'],
+  },
+  reportsMembers: {
+    method: 'GET',
+    path: '/v1/reports/members',
+    summary: 'Việc của từng người trong khoảng thời gian: phiếu đã lập, lần trả đã ghi, lần làm gần nhất — màn quản lý nhân viên của chủ',
+    auth: 'org',
+    permission: 'staff:manage',
+    query: MemberActivityQuery,
+    response: MemberActivityReport,
   },
 } as const satisfies Record<string, RouteDef>;

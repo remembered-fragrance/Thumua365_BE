@@ -545,8 +545,8 @@ chưa đạt.
   - Còn lại (cần dashboard / nhà cung cấp): **tắt "Confirm email"** (email nội bộ
     `84…@id.thumua365.vn` không nhận thư — bật thì người chỉ có SĐT không đăng nhập được);
     bật **Phone provider** + số thử OTP; nhà cung cấp SMS thật cho "OTP tới máy thật".
-    Nghiệm thu bằng `npm run login-test` (đủ luồng đăng ký → "Bác là ai?" → OTP → dò kết nối).
-- **Frontend:** bước **"Bác là ai?"** khi đăng ký (`sdk.meBootstrap`); đăng nhập gọi
+    Nghiệm thu bằng `npm run login-test` (đủ luồng đăng ký → "Bạn là ai?" → OTP → dò kết nối).
+- **Frontend:** bước **"Bạn là ai?"** khi đăng ký (`sdk.meBootstrap`); đăng nhập gọi
   `sdk.resolveIdentifier` thay RPC; màn xác thực OTP (`supabase.auth.updateUser({ phone })` →
   `verifyOtp({ type: 'phone_change' })` → `sdk.discoverLinks()`); chọn vỏ theo
   `organization.type`.
@@ -665,7 +665,7 @@ Chưa có pg-boss nên chưa có số đo job lỗi — thêm cùng kênh email.
   qua listener. View phễu theo vai trò. `/metrics` Prometheus (thời gian phản hồi, số op
   push, tỉ lệ `rejected`, độ dài lô, số job pg-boss lỗi); một dashboard Grafana.
 - **Frontend:** `track()` qua hàng đợi; Sentry cho web; sửa trang Quyền riêng tư cùng PR
-  ("vựa đã kết nối thấy gì về bác", "đo lường ẩn danh", nhà cung cấp SMS, email).
+  ("vựa đã kết nối thấy gì về bạn", "đo lường ẩn danh", nhà cung cấp SMS, email).
 - **Xong khi:** một vòng luồng R2 trên staging → phễu đủ sự kiện đúng thứ tự, tách được
   theo `orgType`. **Đạt R5.**
 
@@ -747,7 +747,7 @@ ngay service trả phí khi chưa có bí mật).
 |---|---|---|
 | BE0 | Release `v0.1.0` (`@mambo/core`, `@mambo/contracts`) | Chốt quy ước §3; chuyển `@/core/` → `@mambo/core/` |
 | BE1 | Contract `me`, định dạng lỗi | `/lien-he`, link pháp lý (R4); khung chọn vỏ |
-| BE2 | Contract `bootstrap`, `resolve-identifier`, `links/discover`, ma trận quyền | "Bác là ai?", màn OTP, `auth.ts` |
+| BE2 | Contract `bootstrap`, `resolve-identifier`, `links/discover`, ma trận quyền | "Bạn là ai?", màn OTP, `auth.ts` |
 | BE3 | Contract `sync` + mock | `sync.ts`, `pullChanges.ts`, `cache.ts`, `queue.ts` |
 | BE4 | Contract `links`, `linked` | Vỏ Nông dân (phần xem), "Mời kết nối" hiện mã, ô "Nhập mã kết nối" |
 | BE5 | Contract `orders`, `notifications` | Đơn, hẹn lịch, ô "Theo đơn" |

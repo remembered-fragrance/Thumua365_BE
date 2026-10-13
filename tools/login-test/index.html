@@ -23,7 +23,7 @@
     <header>
       <p class="eyebrow">Công cụ cho dev · không phải app thật</p>
       <h1>Thử luồng tài khoản</h1>
-      <p class="lead">Đăng ký → "Bác là ai?" → xác thực số → dò kết nối, trên API và Supabase thật,
+      <p class="lead">Đăng ký → "Bạn là ai?" → xác thực số → dò kết nối, trên API và Supabase thật,
         qua <code>@mambo/sdk</code>. Cũng là ví dụ chạy được cho frontend.</p>
       <p id="health" class="pill">Đang hỏi API…</p>
     </header>
@@ -75,7 +75,7 @@
     </section>
 
     <section id="bootstrap-box" hidden>
-      <h2>Bác là ai?</h2>
+      <h2>Bạn là ai?</h2>
       <form id="bootstrap">
         <fieldset class="choices">
           <legend>Loại tổ chức</legend>
@@ -84,7 +84,7 @@
           <label class="choice"><input type="radio" name="orgType" value="enterprise"> Doanh nghiệp</label>
         </fieldset>
         <label>Tên tổ chức <input id="orgName" placeholder="Vựa Tư Hùng · Hộ cô Mai" required></label>
-        <label>Tên của bác <input id="personName" required></label>
+        <label>Tên của bạn <input id="personName" required></label>
         <label>Tên đăng nhập (không bắt buộc) <input id="username" placeholder="vuatuhung"></label>
         <button type="submit" id="bootstrap-btn">Xong</button>
         <p class="hint"><code>POST /v1/me/bootstrap</code> — gọi lại cũng không tạo tổ chức thứ hai.</p>
@@ -100,8 +100,8 @@
 
     <section id="links-box" hidden>
       <h2>Kết nối</h2>
-      <p class="hint">Vựa đưa bác một <b>mã kết nối</b> 8 ký tự (lúc cân, hoặc qua Zalo). Nhập mã là kết nối ngay —
-        xem được phiếu và công nợ của bác trong sổ vựa, chỉ những gì in trên biên nhận. Một trong hai bên huỷ là mất
+      <p class="hint">Vựa đưa bạn một <b>mã kết nối</b> 8 ký tự (lúc cân, hoặc qua Zalo). Nhập mã là kết nối ngay —
+        xem được phiếu và công nợ của bạn trong sổ vựa, chỉ những gì in trên biên nhận. Một trong hai bên huỷ là mất
         quyền xem ngay.</p>
       <form id="claim">
         <label>Mã kết nối <input id="claim-code" autocomplete="off" autocapitalize="characters" spellcheck="false"
@@ -118,7 +118,7 @@
     <section id="otp-box" hidden>
       <details>
         <summary>Xác thực số điện thoại (OTP) — tạm ẩn tới khi &gt; 100 tổ chức trả phí</summary>
-        <p class="hint">Đường thứ hai: xác thực số rồi "Dò kết nối" để tự tìm các sổ có số của bác. Staging đang tắt
+        <p class="hint">Đường thứ hai: xác thực số rồi "Dò kết nối" để tự tìm các sổ có số của bạn. Staging đang tắt
           Phone provider nên bước gửi mã sẽ báo lỗi — đúng như mong đợi.</p>
         <form id="otp-send">
           <label>Số điện thoại <input id="otp-phone" inputmode="tel" required></label>

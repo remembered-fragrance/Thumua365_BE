@@ -5,7 +5,10 @@
  *   1. ẢNH trên Storage trước — chúng không đi theo database; tài khoản mất rồi thì không ai biết
  *      thư mục nào để dọn. Bước này hỏng thì DỪNG.
  *   2. DỮ LIỆU — một transaction bằng `api_privileged`: tổ chức mình là chủ (và không còn ai khác)
- *      bị xoá hẳn, cùng sổ, đơn, kết nối; tổ chức mình chỉ làm thuê thì rời đi; hồ sơ bị xoá.
+ *      bị xoá hẳn, cùng sổ, đơn, kết nối; hồ sơ bị xoá.
+ *
+ * Người làm thuê còn trong tổ chức nào thì KHÔNG xoá được (`STILL_MEMBER`): người làm không tự rời,
+ * chủ gỡ ra trước (0.13.0). Xoá tài khoản từng là một đường tự rời — nay đóng lại.
  *   3. TÀI KHOẢN ĐĂNG NHẬP (Supabase Auth) sau cùng.
  *
  * Giữ lại, cố ý: `bank_transactions` (sổ đối soát — không thì xoá tài khoản thành cách dùng lại một
@@ -88,8 +91,14 @@ export class AccountDeletionService {
       });
       return { owned, left: mine.filter((m) => m.role !== 'owner').map((m) => m.organizationId), busy: busy.map((b) => b.organizationId) };
     });
+    if (plan.left.length > 0) {
+      throw new ApiException('VALIDATION_FAILED', 'Bạn còn làm cho tổ chức khác — nhờ chủ gỡ bạn ra trước rồi mới xoá tài khoản', {
+        reason: 'STILL_MEMBER',
+        organizations: plan.left,
+      });
+    }
     if (plan.busy.length > 0) {
-      throw new ApiException('VALIDATION_FAILED', 'Tổ chức của bác còn người đang làm — gỡ họ trước rồi xoá tài khoản', {
+      throw new ApiException('VALIDATION_FAILED', 'Tổ chức của bạn còn người đang làm — gỡ họ trước rồi xoá tài khoản', {
         reason: 'ORG_HAS_MEMBERS',
         organizations: plan.busy,
       });

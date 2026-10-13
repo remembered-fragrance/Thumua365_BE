@@ -7,7 +7,7 @@
  * sao lưu) mới chặn ở database bằng `has_active_sync()`. Nhầm hai loại này là
  * vừa tốn công vừa vẫn thủng — xem F §3.1.
  *
- * Đếm MỌI phiếu, cả mua lẫn bán: câu người dùng đọc được là "tháng này bác đã
+ * Đếm MỌI phiếu, cả mua lẫn bán: câu người dùng đọc được là "tháng này bạn đã
  * ghi 30 phiếu", và họ đếm cả hai loại như nhau.
  */
 

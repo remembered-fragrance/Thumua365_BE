@@ -3,7 +3,7 @@
  *
  *   1. Đăng ký / đăng nhập: trình duyệt ↔ Supabase Auth (supabase-js). Mật khẩu KHÔNG đi qua API.
  *      Đăng nhập một ô: `sdk.resolveIdentifier` đổi tên/SĐT/email thành email đăng nhập.
- *   2. "Bác là ai?": `sdk.meBootstrap` — tạo tổ chức, vai trò chủ, gói dùng thử.
+ *   2. "Bạn là ai?": `sdk.meBootstrap` — tạo tổ chức, vai trò chủ, gói dùng thử.
  *   3. Kết nối: vựa đưa mã kết nối → `sdk.links.claim({ code })` với header tổ chức.
  *      OTP (tạm ẩn tới khi > 100 tổ chức trả phí): `supabase.auth.updateUser({ phone })` →
  *      `verifyOtp({ type: 'phone_change' })`, rồi `sdk.discoverLinks()`.
@@ -60,7 +60,7 @@ const explain = (err) => {
     const fields = err.details?.fields ? ` (${Object.entries(err.details.fields).map(([k, v]) => `${k}: ${v}`).join('; ')})` : '';
     const byCode = {
       UNAUTHENTICATED: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn — đăng nhập lại.',
-      NOT_A_MEMBER: 'Bác không thuộc tổ chức này — chọn tổ chức khác.',
+      NOT_A_MEMBER: 'Bạn không thuộc tổ chức này — chọn tổ chức khác.',
       FORBIDDEN: 'Vai trò này không được làm việc đó.',
       PHONE_NOT_VERIFIED: 'Cần xác thực số điện thoại bằng mã OTP trước.',
       VALIDATION_FAILED: `Dữ liệu chưa đúng${fields}.`,
@@ -148,7 +148,7 @@ const render = (session) => {
   }
 };
 
-/** Vẽ lại phần sau đăng nhập theo /v1/me: chưa có tổ chức → "Bác là ai?". */
+/** Vẽ lại phần sau đăng nhập theo /v1/me: chưa có tổ chức → "Bạn là ai?". */
 const renderMe = (me) => {
   lastMe = me;
   const hasOrg = me.memberships.length > 0;
@@ -266,7 +266,7 @@ $('signup').addEventListener('submit', async (e) => {
     }
     $('otp-phone').value = phone;
     $('personName').focus();
-    say('Đã tạo tài khoản. Tiếp: "Bác là ai?".', 'ok');
+    say('Đã tạo tài khoản. Tiếp: "Bạn là ai?".', 'ok');
     await refreshMe();
   });
 });
@@ -289,7 +289,7 @@ $('bootstrap').addEventListener('submit', async (e) => {
     $('bootstrap').reset();
     renderMe(me);
     const org = me.memberships[0]?.organization;
-    say(`Xong: ${org?.name} · loại ${org?.type}. Bác thuộc ${me.memberships.length} tổ chức.`, 'ok');
+    say(`Xong: ${org?.name} · loại ${org?.type}. Bạn thuộc ${me.memberships.length} tổ chức.`, 'ok');
   });
 });
 
@@ -374,7 +374,7 @@ const renderLinks = (links) => {
   $('links').replaceChildren(
     ...(links.length === 0 ? [el('p', { className: 'hint', textContent: 'Chưa có kết nối nào.' })] : []),
     ...links.map((l) => {
-      const who = l.side === 'linked' ? `Sổ của ${l.counterpart?.name ?? '—'} (ghi bác là "${l.partner.name}")` : `Sổ của mình → ${l.partner.name}`;
+      const who = l.side === 'linked' ? `Sổ của ${l.counterpart?.name ?? '—'} (ghi bạn là "${l.partner.name}")` : `Sổ của mình → ${l.partner.name}`;
       const buttons = [];
       if (l.side === 'linked' && l.status === 'pending') buttons.push(['Đồng ý', () => act(`POST /v1/links/${l.id}/accept`, () => api.links.accept(l.id))]);
       if (l.side === 'linked' && l.status === 'active' && l.counterpart) {
@@ -420,7 +420,7 @@ $('balance-btn').addEventListener('click', () =>
   run($('balance-btn'), 'GET /v1/linked/balance', async () => {
     const res = await api.linked.balance();
     show('GET /v1/linked/balance — 200', res);
-    say(res.items.map((i) => `${i.organization.name}: họ nợ ${i.theyOwe.toLocaleString('vi-VN')}đ · bác nợ ${i.youOwe.toLocaleString('vi-VN')}đ`).join(' | ') || 'Chưa kết nối với ai.', 'ok');
+    say(res.items.map((i) => `${i.organization.name}: họ nợ ${i.theyOwe.toLocaleString('vi-VN')}đ · bạn nợ ${i.youOwe.toLocaleString('vi-VN')}đ`).join(' | ') || 'Chưa kết nối với ai.', 'ok');
   }),
 );
 

@@ -161,3 +161,38 @@ export const ReportSummary = z.object({
   branches: z.array(z.object({ branch: BranchRef.nullable(), figures: ReportFigures })),
 });
 export type ReportSummary = z.infer<typeof ReportSummary>;
+
+// ─── Việc của từng người ─────────────────────────────────────────────────────
+
+export const MemberActivityQuery = z
+  .strictObject({
+    /** Từ (gồm) — app tính đầu ngày theo giờ Việt Nam. */
+    from: z.iso.datetime({ offset: true }),
+    /** Đến (không gồm). Tối đa 366 ngày. */
+    to: z.iso.datetime({ offset: true }),
+  })
+  .refine((q) => Date.parse(q.from) < Date.parse(q.to), { message: '`from` phải trước `to`', path: ['to'] })
+  .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, { message: 'Tối đa 366 ngày', path: ['to'] });
+export type MemberActivityQuery = z.output<typeof MemberActivityQuery>;
+
+export const MemberActivity = z.object({
+  member: OrgMember,
+  /** Phiếu NGƯỜI NÀY lập trong khoảng (chưa xoá), tính như báo cáo tổng. */
+  receipts: ReportFigures,
+  /** Lần trả NGƯỜI NÀY ghi trong khoảng (chưa huỷ) — kể cả trả cho phiếu người khác lập. */
+  payments: z.object({ count: z.number().int().nonnegative(), amount: z.number().int() }),
+  /** Lần cuối lập phiếu hoặc ghi lần trả, mọi thời điểm. null = chưa làm gì. */
+  lastActiveAt: Time.nullable(),
+});
+export type MemberActivity = z.infer<typeof MemberActivity>;
+
+/**
+ * Mọi người của tổ chức — chủ, quản lý, người cân. Người đã bị gỡ chỉ có mặt khi có phiếu hoặc lần
+ * trả trong khoảng. Thứ tự: chủ, rồi người đang làm, rồi người đã gỡ; cùng nhóm theo tên.
+ */
+export const MemberActivityReport = z.object({
+  from: Time,
+  to: Time,
+  members: z.array(MemberActivity),
+});
+export type MemberActivityReport = z.infer<typeof MemberActivityReport>;

@@ -14,7 +14,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Logger } from 'winston';
 
 export interface DomainEventMap {
-  /** Có người đăng ký xong bước "Bác là ai?" — đo lường `sign_up_completed` (BE9). */
+  /** Có người đăng ký xong bước "Bạn là ai?" — đo lường `sign_up_completed` (BE9). */
   'organization.created': {
     readonly organizationId: string;
     readonly orgType: OrgType;

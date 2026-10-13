@@ -91,6 +91,6 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 
 ## 7. Frontend (repo riêng) — chạy song song từ mục 2
 
-Hợp đồng đủ cho mọi màn ở `docs/FRONTEND.md` §5–§7 (mục 5.8–5.12 là BE5–BE9). Thứ tự gợi ý: "Bác là
+Hợp đồng đủ cho mọi màn ở `docs/FRONTEND.md` §5–§7 (mục 5.8–5.12 là BE5–BE9). Thứ tự gợi ý: "Bạn là
 ai?" + chọn tổ chức → ô "Nhập mã kết nối" → vỏ Nông dân (kết nối, phiếu, công nợ, đơn) → đơn + thông báo cho vựa →
 Gói + chuyển khoản → vỏ Doanh nghiệp → ảnh → đo lường + trang Quyền riêng tư → TWA lên CH Play.

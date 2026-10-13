@@ -193,7 +193,7 @@ safety khớp với R5, `assetlinks.json` cho TWA.
 |---|---|---|---|
 | BE0 ✅ | Repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE): `packages/core`, `packages/contracts`, CI, release `.tgz` | Chốt quy ước; `@/core/` → `@mambo/core/` từ release | 1–2 |
 | BE1 ✅ | Khung NestJS, Guard, định dạng lỗi, `/v1/me`, Docker, staging Render | `/lien-he`, link pháp lý (R4); khung chọn vỏ | 2 |
-| BE2 ✅ | Prisma + schema ba vai trò, tổ chức, chi nhánh, `/me/bootstrap` (OTP dời sang BE4) | Bước "Bác là ai?" khi đăng ký | 3 |
+| BE2 ✅ | Prisma + schema ba vai trò, tổ chức, chi nhánh, `/me/bootstrap` (OTP dời sang BE4) | Bước "Bạn là ai?" khi đăng ký | 3 |
 | BE3 ✅ | Đồng bộ sổ qua API, giới hạn theo chi nhánh | Sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức (FRONTEND.md §7) | 3–4 |
 | BE4 ✅ | Kết nối tổ chức bằng **mã kết nối** + phần xem của nông dân (OTP tạm ẩn) | Vỏ Nông dân (phần xem), "Mời kết nối" hiện mã, ô "Nhập mã kết nối" | 2–3 |
 | BE5 | Đơn hàng, đặt lịch, thông báo trong app | Đơn bán, danh sách đơn, hẹn lịch, ô "Theo đơn" | 3 |

@@ -437,7 +437,7 @@ tắt giống vậy (ghi vào bảng kiểm BE10).
 ### Công cụ nghiệm thu — `npm run login-test`
 
 Trang thử nâng thành đủ luồng tài khoản của frontend: đăng ký (email nội bộ từ số, như
-`data/auth.ts`) → "Bác là ai?" (`sdk.meBootstrap`) → chọn tổ chức (header
+`data/auth.ts`) → "Bạn là ai?" (`sdk.meBootstrap`) → chọn tổ chức (header
 `X-Organization-Id`) → OTP (`updateUser({ phone })` → `verifyOtp({ type: 'phone_change' })`)
 → "Dò kết nối" (`sdk.discoverLinks`); đăng nhập một ô qua `sdk.resolveIdentifier`. Dùng
 `@mambo/core/identifier` qua import map. Máy chủ tĩnh vẫn chặn `../` tới `apps/api/.env`.
@@ -457,7 +457,7 @@ Mỗi tài khoản đúng một tổ chức; mọi dòng audit khớp người t
 
 **Lỗi bắt được khi nghiệm thu — ở trang thử, không ở API:** lần đầu ra hai doanh nghiệp,
 không có vựa. Audit ghi `"type": "enterprise"` ⇒ API lưu đúng cái được gửi. Nguyên nhân: form
-"Bác là ai?" giữ lựa chọn cũ sau khi đăng xuất — tài khoản sau "thừa hưởng" loại tổ chức của
+"Bạn là ai?" giữ lựa chọn cũ sau khi đăng xuất — tài khoản sau "thừa hưởng" loại tổ chức của
 người trước. Sửa: xoá form khi đăng xuất và sau khi tạo xong; thông báo ghi rõ loại vừa tạo.
 **Frontend thật cần làm y như vậy.**
 
@@ -900,7 +900,7 @@ chủ: tổng = hai chi nhánh cộng lại; chi nhánh thứ 3 với gói 2 →
 ### Quyết định
 
 1. **Chủ tạo tài khoản cho nhân viên, không mời.** Bảng có sẵn trạng thái `invited` nhưng mời cần
-   người kia tự đăng ký — mà "Bác là ai?" luôn tạo một tổ chức mới — và cần OTP (chưa có). Cách tạo
+   người kia tự đăng ký — mà "Bạn là ai?" luôn tạo một tổ chức mới — và cần OTP (chưa có). Cách tạo
    tài khoản giống phần mềm bán hàng phổ biến; người cân chỉ cần SĐT + mật khẩu.
 2. **Số đã có tài khoản nơi khác → `ACCOUNT_EXISTS`.** Một người làm cho hai nơi: để sau (luồng mời).
    Người từng bị gỡ khỏi chính tổ chức → bật lại, **không** đổi mật khẩu của họ.
@@ -1199,6 +1199,24 @@ Cho màn Tài khoản theo vai bên frontend (chủ sửa tên vựa / doanh ngh
   RLS `org_update` của `memberships` đã cho ghi trong tổ chức đang làm việc; trigger `memberships_guard` không cản.
 - Test: `org.db.test.ts` mục "tổ chức: đổi tên, tự rời".
 - Mọi gói `0.12.0`; tag `v0.12.0` gắn trên `master` SAU khi PR merge.
+
+## Người làm không tự rời · việc của từng người · `v0.13.0` · 14/10/2026
+
+Đổi quyết định của `v0.12.0` theo yêu cầu nhóm: **người làm của vựa / doanh nghiệp không tự rời được — quyền
+đó thuộc về chủ**. Không migration.
+
+- `POST /v1/org/leave` luôn 403 `FORBIDDEN` (controller ném thẳng, `MembersService.leave` bị bỏ). Route còn
+  trong hợp đồng, đánh dấu bỏ dần — luật CHANGELOG: bỏ route là thay đổi phá vỡ, giữ ít nhất một bản phát hành.
+  Frontend chưa từng gọi route này (đang ở `0.11.2`).
+- `DELETE /v1/me`: còn membership không phải chủ, chưa bị gỡ → 422 `STILL_MEMBER` (`details.organizations`),
+  không xoá gì. Lý do: xoá tài khoản là đường tự rời thứ hai — đóng cả hai. Bị chủ gỡ rồi thì xoá được như
+  thường; `leftOrganizations` vì thế luôn rỗng.
+- `GET /v1/reports/members` (`staff:manage`) cho màn quản lý nhân viên: theo `created_by` của `transactions`
+  (phiếu, tính bằng `transactionTotals` như báo cáo tổng) và `payments` (lần trả). `lastActiveAt` mọi thời
+  điểm. Người đã gỡ chỉ hiện khi có việc trong khoảng. Đếm lần trả và lần làm gần nhất bằng SQL thô — oxlint
+  cấm `_sum` / `_max` của Prisma `groupBy` (`no-underscore-dangle`).
+- Test: `org.db.test.ts` "không ai tự rời được", "việc của từng người"; `account.db.test.ts` "STILL_MEMBER".
+- Mọi gói `0.13.0`; tag `v0.13.0` gắn trên `master` SAU khi PR merge.
 
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 

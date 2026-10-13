@@ -128,7 +128,7 @@ export const createClient = (options: ClientOptions) => {
   return {
     health: () => call('health'),
     me: () => call('me'),
-    /** Ngay sau `supabase.auth.signUp` — bước "Bác là ai?". Gọi lại an toàn. */
+    /** Ngay sau `supabase.auth.signUp` — bước "Bạn là ai?". Gọi lại an toàn. */
     meBootstrap: (input: RouteBody<'meBootstrap'>) => send('meBootstrap', input),
     /** Trước `signInWithPassword`. Luôn trả một email — sai thì báo MỘT câu chung. */
     resolveIdentifier: (input: RouteBody<'resolveIdentifier'>) => send('resolveIdentifier', input),
@@ -235,7 +235,7 @@ export const createClient = (options: ClientOptions) => {
     org: {
       /** Chỉ chủ đổi được tên — người khác `FORBIDDEN`. */
       update: (patch: RouteBody<'orgUpdate'>) => send('orgUpdate', patch),
-      /** Tự rời tổ chức đang làm việc — mất quyền ngay. Chủ không rời được (`FORBIDDEN`). */
+      /** @deprecated 0.13.0 — luôn `FORBIDDEN`: người làm không tự rời, chỉ chủ gỡ ra (`members.remove`). */
       leave: () => call('orgLeave'),
       members: {
         list: () => call('orgMembersList'),
@@ -259,6 +259,9 @@ export const createClient = (options: ClientOptions) => {
     reports: {
       summary: (params: { readonly from: string; readonly to: string; readonly branchId?: string }) =>
         call('reportsSummary', undefined, { from: params.from, to: params.to, branchId: params.branchId }),
+      /** Việc của từng người (chỉ chủ — `staff:manage`): phiếu đã lập, lần trả đã ghi, lần làm gần nhất. */
+      members: (params: { readonly from: string; readonly to: string }) =>
+        call('reportsMembers', undefined, { from: params.from, to: params.to }),
     },
     /** Thông báo trong app (BE5). Hỏi khi mở app và mỗi 60 giây. */
     notifications: {

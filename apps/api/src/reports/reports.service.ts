@@ -7,16 +7,27 @@
  *     chi nhánh mình (xin chi nhánh khác → FORBIDDEN).
  *   Nông dân: phiếu các vựa đang kết nối ghi về mình (`linked_receipts()`, BE4), lật chiều — vựa MUA
  *     của mình là mình BÁN.
+ *   Việc của từng người (`members`): phiếu và lần trả theo `created_by` — màn quản lý nhân viên của chủ.
  */
 
 import { transactionTotals } from '@mambo/core/calc';
 import type { PriceAdjustment, TransactionLine } from '@mambo/core/types';
-import { hasBook, type ReportFigures, type ReportSide, type ReportSummary, type ReportSummaryQuery } from '@mambo/contracts';
+import {
+  hasBook,
+  type MemberActivity,
+  type MemberActivityQuery,
+  type MemberActivityReport,
+  type ReportFigures,
+  type ReportSide,
+  type ReportSummary,
+  type ReportSummaryQuery,
+} from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth-user';
 import type { MembershipContext } from '../auth/membership';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
+import { type MemberRow, toMember } from '../org/members.service';
 
 type Kind = 'purchase' | 'sale';
 
@@ -110,7 +121,73 @@ export class ReportsService {
       };
     });
   }
+
+  members(user: AuthUser, m: MembershipContext, query: MemberActivityQuery): Promise<MemberActivityReport> {
+    return this.db.scoped({ userId: user.id, orgId: m.organizationId }, (tx) => memberActivity(tx, user.id, m.organizationId, query));
+  }
 }
+
+const ROLE_ORDER = { owner: 0, manager: 1, staff: 2 } as const;
+const byPlace = (a: MemberActivity, b: MemberActivity): number =>
+  Number(a.member.status === 'removed') - Number(b.member.status === 'removed') ||
+  ROLE_ORDER[a.member.role] - ROLE_ORDER[b.member.role] ||
+  (a.member.name ?? '').localeCompare(b.member.name ?? '', 'vi');
+
+/** Việc của từng người — phiếu họ lập, lần trả họ ghi trong khoảng; lần làm gần nhất mọi thời điểm. */
+export const memberActivity = async (tx: Tx, me: string, orgId: string, query: MemberActivityQuery): Promise<MemberActivityReport> => {
+  const from = new Date(query.from);
+  const to = new Date(query.to);
+
+  const [members, receipts, payments, last] = await Promise.all([
+    tx.$queryRaw<MemberRow[]>`select * from public.org_members()`,
+    tx.transaction.findMany({
+      where: { organizationId: orgId, deletedAt: null, date: { gte: from, lt: to } },
+      select: { createdBy: true, kind: true, branchId: true, lines: true, adjustments: true, payments: { where: { deletedAt: null }, select: { amount: true } } },
+    }),
+    tx.$queryRaw<{ created_by: string; count: number; amount: bigint }[]>`
+      select created_by, count(*)::int as count, coalesce(sum(amount), 0)::bigint as amount
+      from public.payments
+      where organization_id = ${orgId}::uuid and deleted_at is null and date >= ${from} and date < ${to}
+      group by created_by`,
+    tx.$queryRaw<{ created_by: string; at: Date }[]>`
+      select created_by, max(created_at) as at from (
+        select created_by, created_at from public.transactions where organization_id = ${orgId}::uuid and deleted_at is null
+        union all
+        select created_by, created_at from public.payments where organization_id = ${orgId}::uuid and deleted_at is null
+      ) done
+      group by created_by`,
+  ]);
+
+  const figures = new Map<string, ReportFigures>();
+  for (const row of receipts) {
+    const f = figures.get(row.createdBy) ?? emptyFigures();
+    add(f, {
+      kind: row.kind as Kind,
+      branchId: row.branchId,
+      lines: row.lines as unknown as TransactionLine[],
+      adjustments: (row.adjustments ?? []) as unknown as PriceAdjustment[],
+      paid: row.payments.reduce((sum, p) => sum + Number(p.amount), 0),
+    });
+    figures.set(row.createdBy, f);
+  }
+  const paid = new Map(payments.map((p) => [p.created_by, { count: p.count, amount: Number(p.amount) }]));
+  const lastAt = new Map(last.map((r) => [r.created_by, r.at]));
+
+  const rows = members
+    .map((row): MemberActivity => {
+      const at = lastAt.get(row.user_id);
+      return {
+        member: toMember(row, me),
+        receipts: figures.get(row.user_id) ?? emptyFigures(),
+        payments: paid.get(row.user_id) ?? { count: 0, amount: 0 },
+        lastActiveAt: at ? at.toISOString() : null,
+      };
+    })
+    // Người đã gỡ chỉ hiện khi có việc trong khoảng — không thì danh sách dài mãi theo thời gian.
+    .filter((a) => a.member.status !== 'removed' || a.receipts.purchase.count + a.receipts.sale.count + a.payments.count > 0)
+    .sort(byPlace);
+  return { from: from.toISOString(), to: to.toISOString(), members: rows };
+};
 
 /** Chủ chọn được một chi nhánh (phải là của mình); người gắn chi nhánh luôn chỉ chi nhánh mình. */
 const scopeBranch = async (tx: Tx, m: MembershipContext, requested: string | undefined): Promise<string | null> => {
