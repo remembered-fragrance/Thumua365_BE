@@ -1264,11 +1264,21 @@ Lỗi phía người dùng: thêm khoản cộng/trừ (tiền xe, chiết khấ
 - Core: `DraftReceipt.adjustments`, `normalize` giữ lại (dùng `normalizeAdjustment` của phiếu, giờ export),
   `completeDraft` mang sang phiếu (rỗng ⇒ không có, không phải mảng rỗng).
 - **Thứ tự lên:** migrate staging → merge BE (Render tự deploy) → frontend nâng gói. Frontend mới gửi
-  `adjustments` lên API cũ sẽ bị `VALIDATION_FAILED` (thân op là `strictObject`) và hàng đợi dừng.
+  `adjustments` lên API cũ sẽ bị `VALIDATION_FAILED` (thân op là `strictObject`): app đánh dấu op "xung đột"
+  (`markConflict`), nháp không lên mạng được.
 - Test: `sync.test.ts` (contracts) giới hạn 20 / tiền nguyên đồng / null; `bookActions.test.ts` chốt nháp mang
   khoản; `normalize.test.ts` đi một vòng; `sync-pull.db.test.ts` "nháp giữ khoản cộng/trừ" (thêm/đổi/gỡ qua HTTP,
   app cũ ra null, CHECK chặn ghi thẳng).
 - Mọi gói `0.15.0`; tag `v0.15.0` gắn trên `master` SAU khi PR merge.
+
+### Lên staging · PR #32 `02d4d43` · 17/10/2026
+
+| Bước | Kết quả |
+|---|---|
+| Migration staging (TRƯỚC khi merge) | ✅ Qua Supabase MCP, một transaction, ghi `_prisma_migrations` (checksum sha256 nội dung git `ff2edb…903c`). Đủ 11/11. CHECK đúng; `api_service` UPDATE và `backup_reader` SELECT được cột mới; 3 nháp cũ ra NULL |
+| Merge, tag | PR #32 merge (CI verify / db / docker xanh, tự review trên PR); tag `v0.15.0` → release có 3 tgz; CI `master` xanh |
+| Render | `/v1/health` → `0.15.0`, commit `02d4d43` |
+| Frontend | PR #35 (gói 0.15.0) merge SAU khi Render lên 0.15.0; www.thumua365.id.vn đã chạy bản mới |
 
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
