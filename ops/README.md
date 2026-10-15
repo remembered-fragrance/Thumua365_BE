@@ -22,6 +22,34 @@ scrape_configs:
 Render gói free ngủ sau ~15 phút không có request: scrape 60 giây giữ nó thức — chỉ bật cho
 production (gói trả phí), không bật cho staging.
 
+## Gói free ↔ gói trả phí
+
+App web đang chạy trên API staging gói **free**. Hai việc bù cho chuyện API ngủ, mỗi việc có một công
+tắc — nâng cấp chỉ là gạt công tắc, không sửa code:
+
+| Ở đâu | Việc | Công tắc |
+|---|---|---|
+| Repo BE — `.github/workflows/keep-warm.yml` | Gọi `/v1/health` mỗi 5 phút để API không ngủ | Biến Actions `KEEP_WARM` (`off` = tắt), `KEEP_WARM_URL` (URL khác) |
+| Repo FE — `src/data/client.ts` (`warmUpApi`) | Mở app là gọi `/v1/health` để đánh thức API sớm | Biến Vercel `VITE_API_WARMUP` (`off` = tắt) |
+
+Bỏ qua công tắc nào cũng không hỏng gì: ở gói trả phí hai việc trên chỉ tốn vài request thừa.
+Phần app tự nhớ `/v1/me` để mở ngay (FE `src/data/meCache.ts`) có ích ở mọi gói — không có công tắc.
+
+**Lên gói trả phí (Render Starter, ~7 USD/tháng, không ngủ):**
+
+1. Render → service `thumua365-api-staging` → Settings → Instance Type → **Starter**. Sửa luôn
+   `plan: free` → `plan: starter` trong `render.yaml` để Blueprint không kéo về free.
+   (Hoặc dựng service production riêng theo [`PRODUCTION.md`](PRODUCTION.md) rồi đổi `VITE_API_URL`
+   của Vercel sang URL mới.)
+2. GitHub repo BE → Settings → Secrets and variables → Actions → Variables → thêm `KEEP_WARM` = `off`.
+3. Vercel → Settings → Environment Variables (Production) → thêm `VITE_API_WARMUP` = `off` → Redeploy.
+
+**Quay về free:** làm ngược lại — xoá hai biến, đổi Instance Type về Free.
+
+Lịch của GitHub Actions có thể trễ, và tự tắt khi repo 60 ngày không có commit. Muốn chắc hơn mà vẫn
+free: thêm một monitor HTTP 5 phút ở UptimeRobot hoặc cron-job.org trỏ vào `/v1/health` (chạy song
+song với workflow cũng được).
+
 ## Số đo
 
 | Tên | Nghĩa |
