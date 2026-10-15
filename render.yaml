@@ -11,6 +11,8 @@ services:
     name: thumua365-api-staging
     runtime: docker
     region: singapore
+    # free ngủ sau 15 phút rảnh (workflow keep-warm giữ thức). Đổi `starter` là hết ngủ — nhớ đặt
+    # KEEP_WARM=off và VITE_API_WARMUP=off: ops/README.md mục "Gói free ↔ gói trả phí".
     plan: free
     branch: master
     # Chỉ deploy khi CI trên GitHub đã xanh.

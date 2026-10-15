@@ -1,0 +1,40 @@
+# Giữ API thức khi còn ở gói free của Render. Gói free tắt container sau 15 phút không ai gọi; lần
+# gọi kế tiếp phải chờ container dậy 20–50 giây (đo 15/10/2026: 22 giây cho `/v1/health`). App web
+# đang trỏ vào staging nên người dùng đầu tiên sau mỗi quãng vắng chờ chừng đó.
+#
+# Gọi `/v1/health` mỗi 5 phút (công khai, không tính hạn mức). Lịch của GitHub có thể trễ vài phút
+# lúc đông — 5 phút để còn dư so với ngưỡng 15 phút. Một service chạy suốt tháng ~744 giờ, nằm trong
+# 750 giờ free của Render. Repo public ⇒ phút Actions không tính tiền.
+#
+# CÔNG TẮC — Settings → Secrets and variables → Actions → tab Variables (không cần sửa file này):
+#   KEEP_WARM      = off  ⇒ tắt hẳn (khi API đã lên gói trả phí, không ngủ nữa). Trống/khác ⇒ chạy.
+#   KEEP_WARM_URL  = URL /v1/health cần gọi. Trống ⇒ staging bên dưới. Đổi khi chuyển API sang host khác.
+# Các bước nâng cấp đầy đủ: ops/README.md mục "Gói free ↔ gói trả phí".
+#
+# GitHub tự tắt lịch của repo 60 ngày không có commit — khi đó vào tab Actions bấm bật lại.
+
+name: Keep warm
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    if: vars.KEEP_WARM != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      HEALTH_URL: ${{ vars.KEEP_WARM_URL || 'https://thumua365-api-staging.onrender.com/v1/health' }}
+    steps:
+      - name: Gọi /v1/health
+        run: |
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 \
+            -w '\nHTTP %{http_code} sau %{time_total}s\n' "$HEALTH_URL"
