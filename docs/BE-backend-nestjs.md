@@ -206,6 +206,7 @@ từng op sync**. Bảng là dữ liệu trong `packages/contracts` (`PERMISSION
 | `staff:manage` · `branch:manage` | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
 | `report:view` | ✅ của mình | ✅ | ❌ | ✅ toàn DN | ✅ chi nhánh | ❌ |
 | `billing:manage` · `account:delete` | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `place:manage` (đặt địa điểm lên bản đồ) | ❌ | ✅ | ❌ | ✅ | ✅ | ❌ |
 
 ### 1.7 Trả tiền (đã chốt)
 
@@ -455,6 +456,8 @@ Thêm: staff hai chi nhánh không thấy phiếu của nhau; nông dân bị hu
 | `GET/POST /v1/org/members` · `PATCH/DELETE .../:id` | `staff:manage` | |
 | `GET/POST/PATCH /v1/org/branches` | `branch:manage` | `BRANCH_LIMIT` |
 | `GET /v1/reports/summary?from=&to=&branchId=` | `report:view` | Tổng hợp nhiều chi nhánh phía server |
+| `GET /v1/places?bbox=&kinds=` · `GET /v1/places/:id` | mọi loại | Bản đồ thu mua (`v0.14.0`). Tối đa 500 điểm, `truncated`; tên tổ chức qua `place_owners()` |
+| `GET/POST /v1/org/places` · `PATCH/DELETE .../:id` | `place:manage` | Tối đa 100 điểm đang hiện mỗi tổ chức (`PLACE_LIMIT`); gỡ = xoá mềm |
 | `GET/PATCH /v1/me/profile` · `GET /v1/me/subscription` | mọi loại | |
 | `GET/POST /v1/billing/intents` · `POST /v1/referrals/claim` | vựa owner | Mã chuyển khoản từ `packages/core/transferCode` |
 | `POST /v1/webhooks/bank` | Casso / SePay | Ba chốt của `payment-webhook` |

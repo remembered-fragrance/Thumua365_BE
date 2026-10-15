@@ -17,3 +17,10 @@ export type MemberRole = z.infer<typeof MemberRole>;
 
 /** Tổ chức nào có sổ offline và trả tiền theo gói. Nông dân miễn phí, không có sổ. */
 export const hasBook = (type: OrgType): boolean => type !== 'farmer';
+
+/** Loại tổ chức được đặt địa điểm lên bản đồ. Nông dân chỉ xem. */
+export const PLACE_KINDS = ['trader', 'enterprise'] as const;
+export const PlaceKind = z.enum(PLACE_KINDS);
+export type PlaceKind = z.infer<typeof PlaceKind>;
+
+export const hasPlaces = (type: OrgType): type is PlaceKind => type !== 'farmer';

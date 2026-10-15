@@ -4,7 +4,7 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **14/10/2026** · Hợp đồng **`v0.13.0`** (BE0–BE10 + đổi tên tổ chức, việc của từng người; người làm không tự rời: tài khoản, tổ chức,
+> Cập nhật **16/10/2026** · Hợp đồng **`v0.14.0`** (BE0–BE10 + đổi tên tổ chức, việc của từng người; người làm không tự rời; bản đồ thu mua: tài khoản, tổ chức,
 > đồng bộ sổ, kết nối bằng **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân
 > viên, chi nhánh, báo cáo; gói, chuyển khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. OTP tạm
 > ẩn) · Đã nghiệm thu trên staging: tới BE5. BE6–BE9 chạy trên staging nhưng chưa nghiệm thu — một số
@@ -83,9 +83,9 @@ khi backend đổi thì chỉ phải sửa một thư mục:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.12.0/mambo-core-0.12.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.12.0/mambo-contracts-0.12.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.12.0/mambo-sdk-0.12.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.14.0/mambo-core-0.14.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.14.0/mambo-contracts-0.14.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.14.0/mambo-sdk-0.14.0.tgz",
     "@supabase/supabase-js": "^2.116.0",
     "zod": "^4.1.0"
   }
@@ -146,7 +146,7 @@ export const api = createClient({
 });
 ```
 
-Các hàm SDK đã có ở `v0.12.0`:
+Các hàm SDK đã có ở `v0.14.0`:
 
 | Hàm | Endpoint | Cần | Trả về |
 |---|---|---|---|
@@ -165,6 +165,8 @@ Các hàm SDK đã có ở `v0.12.0`:
 | `api.org.members.list` · `.create` · `.update` · `.remove` · `api.org.branches.list` · `.create` · `.update` | `/v1/org/…` (BE7) | tổ chức + `staff:manage` / `branch:manage` | mục 5.9 |
 | `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view` | mục 5.9 |
 | `api.reports.members({ from, to })` | `GET /v1/reports/members` (`v0.13.0`) | tổ chức + `staff:manage` | mục 5.9 |
+| `api.places.inView({ bbox, kinds }, signal)` · `.get(id)` | `GET /v1/places…` (`v0.14.0`) | đăng nhập — mọi vai trò | mục 5.13 |
+| `api.places.mine()` · `.create(input)` · `.update(id, patch)` · `.remove(id)` | `/v1/org/places…` (`v0.14.0`) | tổ chức + `place:manage` | mục 5.13 |
 | `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |
 | `api.billing.subscription()` · `.intents()` · `.createIntent({ months })` | `/v1/me/subscription`, `/v1/billing/intents` (BE6) | tổ chức + `billing:manage` | mục 5.10 |
 | `api.attachments.upload(id, blob)` · `.uploadUrl(input)` · `.url(id)` | `/v1/attachments/…` (BE8) | tổ chức | mục 5.11 |
@@ -358,8 +360,9 @@ Bảng gốc: `PERMISSIONS_BY` trong `@mambo/contracts`. Bảng dưới đây đ
 | `staff:manage` · `branch:manage` | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
 | `report:view` | ✅ của mình | ✅ | ❌ | ✅ toàn DN | ✅ chi nhánh | ❌ |
 | `billing:manage` · `account:delete` | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `place:manage` (đặt địa điểm lên bản đồ) | ❌ | ✅ | ❌ | ✅ | ✅ | ❌ |
 
-Vựa **không có** vai trò `manager`; nông dân chỉ có `owner`.
+Vựa **không có** vai trò `manager`; nông dân chỉ có `owner`. **Xem** bản đồ thì mọi vai trò đều được (mục 5.13).
 
 ### 5.5 Xác thực số điện thoại (OTP) — TẠM ẨN, chưa làm màn này
 
@@ -590,6 +593,32 @@ track('receipt_created', { kind: 'purchase', lines: 2, offline: !navigator.onLin
 - Đã đăng nhập: SDK gửi kèm token + tổ chức (route có `optionalAuth`), server gắn tổ chức và
   `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bạn là ai?").
 - `dropped > 0` là lỗi của app (sai danh mục) — xoá khỏi hàng đợi, ghi Sentry, không gửi lại.
+
+### 5.13 Bản đồ thu mua (`v0.14.0`, chưa nghiệm thu trên staging)
+
+Vựa / thương lái và doanh nghiệp tự đặt địa điểm của mình (điểm cân, kho, nhà máy); **mọi** người đã
+đăng nhập — cả nông dân, cả người cân — xem được trên bản đồ. Mang sang từ dự án LiveMap.
+
+```ts
+// Kéo / phóng bản đồ: hỏi lại theo khung nhìn, huỷ lời gọi cũ.
+const { items, truncated } = await api.places.inView({ bbox: map.getBounds().toBBoxString(), kinds: 'trader' }, ctrl.signal);
+// Chủ vựa / chủ DN / quản lý DN (`place:manage`):
+await api.places.create({ name, address, phone, description, lat, lng });   // kind theo loại tổ chức, không gửi
+await api.places.update(id, { lat, lng });   // đổi vị trí: gửi cả hai
+await api.places.remove(id);                  // gỡ khỏi bản đồ (xoá mềm)
+```
+
+- `bbox` = `minLng,minLat,maxLng,maxLat` (đúng thứ tự Leaflet). `kinds` = `trader`, `enterprise` hoặc cả
+  hai cách nhau dấu phẩy; bỏ trống = cả hai. Tham số lạ → 422.
+- Mỗi lần trả tối đa `PLACES_PAGE_LIMIT` (500) điểm, mới sửa trước; `truncated: true` = còn nữa — nhắc
+  người dùng phóng to.
+- Toạ độ phải trong khung Việt Nam `VN_BOUNDS` (gồm Hoàng Sa, Trường Sa); ngoài khung → 422. Bản đồ nên
+  ghi nhãn chủ quyền hai quần đảo.
+- Mỗi tổ chức tối đa `PLACES_PER_ORG_LIMIT` (100) điểm đang hiện; vượt → 422 `VALIDATION_FAILED`,
+  `details.reason: 'PLACE_LIMIT'`.
+- `organizationName` là tên tổ chức chủ — server chỉ lộ tên, không lộ SĐT / địa chỉ của tổ chức. SĐT trên
+  điểm là số tổ chức **tự** điền cho điểm đó.
+- Vị trí của người dùng ("Vị trí của tôi") chỉ dùng trong trình duyệt, **không** gửi lên server.
 
 ### 5.7 Đăng xuất
 

@@ -168,6 +168,10 @@ describe('xoá tài khoản', () => {
       owner,
     ]);
     await admin.query(`insert into notifications (organization_id, kind) values ($1, 'order.submitted'), ($2, 'order.accepted')`, [vua, farm]);
+    await admin.query(`insert into places (organization_id, created_by, kind, name, lat, lng) values ($1, $2, 'trader', 'Vựa Tư Hùng', 11.6, 106.6)`, [
+      vua,
+      owner,
+    ]);
     await admin.query(
       `insert into payment_intents (organization_id, created_by, amount, status, provider, provider_ref) values ($1, $2, 149000, 'paid', 'vietqr', 'K7M2P9')`,
       [vua, owner],
@@ -183,7 +187,7 @@ describe('xoá tài khoản', () => {
 
     expect(storage.removed).toEqual([`attachments/${vua}`]);
     expect(auth.deleted).toEqual([owner]);
-    for (const table of ['transactions', 'payments', 'suppliers', 'subscriptions', 'payment_intents', 'memberships', 'notifications']) {
+    for (const table of ['transactions', 'payments', 'suppliers', 'subscriptions', 'payment_intents', 'memberships', 'notifications', 'places']) {
       expect(await count(`${table} where organization_id = $1`, [vua]), table).toBe(0);
     }
     expect(await count('organizations where id = $1', [vua])).toBe(0);

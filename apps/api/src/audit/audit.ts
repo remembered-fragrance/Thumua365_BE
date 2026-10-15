@@ -25,7 +25,10 @@ export type AuditAction =
   | 'member.removed'
   | 'member.left'
   | 'branch.created'
-  | 'branch.updated';
+  | 'branch.updated'
+  | 'place.created'
+  | 'place.updated'
+  | 'place.deleted';
 
 export interface AuditEntry {
   readonly organizationId: string;

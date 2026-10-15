@@ -11,6 +11,7 @@ export * from './orders.js';
 export * from './org.js';
 export * from './organization.js';
 export * from './permissions.js';
+export * from './places.js';
 export * from './routes.js';
 export * from './sync.js';
 export * from './sync-parse.js';
