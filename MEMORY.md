@@ -1240,6 +1240,17 @@ Mang tính năng bản đồ của repo LiveMap (k20elite/LiveMap) sang: vựa /
   `account.db.test.ts` có điểm trong dữ liệu xoá tài khoản.
 - Mọi gói `0.14.0`; tag `v0.14.0` gắn trên `master` SAU khi PR merge. Staging cần `prisma migrate deploy`.
 
+### Lên staging · PR #30 `1ee579c` · 16/10/2026
+
+| Bước | Kết quả |
+|---|---|
+| Migration staging (TRƯỚC khi merge) | ✅ Qua Supabase MCP (role `postgres`, đúng project `bldlrkmszjmhifubxjvl`): staging còn thiếu `20261013000000_be10_backup_reader` và `20261016000000_ban_do` — chạy từng file trong một transaction, ghi `_prisma_migrations` (checksum = sha256 nội dung git). Đủ 10/10. `backup_reader`: BYPASSRLS, NOLOGIN, đọc được `auth.users` (grant được trên Supabase) |
+| Kiểm sau migrate | `places`: RLS bật, 3 policy; `api_service` không có DELETE; `anon` không gọi được `place_owners`; `backup_reader` đọc được `places` (default privileges) |
+| Merge, tag | PR #30 merge (CI xanh, tự review trên PR); tag `v0.14.0` → release có 3 tgz; CI `master` xanh |
+| Render | `/v1/health` → `0.14.0`, commit `1ee579c`; `/v1/places`, `/v1/org/places` không token → 401 (đường dẫn lạ → 404) |
+| Frontend | PR #31 (gói 0.14.0) merge; www.thumua365.id.vn có `/ban-do`, `/dia-diem` |
+| Lần này | Bỏ quy ước hai người duyệt cho đổi ma trận quyền — quyết định của người dùng, 16/10 |
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
