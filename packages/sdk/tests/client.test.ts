@@ -231,5 +231,41 @@ describe('@mambo/sdk', () => {
     await client.sync.pull();
     expect(calls[0]?.url).toBe('https://api.test/v1/sync/pull');
   });
+
+  it('places.inView: bbox + kinds vào query string, kèm signal để huỷ; bỏ kinds thì không gửi', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fetchFn = async (url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return json(200, { items: [], truncated: false });
+    };
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+    const ctrl = new AbortController();
+
+    await expect(client.places.inView({ bbox: '105.5,9.8,106.3,10.6', kinds: 'trader' }, ctrl.signal)).resolves.toEqual({
+      items: [],
+      truncated: false,
+    });
+    expect(calls[0]?.url).toBe('https://api.test/v1/places?bbox=105.5%2C9.8%2C106.3%2C10.6&kinds=trader');
+    expect(calls[0]?.init?.signal).toBe(ctrl.signal);
+
+    await client.places.inView({ bbox: '105,9,107,11' });
+    expect(calls[1]?.url).toBe('https://api.test/v1/places?bbox=105%2C9%2C107%2C11');
+    expect(calls[1]?.init?.signal).toBeUndefined();
+  });
+
+  it('places: sửa và gỡ đúng phương thức, :id vào đường dẫn', async () => {
+    const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    const responses = [json(200, { ok: true })];
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fetchFn = async (url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return responses.shift() ?? new Response('', { status: 599 });
+    };
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', getOrganizationId: () => 'org-1', fetch: fetchFn });
+
+    await expect(client.places.remove(id)).resolves.toEqual({ ok: true });
+    expect(calls[0]?.url).toBe(`https://api.test/v1/org/places/${id}`);
+    expect(calls[0]?.init?.method).toBe('DELETE');
+  });
 });
 

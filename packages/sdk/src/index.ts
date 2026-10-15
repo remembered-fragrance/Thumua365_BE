@@ -17,6 +17,7 @@ import {
   type RouteBody,
   type RouteName,
   type RouteQuery,
+  type RouteQueryInput,
   type RouteResponse,
   type RouteWithBody,
   type SyncPushRequest,
@@ -72,6 +73,8 @@ export const createClient = (options: ClientOptions) => {
     body?: unknown,
     query?: Readonly<Record<string, string | number | undefined>>,
     params?: Readonly<Record<string, string>>,
+    /** Huỷ lời gọi đang bay — `fetch` ném `AbortError` (DOMException), không bọc thành `ApiError`. */
+    signal?: AbortSignal,
   ): Promise<RouteResponse<N>> => {
     const route = routes[name];
     const headers: Record<string, string> = { accept: 'application/json' };
@@ -107,6 +110,7 @@ export const createClient = (options: ClientOptions) => {
       method: route.method,
       headers,
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(signal ? { signal } : {}),
     });
     if (!res.ok) throw await readError(res);
 
@@ -254,6 +258,28 @@ export const createClient = (options: ClientOptions) => {
         create: (input: RouteBody<'orgBranchesCreate'>) => send('orgBranchesCreate', input),
         update: (id: string, patch: RouteBody<'orgBranchUpdate'>) => call('orgBranchUpdate', patch, undefined, { id }),
       },
+    },
+    /**
+     * Bản đồ thu mua. Xem: mọi người đã đăng nhập. Đặt / sửa / gỡ: tổ chức đang làm việc, cần
+     * `place:manage` (chủ vựa, chủ và quản lý doanh nghiệp).
+     */
+    places: {
+      /**
+       * Địa điểm trong khung nhìn — `bbox` là `minLng,minLat,maxLng,maxLat` (Leaflet
+       * `getBounds().toBBoxString()`), `kinds` bỏ trống = cả hai. Kéo bản đồ liên tục thì truyền
+       * `signal` để huỷ lời gọi cũ.
+       */
+      inView: (query: RouteQueryInput<'placesList'>, signal?: AbortSignal) =>
+        call('placesList', undefined, { bbox: query.bbox, kinds: query.kinds }, undefined, signal),
+      /** Một điểm đang hiện; đã gỡ → `NOT_FOUND`. */
+      get: (id: string) => call('placeGet', undefined, undefined, { id }),
+      /** Mọi điểm của tổ chức đang làm việc. */
+      mine: () => call('orgPlacesList'),
+      /** Vượt `PLACES_PER_ORG_LIMIT` → `VALIDATION_FAILED`, `details.reason: 'PLACE_LIMIT'`. */
+      create: (input: RouteBody<'orgPlaceCreate'>) => send('orgPlaceCreate', input),
+      update: (id: string, patch: RouteBody<'orgPlaceUpdate'>) => call('orgPlaceUpdate', patch, undefined, { id }),
+      /** Gỡ khỏi bản đồ của mọi người. */
+      remove: (id: string) => call('orgPlaceDelete', undefined, undefined, { id }),
     },
     /** Báo cáo tổng tính phía server (BE7). `from` gồm, `to` không gồm; tối đa 366 ngày. */
     reports: {

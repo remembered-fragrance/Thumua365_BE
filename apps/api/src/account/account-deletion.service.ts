@@ -52,6 +52,7 @@ const purgeOrganization = async (tx: Tx, orgId: string): Promise<void> => {
   await tx.subscription.deleteMany({ where });
   await tx.organizationFeature.deleteMany({ where });
   await tx.membership.deleteMany({ where });
+  await tx.place.deleteMany({ where });
   await tx.branch.deleteMany({ where });
   await tx.organization.delete({ where: { id: orgId } });
 };

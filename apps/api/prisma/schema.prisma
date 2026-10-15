@@ -29,17 +29,17 @@ datasource db {
 
 /// Mọi chủ thể là một tổ chức, kể cả hộ nông dân một người.
 model Organization {
-  id        String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id        String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// farmer | trader | enterprise
   type      String
   name      String
   phone     String?
   address   String?
   location  Unsupported("geography(Point, 4326)")?
-  createdBy String                                  @map("created_by") @db.Uuid
-  createdAt DateTime                                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime                                @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?                               @map("deleted_at") @db.Timestamptz(6)
+  createdBy String                                 @map("created_by") @db.Uuid
+  createdAt DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime                               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?                              @map("deleted_at") @db.Timestamptz(6)
 
   memberships    Membership[]
   branches       Branch[]
@@ -56,11 +56,12 @@ model Organization {
   paymentIntents PaymentIntent[]
   notifications  Notification[]
   syncOps        SyncOp[]
-  ownedLinks     PartnerLink[]                    @relation("LinkOwner")
-  linkedLinks    PartnerLink[]                    @relation("LinkLinked")
-  ordersSelling  Order[]                          @relation("OrderSeller")
-  ordersBuying   Order[]                          @relation("OrderBuyer")
-  ordersCreated  Order[]                          @relation("OrderCreator")
+  ownedLinks     PartnerLink[]         @relation("LinkOwner")
+  linkedLinks    PartnerLink[]         @relation("LinkLinked")
+  ordersSelling  Order[]               @relation("OrderSeller")
+  ordersBuying   Order[]               @relation("OrderBuyer")
+  ordersCreated  Order[]               @relation("OrderCreator")
+  places         Place[]
 
   @@map("organizations")
 }
@@ -89,17 +90,17 @@ model Branch {
 
 /// Người dùng (auth.users.id) ở trong tổ chức nào, với vai trò gì.
 model Membership {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String    @map("user_id") @db.Uuid
-  organizationId String    @map("organization_id") @db.Uuid
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
   /// owner | manager | staff
   role           String
   /// Nhân viên gắn với một chi nhánh; null = cả tổ chức.
-  branchId       String?   @map("branch_id") @db.Uuid
+  branchId       String?  @map("branch_id") @db.Uuid
   /// invited | active | removed
-  status         String    @default("active")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  status         String   @default("active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   branch       Branch?      @relation(fields: [branchId, organizationId], references: [id, organizationId])
@@ -112,17 +113,17 @@ model Membership {
 /// Gói của một tổ chức vựa/doanh nghiệp. Nông dân không có hàng nào ở đây.
 /// Không có trạng thái 'expired' — suy ra từ ngày tháng (@mambo/core/subscription).
 model Subscription {
-  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId   String          @map("organization_id") @db.Uuid
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
   /// trialing | active | past_due | canceled
   status           String
-  trialEndsAt      DateTime?       @map("trial_ends_at") @db.Timestamptz(6)
-  currentPeriodEnd DateTime?       @map("current_period_end") @db.Timestamptz(6)
+  trialEndsAt      DateTime? @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodEnd DateTime? @map("current_period_end") @db.Timestamptz(6)
   /// Doanh nghiệp: số chi nhánh tối đa theo gói. null = không giới hạn.
-  branchLimit      Int?            @map("branch_limit")
-  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  branchLimit      Int?      @map("branch_limit")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization   Organization    @relation(fields: [organizationId], references: [id])
   paymentIntents PaymentIntent[]
@@ -248,6 +249,34 @@ model OrderEvent {
 
   @@index([orderId, createdAt])
   @@map("order_events")
+}
+
+// ─── Bản đồ — mọi người đã đăng nhập đều đọc, id do server sinh ──────────────
+
+/// Địa điểm thu mua của vựa / doanh nghiệp trên bản đồ. Vị trí của người dùng KHÔNG lưu ở đâu cả.
+model Place {
+  id             String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                                 @map("organization_id") @db.Uuid
+  createdBy      String                                 @map("created_by") @db.Uuid
+  /// trader | enterprise — đặt theo loại tổ chức lúc tạo, client không gửi.
+  kind           String
+  name           String
+  address        String?
+  phone          String?
+  description    String?
+  lat            Float
+  lng            Float
+  /// Cột GENERATED ALWAYS từ (lng, lat) — chỉ để truy vấn không gian (index GiST). Không ghi từ
+  /// Prisma. `dbgenerated` chép đúng biểu thức Postgres đọc lại, để `migrate diff` không báo lệch.
+  location       Unsupported("geography(Point, 4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(lng, lat), 4326))::geography"))
+  createdAt      DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?                              @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, updatedAt(sort: Desc)])
+  @@map("places")
 }
 
 // ─── Sổ — ghi offline, id do CLIENT sinh ─────────────────────────────────────

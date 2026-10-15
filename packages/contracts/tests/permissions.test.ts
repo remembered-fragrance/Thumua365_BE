@@ -32,6 +32,7 @@ const MATRIX: Readonly<Record<Permission, readonly [boolean, boolean, boolean, b
   'report:view': [true, true, false, true, true, false],
   'billing:manage': [true, true, false, true, false, false],
   'account:delete': [true, true, false, true, false, false],
+  'place:manage': [false, true, false, true, true, false],
 };
 
 describe('ma trận quyền', () => {

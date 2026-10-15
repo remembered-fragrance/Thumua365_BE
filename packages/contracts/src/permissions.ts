@@ -28,6 +28,7 @@ export const PERMISSIONS = [
   'report:view',
   'billing:manage',
   'account:delete',
+  'place:manage',
 ] as const;
 
 export const Permission = z.enum(PERMISSIONS);
@@ -62,6 +63,7 @@ export const PERMISSIONS_BY: Readonly<Record<OrgType, Readonly<Record<MemberRole
       'pricing:manage',
       'linked:read',
       'report:view',
+      'place:manage',
     ],
     staff: ['order:create', 'book:sync', 'receipt:create', 'payment:record'],
   },

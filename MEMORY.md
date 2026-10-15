@@ -1218,6 +1218,28 @@ Cho màn Tài khoản theo vai bên frontend (chủ sửa tên vựa / doanh ngh
 - Test: `org.db.test.ts` "không ai tự rời được", "việc của từng người"; `account.db.test.ts` "STILL_MEMBER".
 - Mọi gói `0.13.0`; tag `v0.13.0` gắn trên `master` SAU khi PR merge.
 
+## Bản đồ thu mua · `v0.14.0` · 16/10/2026
+
+Mang tính năng bản đồ của repo LiveMap (k20elite/LiveMap) sang: vựa / doanh nghiệp tự đặt địa điểm, mọi người
+đã đăng nhập (cả nông dân) xem. Migration `20261016000000_ban_do`.
+
+- Bảng `places` riêng (không dùng `organizations.location` / `branches.location` của 0001 — vẫn để trống).
+  `location` là cột GENERATED từ (lng, lat); schema.prisma khai `dbgenerated(...)` đúng biểu thức Postgres đọc
+  lại, thiếu thì `prisma migrate diff --exit-code` (bước CI) báo lệch. Index GiST một phần (`deleted_at is null`).
+- CHECK khung Việt Nam (lat 7–24, lng 102–118 — gồm Hoàng Sa, Trường Sa) = `VN_BOUNDS`. Trigger
+  `places_kind_matches_org` (quyền người gọi: tổ chức không đọc được ra NULL ⇒ bị chặn trước cả RLS),
+  `keep_soft_deleted`, `touch_updated_at`.
+- RLS: đọc = đã đăng nhập + (đang hiện hoặc của tổ chức đang làm việc); ghi = tổ chức đang làm việc. api_service
+  KHÔNG có DELETE (gỡ = xoá mềm); api_privileged có (xoá tài khoản xoá cả điểm — `purgeOrganization`).
+- **Không nới RLS `org_read`** (sẽ lộ SĐT / địa chỉ tổ chức): tên tổ chức chủ lấy qua hàm security definer
+  `place_owners(uuid[])` — chỉ id + tên, chỉ tổ chức chưa xoá có điểm đang hiện. Tổ chức đã xoá ⇒ điểm biến khỏi bản đồ.
+- Quyền mới `place:manage`: vựa owner, DN owner (BOOK_OWNER = mọi quyền), DN manager. Đổi ma trận — cần hai người duyệt PR.
+- Tối đa 100 điểm đang hiện mỗi tổ chức (`PLACE_LIMIT`), đếm sau `pg_advisory_xact_lock(hashtextextended(org, 3))`
+  (seed 2 là chi nhánh). Trang theo khung nhìn tối đa 500, `truncated`.
+- Test: `places.db.test.ts` (RLS, CHECK, trigger, `place_owners`, HTTP, giới hạn chạy song song, truncated);
+  `account.db.test.ts` có điểm trong dữ liệu xoá tài khoản.
+- Mọi gói `0.14.0`; tag `v0.14.0` gắn trên `master` SAU khi PR merge. Staging cần `prisma migrate deploy`.
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không

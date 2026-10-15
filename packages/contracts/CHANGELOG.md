@@ -3,6 +3,22 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.14.0 — 16/10/2026 (bản đồ thu mua)
+
+- `routes.placesList` — `GET /v1/places?bbox=minLng,minLat,maxLng,maxLat&kinds=trader,enterprise` →
+  `PlacesList { items: Place[], truncated }`. Mọi người đã đăng nhập (cả nông dân), không cần tổ chức.
+  Tối đa `PLACES_PAGE_LIMIT` (500) điểm, mới sửa trước. `routes.placeGet` — `GET /v1/places/:id` → `Place`;
+  đã gỡ → 404 `NOT_FOUND`.
+- `routes.orgPlacesList` · `orgPlaceCreate` · `orgPlaceUpdate` · `orgPlaceDelete` — `/v1/org/places[/:id]`,
+  quyền mới `place:manage` (vựa owner, DN owner, DN manager). `kind` theo loại tổ chức. Tối đa
+  `PLACES_PER_ORG_LIMIT` (100) điểm đang hiện mỗi tổ chức; vượt → 422 `VALIDATION_FAILED`,
+  `details.reason: 'PLACE_LIMIT'`, `details.limit`. Gỡ = xoá mềm, trả `{ ok: true }`.
+- Kiểu mới: `Place`, `PlaceInput`, `PlacePatch` (đổi vị trí gửi cả `lat` và `lng`), `PlacesQuery`, `BBox`,
+  `PlacesList`, `PlaceDeleteResult`, `PLACE_KINDS` / `PlaceKind` / `hasPlaces`, `VN_BOUNDS`, `Latitude`,
+  `Longitude`, `RouteQueryInput`.
+- `@mambo/sdk`: nhóm `places` — `inView(query, signal?)`, `get`, `mine`, `create`, `update`, `remove`. Hàm gọi
+  nội bộ nhận `AbortSignal`.
+
 ## 0.13.0 — 14/10/2026 (người làm không tự rời · việc của từng người)
 
 - `routes.reportsMembers` — `GET /v1/reports/members?from&to` → `MemberActivityReport { from, to, members:

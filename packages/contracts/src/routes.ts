@@ -29,6 +29,7 @@ import type { RouteDef } from './route-def.js';
 import { accountRoutes } from './routes-account.js';
 import { orderRoutes } from './routes-orders.js';
 import { orgRoutes } from './routes-org.js';
+import { placeRoutes } from './routes-places.js';
 import { SyncPullQuery, SyncPullResult, SyncPushInput, SyncPushRequest, SyncPushResult } from './sync.js';
 
 export type { RouteAuth, RouteDef } from './route-def.js';
@@ -145,6 +146,7 @@ export const routes = {
   },
   ...orderRoutes,
   ...orgRoutes,
+  ...placeRoutes,
   ...accountRoutes,
   eventsTrack: {
     method: 'POST',
@@ -229,6 +231,11 @@ export type RouteWithQuery = {
 /** Tham số query sau khi server đã kiểm và ép kiểu. */
 export type RouteQuery<N extends RouteWithQuery> = (typeof routes)[N] extends { query: infer Q extends z.ZodType }
   ? z.output<Q>
+  : never;
+
+/** Tham số query client gửi (chuỗi thô, trước khi server kiểm và ép kiểu). */
+export type RouteQueryInput<N extends RouteWithQuery> = (typeof routes)[N] extends { query: infer Q extends z.ZodType }
+  ? z.input<Q>
   : never;
 
 /** Tên các route có tham số đường dẫn. */

@@ -43,6 +43,8 @@ import { BranchesService } from './org/branches.service';
 import { OrganizationService } from './org/organization.service';
 import { MembersService } from './org/members.service';
 import { OrgController } from './org/org.controller';
+import { PlacesController } from './places/places.controller';
+import { PlacesService } from './places/places.service';
 import { ReportsController } from './reports/reports.controller';
 import { ReportsService } from './reports/reports.service';
 import { SyncController } from './sync/sync.controller';
@@ -86,6 +88,7 @@ export class AppModule {
         AttachmentsController,
         EventsController,
         SyncController,
+        PlacesController,
       ],
       providers: [
         { provide: ENV, useValue: env },
@@ -118,6 +121,7 @@ export class AppModule {
         AnalyticsListener,
         SyncPushService,
         SyncPullService,
+        PlacesService,
         // Thứ tự đăng ký = thứ tự chạy.
         { provide: APP_GUARD, useClass: ClientIpThrottlerGuard },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
