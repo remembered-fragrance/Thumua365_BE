@@ -191,6 +191,8 @@ const draftFields = {
   lines: z.array(TransactionLine).max(100),
   /** Số định trả khi chốt — chưa phải lần trả nào. Lần trả thật là `payment`. */
   amountPaid: NonNegativeMoney,
+  /** Khoản cộng/trừ đang nhập — cùng hình dạng với phiếu đã chốt. */
+  adjustments: z.array(PriceAdjustment).max(20).nullable(),
   note: nullableText(2000),
   attachmentIds: z.array(Id).max(10),
   /** (BE5) Nháp lập theo đơn — chốt thành phiếu thì phiếu mang `orderId` này. */
@@ -199,7 +201,16 @@ const draftFields = {
 /** Doanh nghiệp: `branchId` như phiếu (xem TransactionInsert). Chi nhánh không đổi được sau khi tạo. */
 export const DraftInsert = z
   .strictObject({ ...draftFields, branchId: Id.nullable() })
-  .partial({ kind: true, counterpartyId: true, supplierId: true, note: true, attachmentIds: true, branchId: true, orderId: true });
+  .partial({
+    kind: true,
+    counterpartyId: true,
+    supplierId: true,
+    adjustments: true,
+    note: true,
+    attachmentIds: true,
+    branchId: true,
+    orderId: true,
+  });
 export const DraftPatch = z.strictObject(draftFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const DraftRecord = z.object({
   ...meta,
@@ -210,6 +221,7 @@ export const DraftRecord = z.object({
   supplierName: z.string(),
   lines: z.array(LineRecord),
   amountPaid: z.number().int(),
+  adjustments: z.array(z.object(adjustmentShape)).nullable(),
   note: z.string().nullable(),
   attachmentIds: z.array(z.string()),
   branchId: z.string().nullable(),

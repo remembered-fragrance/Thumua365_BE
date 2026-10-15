@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.14.0"
+    "version": "0.15.0"
   },
   "servers": [
     {
@@ -12804,6 +12804,56 @@
                                   "minimum": 0,
                                   "maximum": 9007199254740991
                                 },
+                                "adjustments": {
+                                  "anyOf": [
+                                    {
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 64
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "logistics",
+                                              "volumeDiscount",
+                                              "manual"
+                                            ]
+                                          },
+                                          "label": {
+                                            "type": "string",
+                                            "maxLength": 120
+                                          },
+                                          "amount": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "ruleId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 64
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "label",
+                                          "amount"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "note": {
                                   "anyOf": [
                                     {
@@ -13046,6 +13096,56 @@
                                   "type": "integer",
                                   "minimum": 0,
                                   "maximum": 9007199254740991
+                                },
+                                "adjustments": {
+                                  "anyOf": [
+                                    {
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 64
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "logistics",
+                                              "volumeDiscount",
+                                              "manual"
+                                            ]
+                                          },
+                                          "label": {
+                                            "type": "string",
+                                            "maxLength": 120
+                                          },
+                                          "amount": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "ruleId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 64
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "label",
+                                          "amount"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 },
                                 "note": {
                                   "anyOf": [
@@ -14482,6 +14582,55 @@
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
                               },
+                              "adjustments": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64
+                                        },
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "logistics",
+                                            "volumeDiscount",
+                                            "manual"
+                                          ]
+                                        },
+                                        "label": {
+                                          "type": "string",
+                                          "maxLength": 120
+                                        },
+                                        "amount": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "ruleId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "kind",
+                                        "label",
+                                        "amount"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "note": {
                                 "type": [
                                   "string",
@@ -14520,6 +14669,7 @@
                               "supplierName",
                               "lines",
                               "amountPaid",
+                              "adjustments",
                               "note",
                               "attachmentIds",
                               "branchId",

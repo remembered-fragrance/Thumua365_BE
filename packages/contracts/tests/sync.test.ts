@@ -112,6 +112,17 @@ describe('parseSyncOp — kiểm từng op', () => {
     expect(parseSyncOp(op('payment', 'insert', { transactionId: tx, date: NOW, amount: 1_438_000 })).ok).toBe(true);
   });
 
+  it('nháp mang khoản cộng/trừ như phiếu: tối đa 20 khoản, tiền nguyên đồng, null = gỡ hết', () => {
+    const adj = (i: number, amount = -50_000) => ({ id: `a${i}`, kind: 'manual', label: 'Tiền xe', amount });
+    const draft = (adjustments: unknown) => ({ status: 'draft', supplierName: '', lines: [], amountPaid: 0, adjustments });
+    expect(parseSyncOp(op('draft', 'insert', draft([adj(1), adj(2, 20_000)]))).ok).toBe(true);
+    expect(parseSyncOp(op('draft', 'insert', draft(Array.from({ length: 20 }, (_, i) => adj(i))))).ok).toBe(true);
+    expect(parseSyncOp(op('draft', 'insert', draft(Array.from({ length: 21 }, (_, i) => adj(i))))).ok).toBe(false);
+    expect(parseSyncOp(op('draft', 'insert', draft([adj(1, 1_000.5)]))).ok).toBe(false);
+    expect(parseSyncOp(op('draft', 'insert', draft([{ ...adj(1), kind: 'tip' }]))).ok).toBe(false);
+    expect(parseSyncOp(op('draft', 'update', { adjustments: null })).ok).toBe(true);
+  });
+
   it('loại bản ghi, loại thao tác lạ bị từ chối', () => {
     expect(parseSyncOp(op('transactions', 'insert', transaction)).ok).toBe(false);
     expect(parseSyncOp(op('transaction', 'upsert', transaction)).ok).toBe(false);

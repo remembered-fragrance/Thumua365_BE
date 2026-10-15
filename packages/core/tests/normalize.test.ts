@@ -161,7 +161,16 @@ describe('normalize toàn sổ — đi một vòng không rơi rớt', () => {
     buyers: [{ id: 'buy-1', name: 'Nhà máy Bình Long' }],
     products: [{ id: 'prod-rubber', name: 'Cao su', unit: 'kg', formulaType: 'rubberLatex', lastPricePerUnit: 14_500 }],
     transactions: [V1_TX, V2_TX, V3_TX],
-    drafts: [{ id: 'draft-1', status: 'waiting', supplierName: 'Chú Bảy', lines: [], amountPaid: 0 }],
+    drafts: [
+      {
+        id: 'draft-1',
+        status: 'waiting',
+        supplierName: 'Chú Bảy',
+        lines: [],
+        amountPaid: 0,
+        adjustments: [{ id: 'a1', kind: 'logistics', label: 'Tiền xe', amount: -50_000 }],
+      },
+    ],
     notes: [{ id: 'note-1', body: 'Gọi cô Mai', pinned: true, done: false }],
     settings: { defaultWeightUnit: 'hg', displayMode: 'outdoor' },
     pricingRules: [{ id: 'r1', name: 'Phí xe', kind: 'logistics', active: true, fixedAmount: -50_000 }],
@@ -184,6 +193,7 @@ describe('normalize toàn sổ — đi một vòng không rơi rớt', () => {
 
   it('giữ nháp, ghi chú và quy tắc giá', () => {
     expect(first.drafts[0]?.status).toBe('waiting');
+    expect(first.drafts[0]?.adjustments).toEqual([{ id: 'a1', kind: 'logistics', label: 'Tiền xe', amount: -50_000 }]);
     expect(first.notes[0]?.pinned).toBe(true);
     expect(first.pricingRules).toHaveLength(1);
   });

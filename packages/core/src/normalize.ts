@@ -7,7 +7,7 @@
  */
 
 import { newId } from './id.js';
-import { normalizeLine, normalizeTransaction } from './normalizeTransaction.js';
+import { normalizeAdjustment, normalizeLine, normalizeTransaction } from './normalizeTransaction.js';
 import type {
   AppData,
   AppSettings,
@@ -95,6 +95,9 @@ const normalizeDraft = (raw: Record<string, unknown>): DraftReceipt => {
     supplierName: String(raw.supplierName || ''),
     lines: asRecords(raw.lines).map((l) => normalizeLine(l, false)),
     amountPaid: Number(raw.amountPaid) || 0,
+    adjustments: Array.isArray(raw.adjustments)
+      ? asRecords(raw.adjustments).map(normalizeAdjustment)
+      : undefined,
     note: text(raw.note),
     attachmentIds: Array.isArray(raw.attachmentIds)
       ? (raw.attachmentIds as unknown[]).map(String)

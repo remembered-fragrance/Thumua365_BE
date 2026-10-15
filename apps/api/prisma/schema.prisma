@@ -422,6 +422,8 @@ model Draft {
   supplierName   String    @default("") @map("supplier_name")
   lines          Json      @default("[]")
   amountPaid     BigInt    @default(0) @map("amount_paid")
+  /// Khoản cộng/trừ đang nhập — như transactions.adjustments. NULL = chưa có khoản nào.
+  adjustments    Json?
   note           String?
   attachmentIds  String[]  @map("attachment_ids")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)

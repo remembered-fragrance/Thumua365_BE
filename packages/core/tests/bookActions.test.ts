@@ -158,6 +158,17 @@ describe('phiếu nháp', () => {
     expect(completeDraft(first.data, first.draft.id).transaction?.orderId).toBe('ord-1');
   });
 
+  it('chốt nháp mang theo khoản cộng/trừ đã nhập — tổng phiếu tính cả khoản đó', () => {
+    const adjustments = [{ id: 'a1', kind: 'manual' as const, label: 'Tiền xe', amount: -50_000 }];
+    const first = upsertDraft(data({ suppliers: [supplier()] }), draftInput({ adjustments }));
+    expect(completeDraft(first.data, first.draft.id).transaction?.adjustments).toEqual(adjustments);
+  });
+
+  it('nháp không có khoản nào → phiếu không có adjustments (không phải mảng rỗng)', () => {
+    const first = upsertDraft(data({ suppliers: [supplier()] }), draftInput({ adjustments: [] }));
+    expect(completeDraft(first.data, first.draft.id).transaction?.adjustments).toBeUndefined();
+  });
+
   it('bỏ dòng chưa đủ thông tin, giữ dòng đủ', () => {
     const first = upsertDraft(
       data(),
