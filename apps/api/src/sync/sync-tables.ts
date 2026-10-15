@@ -150,7 +150,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
   draft: {
     branch: 'own',
     defaults: { attachmentIds: [] },
-    toDb: convert({ amountPaid: toBigInt }),
+    toDb: convert({ amountPaid: toBigInt, adjustments: nullableJson }),
     toRecord: (row: Draft): DraftRecord => ({
       ...meta(row),
       status: row.status as DraftRecord['status'],
@@ -160,6 +160,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       supplierName: row.supplierName,
       lines: row.lines as DraftRecord['lines'],
       amountPaid: Number(row.amountPaid),
+      adjustments: row.adjustments as DraftRecord['adjustments'],
       note: row.note,
       attachmentIds: list(row.attachmentIds),
       branchId: row.branchId,

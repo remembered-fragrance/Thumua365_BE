@@ -3,6 +3,13 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.15.0 — 17/10/2026 (nháp giữ khoản cộng/trừ)
+
+- `DraftInsert` / `DraftPatch` — thêm `adjustments?: PriceAdjustment[] | null` (tối đa 20; `null` = gỡ hết).
+  `DraftRecord.adjustments: PriceAdjustment[] | null` (nháp cũ / chưa có khoản → `null`). API cũ (≤ 0.14) từ chối
+  op mang trường này — nâng API trước rồi mới nâng app.
+- `@mambo/core`: `DraftReceipt.adjustments?`; `completeDraft` mang khoản sang phiếu; `normalizeAdjustment` export.
+
 ## 0.14.0 — 16/10/2026 (bản đồ thu mua)
 
 - `routes.placesList` — `GET /v1/places?bbox=minLng,minLat,maxLng,maxLat&kinds=trader,enterprise` →

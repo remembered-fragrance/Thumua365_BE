@@ -222,6 +222,8 @@ export interface DraftReceipt {
   readonly supplierName: string;
   readonly lines: readonly TransactionLine[];
   readonly amountPaid: number;
+  /** Khoản cộng/trừ đang nhập (tiền xe…) — chốt thì sang nguyên phiếu. */
+  readonly adjustments?: readonly PriceAdjustment[];
   readonly note?: string;
   readonly attachmentIds?: readonly string[];
   /** (BE5) Nháp lập theo đơn — chốt thành phiếu thì phiếu mang `orderId` này. */

@@ -1251,6 +1251,25 @@ Mang tính năng bản đồ của repo LiveMap (k20elite/LiveMap) sang: vựa /
 | Frontend | PR #31 (gói 0.14.0) merge; www.thumua365.id.vn có `/ban-do`, `/dia-diem` |
 | Lần này | Bỏ quy ước hai người duyệt cho đổi ma trận quyền — quyết định của người dùng, 16/10 |
 
+## Nháp giữ khoản cộng/trừ · `v0.15.0` · 17/10/2026
+
+Lỗi phía người dùng: thêm khoản cộng/trừ (tiền xe, chiết khấu…) vào phiếu đang cân rồi chuyển khách hay
+"Để dành" là mất — bảng `drafts` không có chỗ lưu, chỉ phiếu đã chốt có. Migration `20261017000000_nhap_khoan_cong_tru`.
+
+- `drafts.adjustments JSONB` trống được, không default (thêm cột không viết lại bảng; nháp cũ đọc ra NULL).
+  CHECK `drafts_adjustments_check`: NULL hoặc mảng ≤ 20 phần tử — viết bằng `CASE` vì Postgres không hứa thứ
+  tự tính của `AND`, `jsonb_array_length` trên số/chuỗi là lỗi chứ không phải false.
+- Contracts: `DraftInsert` / `DraftPatch` / `DraftRecord` thêm `adjustments` (cùng `PriceAdjustment` của phiếu,
+  tối đa 20, `null` = gỡ hết). Thêm trường, không đổi nghĩa trường cũ ⇒ app cũ không gửi vẫn qua.
+- Core: `DraftReceipt.adjustments`, `normalize` giữ lại (dùng `normalizeAdjustment` của phiếu, giờ export),
+  `completeDraft` mang sang phiếu (rỗng ⇒ không có, không phải mảng rỗng).
+- **Thứ tự lên:** migrate staging → merge BE (Render tự deploy) → frontend nâng gói. Frontend mới gửi
+  `adjustments` lên API cũ sẽ bị `VALIDATION_FAILED` (thân op là `strictObject`) và hàng đợi dừng.
+- Test: `sync.test.ts` (contracts) giới hạn 20 / tiền nguyên đồng / null; `bookActions.test.ts` chốt nháp mang
+  khoản; `normalize.test.ts` đi một vòng; `sync-pull.db.test.ts` "nháp giữ khoản cộng/trừ" (thêm/đổi/gỡ qua HTTP,
+  app cũ ra null, CHECK chặn ghi thẳng).
+- Mọi gói `0.15.0`; tag `v0.15.0` gắn trên `master` SAU khi PR merge.
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không

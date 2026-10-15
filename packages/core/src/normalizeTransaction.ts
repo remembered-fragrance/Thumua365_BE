@@ -87,7 +87,7 @@ const normalizeCreditTerm = (raw: Record<string, unknown>): CreditTerm => ({
   amount: num(raw.amount),
 });
 
-const normalizeAdjustment = (raw: Record<string, unknown>): PriceAdjustment => ({
+export const normalizeAdjustment = (raw: Record<string, unknown>): PriceAdjustment => ({
   id: String(raw.id || newId()),
   kind: ADJUSTMENT_KINDS.includes(raw.kind as PriceAdjustment['kind'])
     ? (raw.kind as PriceAdjustment['kind'])

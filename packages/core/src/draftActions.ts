@@ -76,6 +76,7 @@ export const completeDraft = (
     lines,
     amountPaid: draft.amountPaid,
     payments: [],
+    adjustments: draft.adjustments?.length ? draft.adjustments : undefined,
     note: draft.note,
     attachmentIds: draft.attachmentIds,
     orderId: draft.orderId,

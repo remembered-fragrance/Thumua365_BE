@@ -239,3 +239,45 @@ describe('phạm vi chi nhánh (doanh nghiệp)', () => {
     expect(again.resetRequired).toBe(false);
   });
 });
+
+describe('nháp giữ khoản cộng/trừ', () => {
+  const draft = (adjustments?: unknown) => ({
+    status: 'draft',
+    kind: 'sale',
+    supplierName: 'Chị Lan',
+    lines: [],
+    amountPaid: 0,
+    ...(adjustments === undefined ? {} : { adjustments }),
+  });
+  const xe = { id: 'a1', kind: 'manual', label: 'Tiền xe', amount: -50_000 };
+  const ck = { id: 'a2', kind: 'manual', label: 'Chiết khấu', amount: 20_000 };
+  const draftOnServer = async () => (await page()).changes.drafts[0];
+
+  it('thêm, đổi, gỡ hết — kéo về đúng như đã gửi', async () => {
+    const op = opMaker();
+    const id = newId();
+    await push([op('draft', 'insert', id, draft([xe]))]);
+    expect((await draftOnServer())?.adjustments).toEqual([xe]);
+
+    await push([op('draft', 'update', id, { status: 'waiting', adjustments: [xe, ck] })]);
+    expect(await draftOnServer()).toMatchObject({ status: 'waiting', adjustments: [xe, ck] });
+
+    await push([op('draft', 'update', id, { adjustments: null })]);
+    expect((await draftOnServer())?.adjustments).toBeNull();
+  });
+
+  it('app cũ không gửi khoản nào → null, không lỗi', async () => {
+    await push([opMaker()('draft', 'insert', newId(), draft())]);
+    expect((await draftOnServer())?.adjustments).toBeNull();
+  });
+
+  it('ghi thẳng vào DB sai hình dạng bị CHECK chặn (không phải mảng, quá 20 khoản)', async () => {
+    const id = newId();
+    await push([opMaker()('draft', 'insert', id, draft([xe]))]);
+    const set = (json: string) => admin.query('update drafts set adjustments = $1::jsonb where id = $2', [json, id]);
+    await expect(set('{"amount": 1}')).rejects.toThrow(/drafts_adjustments_check/);
+    await expect(set('5')).rejects.toThrow(/drafts_adjustments_check/);
+    await expect(set(JSON.stringify(Array.from({ length: 21 }, () => xe)))).rejects.toThrow(/drafts_adjustments_check/);
+    await expect(set(JSON.stringify(Array.from({ length: 20 }, () => xe)))).resolves.toBeDefined();
+  });
+});
