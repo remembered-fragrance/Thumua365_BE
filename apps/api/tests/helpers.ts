@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module';
 import { type MembershipContext, type MembershipLookup, NoMembershipsYet } from '../src/auth/membership';
 import type { NewAccount, SupabaseAdmin } from '../src/auth/supabase-admin';
 import type { StorageAdmin } from '../src/storage/storage-admin';
+import type { Mail, Mailer } from '../src/mail/mailer';
 import type { SupabaseAccount, SupabaseUsers } from '../src/auth/supabase-users';
 import { configureApp } from '../src/bootstrap';
 import { type Env, loadEnv } from '../src/config/env';
@@ -107,6 +108,32 @@ export class FakeSupabaseAdmin implements SupabaseAdmin {
     if (!this.emails.has(userId)) throw new Error(`Không có tài khoản ${userId}`);
     this.passwords.set(userId, password);
   }
+
+  /** Email đăng nhập đã xin mã đặt lại mật khẩu, theo thứ tự. */
+  readonly recoveries: string[] = [];
+
+  async recoveryToken(loginEmail: string): Promise<string> {
+    this.recoveries.push(loginEmail);
+    return `hashed-${this.recoveries.length}`;
+  }
+}
+
+/** Gửi thư giả: giữ thư đã gửi. `failing` giả nhà cung cấp hỏng; `configured = false` giả chưa có khoá. */
+export class FakeMailer implements Mailer {
+  configured = true;
+  failing = false;
+  readonly sent: Mail[] = [];
+
+  async send(mail: Mail): Promise<void> {
+    if (this.failing) throw new Error('Brevo hỏng');
+    this.sent.push(mail);
+  }
+
+  /** Link đầu tiên trong thư cuối cùng. */
+  lastLink(): string | null {
+    const last = this.sent.at(-1);
+    return last ? (/https?:\/\/\S+/.exec(last.text)?.[0] ?? null) : null;
+  }
 }
 
 /** Storage giả: ghi lại thư mục nào bị xoá, theo thứ tự; `objects` là file đang có. */
@@ -159,6 +186,7 @@ export interface TestAppOptions {
   /** Role api_privileged — chỉ test của webhook, quản trị, xoá tài khoản cần. */
   readonly privilegedDb?: PrivilegedDatabase | null;
   readonly storage?: StorageAdmin;
+  readonly mailer?: Mailer;
   /** Controller chỉ có trong test — để thử guard và interceptor với route giả. */
   readonly extraControllers?: Type[];
 }
@@ -177,6 +205,7 @@ export const buildTestApp = async (options: TestAppOptions): Promise<INestApplic
         db: options.db ?? new Database(env.DATABASE_URL),
         privilegedDb: options.privilegedDb ?? null,
         storage: options.storage ?? new FakeStorageAdmin(),
+        mailer: options.mailer ?? new FakeMailer(),
         logger,
       }),
     ],

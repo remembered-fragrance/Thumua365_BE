@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.15.0"
+    "version": "0.16.0"
   },
   "servers": [
     {
@@ -8671,6 +8671,9 @@
                         "null"
                       ]
                     },
+                    "recoveryEmailVerified": {
+                      "type": "boolean"
+                    },
                     "referralCode": {
                       "type": [
                         "string",
@@ -8686,6 +8689,7 @@
                     "username",
                     "phone",
                     "recoveryEmail",
+                    "recoveryEmailVerified",
                     "referralCode",
                     "referred"
                   ],
@@ -8800,6 +8804,9 @@
                         "null"
                       ]
                     },
+                    "recoveryEmailVerified": {
+                      "type": "boolean"
+                    },
                     "referralCode": {
                       "type": [
                         "string",
@@ -8815,6 +8822,7 @@
                     "username",
                     "phone",
                     "recoveryEmail",
+                    "recoveryEmailVerified",
                     "referralCode",
                     "referred"
                   ],
@@ -8854,6 +8862,260 @@
             }
           },
           "500": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/recovery-email/verify": {
+      "post": {
+        "operationId": "meRecoveryEmailVerify",
+        "summary": "Gửi (lại) thư có link xác nhận email khôi phục. Đổi email ở PATCH /v1/me/profile tự gửi một lần",
+        "x-error-codes": [
+          "EMAIL_UNAVAILABLE"
+        ],
+        "x-rate-limit-per-minute": 5,
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "sent",
+                        "already_verified",
+                        "no_email",
+                        "too_soon"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/recovery-email/confirm": {
+      "post": {
+        "operationId": "authRecoveryEmailConfirm",
+        "summary": "Bấm link xác nhận email khôi phục — không cần đăng nhập. Mã dùng một lần, hết hạn sau 24 giờ",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-rate-limit-per-minute": 10,
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "email"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password-reset": {
+      "post": {
+        "operationId": "authPasswordReset",
+        "summary": "Quên mật khẩu: gửi link đặt lại tới email khôi phục ĐÃ XÁC NHẬN. Luôn { ok: true } — không cho dò ai có tài khoản",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "identifier"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-error-codes": [
+          "EMAIL_UNAVAILABLE"
+        ],
+        "x-rate-limit-per-minute": 5,
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
             "description": "Lỗi — xem `error.code`",
             "content": {
               "application/json": {
@@ -9784,7 +10046,7 @@
     "/v1/admin/users/reset-password": {
       "post": {
         "operationId": "adminResetPassword",
-        "summary": "Quản trị viên đặt lại mật khẩu cho người không khai email khôi phục — đã xác minh danh tính ngoài app",
+        "summary": "Quản trị viên đặt lại mật khẩu cho người không có email khôi phục đã xác nhận — đã xác minh danh tính ngoài app",
         "requestBody": {
           "required": true,
           "content": {
@@ -13814,7 +14076,8 @@
                                   "NOT_FOUND",
                                   "PAYLOAD_TOO_LARGE",
                                   "RATE_LIMITED",
-                                  "INTERNAL"
+                                  "INTERNAL",
+                                  "EMAIL_UNAVAILABLE"
                                 ]
                               },
                               "message": {
@@ -15143,7 +15406,8 @@
                   "NOT_FOUND",
                   "PAYLOAD_TOO_LARGE",
                   "RATE_LIMITED",
-                  "INTERNAL"
+                  "INTERNAL",
+                  "EMAIL_UNAVAILABLE"
                 ]
               },
               "message": {

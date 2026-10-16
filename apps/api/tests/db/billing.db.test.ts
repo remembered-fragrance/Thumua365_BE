@@ -268,7 +268,12 @@ describe('đặt lại mật khẩu', () => {
     const { rows } = await admin.query('select action, user_id from admin_access_log');
     expect(rows).toEqual([{ action: 'reset-password', user_id: userId }]);
 
+    // 0.16.0: email chưa xác nhận (có thể gõ sai, không ai nhận thư) → quản trị viên vẫn đặt lại được.
     await admin.query(`update profiles set recovery_email = 'lan@example.com' where id = $1`, [userId]);
+    await adminApi.post('/v1/admin/users/reset-password', { phone: '0907000111', newPassword: 'chua-xac-nhan', approvedBy: 'Tài' }).expect(200);
+    expect(auth.passwords.get(userId)).toBe('chua-xac-nhan');
+    // Đã xác nhận → họ tự đặt lại qua email.
+    await admin.query(`update profiles set recovery_email_verified_at = now() where id = $1`, [userId]);
     const own = await adminApi.post('/v1/admin/users/reset-password', { phone: '0907000111', newPassword: 'khac-nua-1', approvedBy: 'Tài' }).expect(422);
     expect(ErrorBody.parse(own.body).error.details).toMatchObject({ reason: 'HAS_RECOVERY_EMAIL' });
     await adminApi.post('/v1/admin/users/reset-password', { phone: '0901 234 567', newPassword: 'khac-nua-1', approvedBy: 'Tài' }).expect(404);

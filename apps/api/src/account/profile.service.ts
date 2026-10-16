@@ -9,6 +9,7 @@ import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth-user';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database } from '../db/database';
+import { RecoveryMailService } from './recovery-mail.service';
 import { Prisma, type Profile } from '../generated/prisma/client';
 
 const toProfile = (row: Profile): MeProfile => ({
@@ -16,6 +17,7 @@ const toProfile = (row: Profile): MeProfile => ({
   username: row.username,
   phone: row.phone,
   recoveryEmail: row.recoveryEmail,
+  recoveryEmailVerified: row.recoveryEmail !== null && row.recoveryEmailVerifiedAt !== null,
   referralCode: row.referralCode,
   referred: row.referredBy !== null,
 });
@@ -25,9 +27,11 @@ const noProfile = (): ApiException => new ApiException('NOT_FOUND', 'Chưa có h
 @Injectable()
 export class ProfileService {
   private readonly db: Database;
+  private readonly recoveryMail: RecoveryMailService;
 
-  constructor(@Inject(DATABASE) db: Database) {
+  constructor(@Inject(DATABASE) db: Database, recoveryMail: RecoveryMailService) {
     this.db = db;
+    this.recoveryMail = recoveryMail;
   }
 
   get(user: AuthUser): Promise<MeProfile> {
@@ -38,12 +42,19 @@ export class ProfileService {
     });
   }
 
+  /** Email khôi phục đổi sang email khác (trigger đã bỏ xác nhận cũ) ⇒ gửi thư xác nhận cho email mới. */
   async update(user: AuthUser, patch: z.output<typeof MeProfilePatch>): Promise<MeProfile> {
+    let updated: { profile: MeProfile; emailChanged: boolean };
     try {
-      return await this.db.scoped({ userId: user.id, orgId: null }, async (tx) => {
+      updated = await this.db.scoped({ userId: user.id, orgId: null }, async (tx) => {
+        const before = await tx.profile.findFirst({ where: { id: user.id, deletedAt: null }, select: { recoveryEmail: true } });
+        if (!before) throw noProfile();
         const { count } = await tx.profile.updateMany({ where: { id: user.id, deletedAt: null }, data: patch });
         if (count === 0) throw noProfile();
-        return toProfile(await tx.profile.findUniqueOrThrow({ where: { id: user.id } }));
+        const row = await tx.profile.findUniqueOrThrow({ where: { id: user.id } });
+        // citext: đổi hoa/thường không phải email mới.
+        const emailChanged = row.recoveryEmail !== null && row.recoveryEmail.toLowerCase() !== before.recoveryEmail?.toLowerCase();
+        return { profile: toProfile(row), emailChanged };
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -60,6 +71,8 @@ export class ProfileService {
       }
       throw err;
     }
+    if (updated.emailChanged) await this.recoveryMail.sendVerificationQuietly(user.id);
+    return updated.profile;
   }
 
   /** Luôn trả kết quả, không ném: không cho biết vì sao mã không dùng được. */

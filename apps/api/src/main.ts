@@ -13,6 +13,7 @@ import { loadEnv } from './config/env';
 import { Database } from './db/database';
 import { PrivilegedDatabase } from './db/privileged-database';
 import { SupabaseStorageHttp } from './storage/storage-admin';
+import { buildMailer } from './mail/mailer';
 import { buildLogger } from './logger';
 
 const main = async (): Promise<void> => {
@@ -28,6 +29,8 @@ const main = async (): Promise<void> => {
   // Kết nối lười: chưa chạm Postgres cho tới truy vấn đầu tiên — /v1/health không cần DB.
   const db = new Database(env.DATABASE_URL);
   const privilegedDb = env.PRIVILEGED_DATABASE_URL ? new PrivilegedDatabase(env.PRIVILEGED_DATABASE_URL) : null;
+  const mailer = buildMailer(env, logger);
+  if (!mailer.configured) logger.warn('mailer_missing', { message: 'BREVO_API_KEY trống — xác nhận email, quên mật khẩu tắt' });
   if (!privilegedDb) logger.warn('privileged_db_missing', { message: 'PRIVILEGED_DATABASE_URL trống — webhook, quản trị, xoá tài khoản tắt' });
 
   const app = await NestFactory.create(
@@ -39,6 +42,7 @@ const main = async (): Promise<void> => {
       db,
       privilegedDb,
       storage: new SupabaseStorageHttp(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY),
+      mailer,
       logger,
     }),
     { bodyParser: false, logger: WinstonModule.createLogger({ instance: logger }) },

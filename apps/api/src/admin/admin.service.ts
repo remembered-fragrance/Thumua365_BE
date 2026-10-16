@@ -103,7 +103,8 @@ export class AdminService {
   }
 
   /**
-   * Chỉ cho người KHÔNG khai email khôi phục — có email thì họ tự đặt lại được. Nhật ký ghi trong
+   * Chỉ cho người KHÔNG có email khôi phục ĐÃ XÁC NHẬN — có thì họ tự đặt lại qua email (0.16.0;
+   * trước đó chặn mọi email đã khai, kể cả email gõ sai không ai nhận được thư). Nhật ký ghi trong
    * transaction, đổi mật khẩu ngay trước commit: Auth hỏng thì nhật ký rollback theo.
    */
   async resetPassword(admin: AuthUser, input: ResetInput): Promise<{ ok: true }> {
@@ -111,9 +112,9 @@ export class AdminService {
     await privileged(this.db).run(async (tx) => {
       const userId = await userByPhone(tx, phone);
       if (!userId) throw new ApiException('NOT_FOUND', 'Không có tài khoản với số này');
-      const profile = await tx.profile.findUnique({ where: { id: userId }, select: { recoveryEmail: true } });
-      if (profile?.recoveryEmail) {
-        throw new ApiException('VALIDATION_FAILED', 'Người này có email khôi phục — tự đặt lại mật khẩu được', {
+      const profile = await tx.profile.findUnique({ where: { id: userId }, select: { recoveryEmail: true, recoveryEmailVerifiedAt: true } });
+      if (profile?.recoveryEmail && profile.recoveryEmailVerifiedAt) {
+        throw new ApiException('VALIDATION_FAILED', 'Người này có email khôi phục đã xác nhận — tự đặt lại mật khẩu qua "Quên mật khẩu?"', {
           reason: 'HAS_RECOVERY_EMAIL',
         });
       }

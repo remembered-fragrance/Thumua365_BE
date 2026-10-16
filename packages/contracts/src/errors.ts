@@ -24,6 +24,8 @@ export const ERROR_CODES = [
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL',
+  /** 0.16.0 — API chưa cấu hình dịch vụ gửi thư, hoặc dịch vụ đang hỏng. Liên hệ kỹ thuật viên. */
+  'EMAIL_UNAVAILABLE',
 ] as const;
 
 export const ErrorCode = z.enum(ERROR_CODES);
@@ -44,6 +46,7 @@ export const ERROR_STATUS: Readonly<Record<ErrorCode, number>> = {
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   INTERNAL: 500,
+  EMAIL_UNAVAILABLE: 503,
 };
 
 export const ErrorBody = z.object({

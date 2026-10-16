@@ -10,6 +10,7 @@ import { isInternalEmail, phoneFromLoginEmail } from '../auth/login-email';
 import type { SupabaseAccount } from '../auth/supabase-users';
 import { ApiException } from '../common/api-exception';
 import { TRIAL_DAYS } from '../config/plans';
+import { RecoveryMailService } from '../account/recovery-mail.service';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import { DomainEvents } from '../events/domain-events';
 import { Prisma } from '../generated/prisma/client';
@@ -86,10 +87,12 @@ const uniqueViolation = (err: unknown): ApiException | null => {
 export class BootstrapService {
   private readonly db: Database;
   private readonly events: DomainEvents;
+  private readonly recoveryMail: RecoveryMailService;
 
-  constructor(@Inject(DATABASE) db: Database, events: DomainEvents) {
+  constructor(@Inject(DATABASE) db: Database, events: DomainEvents, recoveryMail: RecoveryMailService) {
     this.db = db;
     this.events = events;
+    this.recoveryMail = recoveryMail;
   }
 
   /** Trả `true` nếu lần gọi này tạo tổ chức mới. */
@@ -172,6 +175,8 @@ export class BootstrapService {
 
     if (created) {
       this.events.emit('organization.created', { organizationId, orgType: input.orgType, userId: user.id, role: 'owner' });
+      // Email khai lúc đăng ký: gửi thư xác nhận luôn (sau commit, lỗi chỉ ghi log).
+      if (recoveryEmail) await this.recoveryMail.sendVerificationQuietly(user.id);
     }
     return created;
   }

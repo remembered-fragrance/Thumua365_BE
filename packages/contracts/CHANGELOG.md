@@ -3,6 +3,23 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.16.0 — 18/10/2026 (xác nhận email · quên mật khẩu · một luật mật khẩu)
+
+- `PASSWORD_MIN_LENGTH` (8), `PASSWORD_MAX_LENGTH` (72), schema `Password` — một luật cho mọi chỗ đặt mật khẩu.
+  `OrgMemberCreateInput.password`, `AdminResetPasswordInput.newPassword` dùng nó (vẫn 8–72, không đổi nghĩa).
+  App phải dùng cùng hằng số cho đăng ký / đổi mật khẩu (trước đây 6) và Supabase Auth đặt tối thiểu 8.
+- `MeProfile.recoveryEmailVerified: boolean` — chỉ email đã xác nhận nhận thư đặt lại mật khẩu.
+- `routes.meRecoveryEmailVerify` — `POST /v1/me/recovery-email/verify` → `RecoveryEmailVerifyResult
+  { status: 'sent' | 'already_verified' | 'no_email' | 'too_soon' }`. Đổi email ở `meProfileUpdate` (và đăng ký có
+  email) tự gửi một thư.
+- `routes.authRecoveryEmailConfirm` — `POST /v1/auth/recovery-email/confirm` (công khai) `{ token }` →
+  `{ email: string | null }` (`null` = link sai / đã dùng / hết hạn).
+- `routes.authPasswordReset` — `POST /v1/auth/password-reset` (công khai) `{ identifier }` → luôn `{ ok: true }`; thư
+  có link `/dat-lai-mat-khau?token_hash=…&type=recovery` (app gọi `supabase.auth.verifyOtp`).
+- `ErrorCode` thêm `EMAIL_UNAVAILABLE` (503) — máy chủ chưa cấu hình / không gửi được thư.
+- `admin/users/reset-password` chỉ chặn (`HAS_RECOVERY_EMAIL`) khi email khôi phục ĐÃ xác nhận.
+- `@mambo/sdk`: `requestPasswordReset`, `confirmRecoveryEmail`, `account.verifyRecoveryEmail`.
+
 ## 0.15.0 — 17/10/2026 (nháp giữ khoản cộng/trừ)
 
 - `DraftInsert` / `DraftPatch` — thêm `adjustments?: PriceAdjustment[] | null` (tối đa 20; `null` = gỡ hết).

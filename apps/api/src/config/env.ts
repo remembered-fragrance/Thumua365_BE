@@ -7,6 +7,8 @@
  * Bí mật từ BE6: PRIVILEGED_DATABASE_URL (role api_privileged), BANK_WEBHOOK_SECRET. Hai biến này
  * tuỳ chọn để bản deploy trước khi điền vẫn chạy — thiếu thì webhook / quản trị / xoá tài khoản báo
  * lỗi rõ ràng, phần còn lại của API không ảnh hưởng.
+ * Bí mật từ 0.16.0: BREVO_API_KEY — gửi thư xác nhận email và đặt lại mật khẩu. Tuỳ chọn: thiếu thì
+ * hai việc đó báo EMAIL_UNAVAILABLE (máy dev: thư in ra log), phần còn lại không ảnh hưởng.
  * Chỉ nằm trong apps/api/.env (đã .gitignore) và biến môi trường của Render.
  */
 
@@ -84,6 +86,27 @@ const EnvSchema = z
       .transform((v) => (v ? v.trim().toLowerCase() : undefined)),
     /** Render tự đặt biến này cho mỗi lần deploy. */
     RENDER_GIT_COMMIT: z.string().optional(),
+    /**
+     * Khoá API của Brevo (gửi thư qua HTTPS — Render free chặn cổng SMTP). Trống: máy dev in thư ra
+     * log; staging/production không gửi được thư (EMAIL_UNAVAILABLE).
+     */
+    BREVO_API_KEY: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v.trim() : undefined)),
+    /** Địa chỉ gửi — phải là sender / domain đã xác minh trên Brevo. */
+    MAIL_FROM: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v.trim() : undefined))
+      .pipe(z.email('phải là email').optional()),
+    MAIL_FROM_NAME: z.string().trim().min(1).max(70).default('THUMUA365'),
+    /** Địa chỉ web app — link trong thư trỏ về đây (`/xac-nhan-email`, `/dat-lai-mat-khau`). */
+    APP_URL: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v.trim().replace(/\/+$/, '') : undefined))
+      .pipe(z.url().optional()),
   })
   .refine((env) => env.APP_ENV === 'development' || env.CORS_ORIGINS.length > 0, {
     message: 'CORS_ORIGINS bắt buộc ở staging và production',
@@ -106,6 +129,19 @@ const EnvSchema = z
   .refine((env) => env.APP_ENV !== 'production' || Boolean(env.METRICS_TOKEN), {
     message: 'METRICS_TOKEN bắt buộc ở production',
     path: ['METRICS_TOKEN'],
+  })
+  // Có khoá Brevo mà thiếu người gửi / địa chỉ app ⇒ thư nào cũng hỏng hoặc link trỏ sai: không cho lên.
+  .refine((env) => !env.BREVO_API_KEY || Boolean(env.MAIL_FROM), {
+    message: 'MAIL_FROM bắt buộc khi có BREVO_API_KEY',
+    path: ['MAIL_FROM'],
+  })
+  .refine((env) => !env.BREVO_API_KEY || Boolean(env.APP_URL), {
+    message: 'APP_URL bắt buộc khi có BREVO_API_KEY',
+    path: ['APP_URL'],
+  })
+  .refine((env) => env.APP_ENV !== 'production' || !env.APP_URL || env.APP_URL.startsWith('https://'), {
+    message: 'production: APP_URL phải là https',
+    path: ['APP_URL'],
   });
 
 export type Env = z.infer<typeof EnvSchema>;

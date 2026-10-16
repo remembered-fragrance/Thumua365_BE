@@ -20,6 +20,7 @@
 
 import { z } from 'zod';
 import { MemberRole, OrgType } from './organization.js';
+import { Password } from './password.js';
 
 const Time = z.iso.datetime({ offset: true });
 const Name = z.string().trim().min(1).max(120);
@@ -72,7 +73,7 @@ export const OrgMemberCreateInput = z.strictObject({
   /** Số điện thoại Việt Nam — là tên đăng nhập của người đó. */
   phone: z.string().trim().min(9).max(20),
   /** Mật khẩu ban đầu, chủ đưa cho người đó; đổi được sau. */
-  password: z.string().min(8).max(72),
+  password: Password,
   role: AssignableRole,
   /** Doanh nghiệp: chi nhánh của người này. Bỏ trống = cả tổ chức. */
   branchId: z.uuid().nullable().optional(),

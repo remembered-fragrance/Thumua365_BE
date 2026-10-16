@@ -1280,6 +1280,33 @@ Lỗi phía người dùng: thêm khoản cộng/trừ (tiền xe, chiết khấ
 | Render | `/v1/health` → `0.15.0`, commit `02d4d43` |
 | Frontend | PR #35 (gói 0.15.0) merge SAU khi Render lên 0.15.0; www.thumua365.id.vn đã chạy bản mới |
 
+## Xác nhận email · quên mật khẩu · một luật mật khẩu · `v0.16.0` · 18/10/2026
+
+Yêu cầu: kiểm xoá tài khoản (đã có từ BE6: `DELETE /v1/me`); xác nhận email + tự đặt lại mật khẩu qua email,
+trường hợp đặc biệt liên hệ kỹ thuật viên; độ dài mật khẩu đăng ký (6) và tạo nhân viên (8) chưa đồng bộ.
+Người dùng chọn **8 ký tự** và **Brevo** (không Firebase: sẽ thành hệ tài khoản thứ hai bên cạnh Supabase).
+
+- **Vì sao không dùng thư có sẵn của Supabase:** đăng nhập bằng email nội bộ `84…@id.thumua365.vn` ⇒ thư đi tới
+  hộp thư không tồn tại. API tự gửi tới `profiles.recovery_email` qua Brevo HTTPS (Render free chặn SMTP).
+- Migration `20261018000000_xac_nhan_email`: 4 cột (`recovery_email_verified_at`, `recovery_email_token_hash`,
+  `recovery_email_token_expires_at`, `auth_mail_sent_at`), CHECK dạng sha256, unique index theo hash, trigger
+  (đổi email ⇒ bỏ xác nhận + mã; `api_service` không tự set `verified_at`, cả INSERT), hai hàm security definer
+  `confirm_recovery_email(hash)` và `claim_password_reset_mail(user)` (chỉ email đã xác nhận, 60 giây một thư).
+- `RecoveryMailService`: mã 32 byte base64url trong link, DB giữ sha256, hạn 24 giờ; gửi hỏng ⇒ gỡ mã + mốc gửi,
+  503 `EMAIL_UNAVAILABLE`. Quên mật khẩu: `find_login_user` → `claim_password_reset_mail` → Auth Admin
+  `generate_link` (type recovery, lấy `hashed_token`) → thư link `APP_URL/dat-lai-mat-khau?token_hash=…&type=recovery`.
+  Luôn `{ ok: true }` (không dò tài khoản); chỉ 503 khi chưa cấu hình (mọi định danh) hoặc nhà cung cấp hỏng.
+- Bootstrap có email (user_metadata) và PATCH hồ sơ đổi email ⇒ tự gửi thư xác nhận (sau commit, lỗi chỉ log).
+- Mailer: `BrevoMailer` / `LogMailer` (development, in link ra log `mail_dev`) / `NoMailer`. Env mới
+  `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME`, `APP_URL` (có khoá thì bắt buộc hai cái sau).
+- Quản trị đặt lại mật khẩu: chỉ chặn khi email ĐÃ xác nhận (trước chặn mọi email đã khai, kể cả gõ sai).
+- Contracts `Password` / `PASSWORD_MIN_LENGTH` 8 / `PASSWORD_MAX_LENGTH` 72 (bcrypt bỏ phần sau 72 byte).
+- **Rủi ro còn để ngỏ:** đăng nhập bằng email khôi phục CHƯA xác nhận vẫn được (`find_login_user`). Người khác
+  không chiếm được tài khoản qua đó (vẫn cần mật khẩu), nhưng email gõ nhầm vẫn chiếm chỗ (unique index).
+- Test: `tests/db/recovery-mail.db.test.ts` (12), `billing.db.test.ts` sửa ca quản trị, `env.test.ts`.
+- **Người dùng phải tự làm:** tạo Brevo + xác minh sender; Render env `BREVO_API_KEY`, `MAIL_FROM`; Supabase Auth
+  → Minimum password length = 8.
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
