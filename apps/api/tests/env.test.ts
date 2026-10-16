@@ -60,6 +60,21 @@ describe('loadEnv', () => {
     expect(loadEnv({ ...base, SENTRY_DSN: '' }).SENTRY_DSN).toBeUndefined();
     expect(() => loadEnv({ ...base, SENTRY_DSN: 'khong-phai-url' })).toThrow(/SENTRY_DSN/);
   });
+
+  it('0.16.0: gửi thư tuỳ chọn; có BREVO_API_KEY thì bắt buộc MAIL_FROM và APP_URL', () => {
+    const none = loadEnv(base);
+    expect(none.BREVO_API_KEY).toBeUndefined();
+    expect(none.MAIL_FROM_NAME).toBe('THUMUA365');
+    const mail = { BREVO_API_KEY: 'xkeysib-abc', MAIL_FROM: 'no-reply@thumua365.id.vn', APP_URL: 'https://www.thumua365.id.vn/' };
+    expect(loadEnv({ ...base, ...mail }).APP_URL).toBe('https://www.thumua365.id.vn');
+    expect(() => loadEnv({ ...base, ...mail, MAIL_FROM: '' })).toThrow(/MAIL_FROM/);
+    expect(() => loadEnv({ ...base, ...mail, APP_URL: '' })).toThrow(/APP_URL/);
+    expect(() => loadEnv({ ...base, ...mail, MAIL_FROM: 'khong-phai-email' })).toThrow(/MAIL_FROM/);
+    const prod = { ...base, ...prodSecrets, APP_ENV: 'production', CORS_ORIGINS: 'https://app.thumua365.vn' };
+    expect(() => loadEnv({ ...prod, ...mail, APP_URL: 'http://www.thumua365.id.vn' })).toThrow(/APP_URL/);
+    // Production chưa có khoá Brevo vẫn lên — chỉ xác nhận email / quên mật khẩu báo EMAIL_UNAVAILABLE.
+    expect(() => loadEnv(prod)).not.toThrow();
+  });
 });
 
 describe('meUserFrom', () => {

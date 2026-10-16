@@ -56,4 +56,15 @@ services:
       # ghi đè, client không giả được). Thiếu nó thì hạn mức theo IP không có tác dụng.
       - key: CLIENT_IP_HEADER
         value: cf-connecting-ip
+      # 0.16.0 — thư xác nhận email khôi phục / đặt lại mật khẩu qua Brevo (HTTPS; Render free chặn
+      # SMTP). Trống BREVO_API_KEY thì hai việc đó báo EMAIL_UNAVAILABLE, phần còn lại chạy bình thường.
+      # MAIL_FROM phải là sender đã xác minh trên Brevo. APP_URL: link trong thư trỏ về web app.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: THUMUA365
+      - key: APP_URL
+        value: https://www.thumua365.id.vn
 

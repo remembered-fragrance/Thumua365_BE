@@ -1,8 +1,17 @@
 import { createHmac } from 'node:crypto';
 import { detectIdentifierKind, normalizePhone } from '@mambo/core/identifier';
-import { type ResolveIdentifierInput, type ResolveIdentifierResult, routes } from '@mambo/contracts';
+import {
+  type PasswordResetRequestInput,
+  type PasswordResetRequestResult,
+  type RecoveryEmailConfirmInput,
+  type RecoveryEmailConfirmResult,
+  type ResolveIdentifierInput,
+  type ResolveIdentifierResult,
+  routes,
+} from '@mambo/contracts';
 import { Body, Controller, Inject } from '@nestjs/common';
 import type { z } from 'zod';
+import { RecoveryMailService } from '../account/recovery-mail.service';
 import { Endpoint } from '../common/endpoint';
 import { ENV, type Env } from '../config/env';
 import { DATABASE, type Database } from '../db/database';
@@ -31,11 +40,18 @@ export class AuthController {
   private readonly db: Database;
   private readonly admin: SupabaseAdmin;
   private readonly decoyKey: string;
+  private readonly recoveryMail: RecoveryMailService;
 
-  constructor(@Inject(DATABASE) db: Database, @Inject(SUPABASE_ADMIN) admin: SupabaseAdmin, @Inject(ENV) env: Env) {
+  constructor(
+    @Inject(DATABASE) db: Database,
+    @Inject(SUPABASE_ADMIN) admin: SupabaseAdmin,
+    @Inject(ENV) env: Env,
+    recoveryMail: RecoveryMailService,
+  ) {
     this.db = db;
     this.admin = admin;
     this.decoyKey = env.SUPABASE_SECRET_KEY;
+    this.recoveryMail = recoveryMail;
   }
 
   /**
@@ -53,5 +69,15 @@ export class AuthController {
       if (email) return { email };
     }
     return { email: decoyEmail(input.identifier, this.decoyKey) };
+  }
+
+  @Endpoint(routes.authRecoveryEmailConfirm)
+  confirmRecoveryEmail(@Body() input: z.output<typeof RecoveryEmailConfirmInput>): Promise<RecoveryEmailConfirmResult> {
+    return this.recoveryMail.confirm(input.token);
+  }
+
+  @Endpoint(routes.authPasswordReset)
+  requestPasswordReset(@Body() input: z.output<typeof PasswordResetRequestInput>): Promise<PasswordResetRequestResult> {
+    return this.recoveryMail.requestPasswordReset(input.identifier);
   }
 }

@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import { PlanSummary, Username } from './me.js';
 import { OrgType } from './organization.js';
+import { Password } from './password.js';
 
 const Time = z.iso.datetime({ offset: true });
 const Money = z.number().int().nonnegative();
@@ -27,6 +28,8 @@ export const MeProfile = z.object({
   phone: z.string().nullable(),
   /** Email thật để tự lấy lại mật khẩu. */
   recoveryEmail: z.string().nullable(),
+  /** Chủ hộp thư đã bấm link xác nhận (0.16.0). Chỉ email đã xác nhận mới nhận thư đặt lại mật khẩu. */
+  recoveryEmailVerified: z.boolean(),
   /** Mã giới thiệu của mình để mời người khác. */
   referralCode: z.string().nullable(),
   /** Đã ghi nhận ai mời mình chưa (ghi một lần, không đổi). */
@@ -47,6 +50,34 @@ export const MeProfilePatch = z
   .partial()
   .refine((p) => Object.keys(p).length > 0, { message: 'Không có trường nào để sửa' });
 export type MeProfilePatch = z.input<typeof MeProfilePatch>;
+
+// ─── Xác nhận email khôi phục · quên mật khẩu (0.16.0) ──────────────────────
+
+/**
+ * `sent` — đã gửi thư có link xác nhận (hết hạn sau 24 giờ); `already_verified` — không cần gửi;
+ * `no_email` — hồ sơ chưa có email khôi phục; `too_soon` — vừa gửi trong 60 giây trước, chờ rồi thử lại.
+ */
+export const RecoveryEmailVerifyResult = z.object({
+  status: z.enum(['sent', 'already_verified', 'no_email', 'too_soon']),
+});
+export type RecoveryEmailVerifyResult = z.infer<typeof RecoveryEmailVerifyResult>;
+
+/** Mã trong link xác nhận (`/xac-nhan-email?token=…`). */
+export const RecoveryEmailConfirmInput = z.strictObject({ token: z.string().trim().min(20).max(200) });
+export type RecoveryEmailConfirmInput = z.input<typeof RecoveryEmailConfirmInput>;
+/** `email: null` — link sai, đã dùng, đã hết hạn, hoặc email đã đổi sau khi gửi. */
+export const RecoveryEmailConfirmResult = z.object({ email: z.string().nullable() });
+export type RecoveryEmailConfirmResult = z.infer<typeof RecoveryEmailConfirmResult>;
+
+/** Một ô như đăng nhập: số điện thoại, tên đăng nhập, hoặc email. */
+export const PasswordResetRequestInput = z.strictObject({ identifier: z.string().trim().min(1).max(200) });
+export type PasswordResetRequestInput = z.input<typeof PasswordResetRequestInput>;
+/**
+ * Luôn `{ ok: true }` dù có tài khoản hay không, có email đã xác nhận hay không — không cho dò ai có
+ * tài khoản. Có thì thư có link đặt lại mật khẩu tới email đã xác nhận.
+ */
+export const PasswordResetRequestResult = z.object({ ok: z.literal(true) });
+export type PasswordResetRequestResult = z.infer<typeof PasswordResetRequestResult>;
 
 /** Luôn 200: không cho biết vì sao mã không dùng được — tránh dò xem mã nào có thật. */
 export const ReferralClaimInput = z.strictObject({ code: z.string().trim().min(1).max(20) });
@@ -146,10 +177,13 @@ export const AdminActivatePlanResult = z.object({
 });
 export type AdminActivatePlanResult = z.infer<typeof AdminActivatePlanResult>;
 
-/** Chỉ cho người KHÔNG khai email khôi phục — đã xác minh danh tính qua kênh khác (VAN_HANH §8). */
+/**
+ * Chỉ cho người KHÔNG có email khôi phục ĐÃ XÁC NHẬN (có thì họ tự đặt lại qua email) — đã xác minh
+ * danh tính qua kênh khác (VAN_HANH §8).
+ */
 export const AdminResetPasswordInput = z.strictObject({
   phone: z.string().trim().min(9).max(20),
-  newPassword: z.string().min(8).max(72),
+  newPassword: Password,
   ...Approval,
 });
 export type AdminResetPasswordInput = z.input<typeof AdminResetPasswordInput>;

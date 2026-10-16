@@ -154,6 +154,14 @@ model Profile {
   phone         String?   @unique
   /// Email thật người dùng khai thêm — chỉ để tự lấy lại mật khẩu.
   recoveryEmail String?   @map("recovery_email") @db.Citext
+  /// Lúc chủ hộp thư bấm link xác nhận. Chỉ email đã xác nhận mới nhận thư đặt lại mật khẩu.
+  /// Đổi email → trigger đưa về NULL (cùng mã đang chờ).
+  recoveryEmailVerifiedAt     DateTime? @map("recovery_email_verified_at") @db.Timestamptz(6)
+  /// sha256 (hex) của mã trong thư xác nhận — không lưu mã gốc.
+  recoveryEmailTokenHash      String?   @map("recovery_email_token_hash")
+  recoveryEmailTokenExpiresAt DateTime? @map("recovery_email_token_expires_at") @db.Timestamptz(6)
+  /// Lần gần nhất API gửi thư cho người này (xác nhận / đặt lại mật khẩu) — chặn gửi dồn.
+  authMailSentAt              DateTime? @map("auth_mail_sent_at") @db.Timestamptz(6)
   /// Do trigger sinh, không nhận từ client.
   referralCode  String?   @unique @map("referral_code") @db.Citext
   referredBy    String?   @map("referred_by") @db.Uuid

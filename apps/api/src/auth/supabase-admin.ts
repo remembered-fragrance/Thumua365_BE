@@ -25,7 +25,18 @@ export interface SupabaseAdmin {
   deleteUser(userId: string): Promise<void>;
   /** Quản trị viên đặt lại mật khẩu (BE6) — sau khi đã xác minh danh tính ngoài app. */
   setPassword(userId: string, password: string): Promise<void>;
+  /**
+   * Mã đặt lại mật khẩu (0.16.0) — `hashed_token` của link "recovery". Supabase KHÔNG gửi thư (email
+   * đăng nhập là email nội bộ); API tự gửi tới email khôi phục đã xác nhận. App đổi mã lấy phiên bằng
+   * `verifyOtp({ token_hash, type: 'recovery' })`. Hạn theo "Email OTP expiration" của Supabase.
+   */
+  recoveryToken(loginEmail: string): Promise<string>;
 }
+
+const GeneratedLink = z.object({
+  hashed_token: z.string().optional(),
+  properties: z.object({ hashed_token: z.string() }).partial().optional(),
+});
 
 export const SUPABASE_ADMIN = Symbol('SUPABASE_ADMIN');
 
@@ -81,6 +92,20 @@ export class SupabaseAdminHttp implements SupabaseAdmin {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`Supabase Auth Admin trả ${res.status} khi đặt mật khẩu`);
+  }
+
+  async recoveryToken(loginEmail: string): Promise<string> {
+    const res = await fetch(this.url.replace(/\/users$/, '/generate_link'), {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify({ type: 'recovery', email: loginEmail }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`Supabase Auth Admin trả ${res.status} khi tạo link đặt lại mật khẩu`);
+    const body = GeneratedLink.parse(await res.json());
+    const token = body.hashed_token ?? body.properties?.hashed_token;
+    if (!token) throw new Error('Supabase Auth Admin không trả hashed_token');
+    return token;
   }
 
   async deleteUser(userId: string): Promise<void> {

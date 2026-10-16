@@ -136,6 +136,14 @@ export const createClient = (options: ClientOptions) => {
     meBootstrap: (input: RouteBody<'meBootstrap'>) => send('meBootstrap', input),
     /** Trước `signInWithPassword`. Luôn trả một email — sai thì báo MỘT câu chung. */
     resolveIdentifier: (input: RouteBody<'resolveIdentifier'>) => send('resolveIdentifier', input),
+    /**
+     * Quên mật khẩu (0.16.0) — không cần đăng nhập. Luôn `{ ok: true }`; thư có link
+     * `/dat-lai-mat-khau?token_hash=…&type=recovery` tới email khôi phục ĐÃ XÁC NHẬN.
+     * `EMAIL_UNAVAILABLE` khi máy chủ chưa gửi được thư.
+     */
+    requestPasswordReset: (input: RouteBody<'authPasswordReset'>) => send('authPasswordReset', input),
+    /** Trang `/xac-nhan-email?token=…` — không cần đăng nhập. `email: null` = link hỏng / hết hạn. */
+    confirmRecoveryEmail: (input: RouteBody<'authRecoveryEmailConfirm'>) => send('authRecoveryEmailConfirm', input),
     /** Đường OTP — tạm ẩn tới khi > 100 tổ chức trả phí. Cần `getOrganizationId`. */
     discoverLinks: () => call('linksDiscover'),
     /** Kết nối giữa tổ chức (BE4). Cần `getOrganizationId`. */
@@ -222,6 +230,8 @@ export const createClient = (options: ClientOptions) => {
       updateProfile: (patch: RouteBody<'meProfileUpdate'>) => send('meProfileUpdate', patch),
       /** Luôn trả `{ claimed }` — không cho biết vì sao mã không dùng được. */
       claimReferral: (input: RouteBody<'referralsClaim'>) => send('referralsClaim', input),
+      /** Gửi (lại) thư xác nhận email khôi phục (0.16.0). Xem `status` để báo người dùng. */
+      verifyRecoveryEmail: () => call('meRecoveryEmailVerify'),
       /**
        * Xoá THẬT. Còn người khác trong tổ chức mình là chủ → `VALIDATION_FAILED`,
        * `details.reason: 'ORG_HAS_MEMBERS'`. Xong thì xoá dấu vết trên máy và đăng xuất.

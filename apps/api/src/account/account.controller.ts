@@ -1,4 +1,12 @@
-import { type AccountDeleteResult, type MeProfile, MeProfilePatch, type ReferralClaimInput, type ReferralClaimResult, routes } from '@mambo/contracts';
+import {
+  type AccountDeleteResult,
+  type MeProfile,
+  MeProfilePatch,
+  type RecoveryEmailVerifyResult,
+  type ReferralClaimInput,
+  type ReferralClaimResult,
+  routes,
+} from '@mambo/contracts';
 import { Body, Controller } from '@nestjs/common';
 import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth-user';
@@ -7,15 +15,18 @@ import { Endpoint } from '../common/endpoint';
 import { RequestId } from '../common/request-id';
 import { AccountDeletionService } from './account-deletion.service';
 import { ProfileService } from './profile.service';
+import { RecoveryMailService } from './recovery-mail.service';
 
 @Controller()
 export class AccountController {
   private readonly profiles: ProfileService;
   private readonly deletion: AccountDeletionService;
+  private readonly recoveryMail: RecoveryMailService;
 
-  constructor(profiles: ProfileService, deletion: AccountDeletionService) {
+  constructor(profiles: ProfileService, deletion: AccountDeletionService, recoveryMail: RecoveryMailService) {
     this.profiles = profiles;
     this.deletion = deletion;
+    this.recoveryMail = recoveryMail;
   }
 
   @Endpoint(routes.meProfile)
@@ -26,6 +37,11 @@ export class AccountController {
   @Endpoint(routes.meProfileUpdate)
   updateProfile(@CurrentUser() user: AuthUser, @Body() patch: z.output<typeof MeProfilePatch>): Promise<MeProfile> {
     return this.profiles.update(user, patch);
+  }
+
+  @Endpoint(routes.meRecoveryEmailVerify)
+  verifyRecoveryEmail(@CurrentUser() user: AuthUser): Promise<RecoveryEmailVerifyResult> {
+    return this.recoveryMail.sendVerification(user.id);
   }
 
   @Endpoint(routes.referralsClaim)

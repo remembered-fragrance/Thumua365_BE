@@ -32,6 +32,9 @@ release của repo này.
       → `PRIVILEGED_DATABASE_URL` (user `api_privileged.<ref>`, cổng 6543) trong `apps/api/.env`, chép sang Render.
 - [ ] Render env: `BANK_WEBHOOK_SECRET` (≥ 24 ký tự ngẫu nhiên), `ADMIN_USER_IDS` (id tài khoản của
       người quản trị), `METRICS_TOKEN`, `CORS_ORIGINS` thêm domain preview của app web.
+- [ ] 0.16.0 — gửi thư: tài khoản Brevo, xác minh sender (hoặc domain), Render env `BREVO_API_KEY`, `MAIL_FROM`
+      (`MAIL_FROM_NAME`, `APP_URL` có sẵn trong `render.yaml`). Supabase Auth → **Minimum password length = 8**
+      (`PASSWORD_MIN_LENGTH` của contracts — đăng ký / đổi mật khẩu đi thẳng tới Supabase).
 - [ ] Supabase Storage: bucket `attachments` **riêng tư**, giới hạn 3MB, chỉ
       `image/jpeg,image/png,image/webp`, **không** policy nào cho `anon` / `authenticated`.
 - [ ] Nghiệm thu bằng `npm run login-test`: đăng ký 3 loại tổ chức, đồng bộ hai máy, đơn → phiếu theo
@@ -85,6 +88,8 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 - [ ] Deploy đúng commit đã chạy trên staging. `/v1/health` trả `env: production`, đúng `commit`.
 - [ ] `npm run security:check` xanh (CI làm sẵn); `service_role` / khoá secret chỉ có trong env Render.
 - [ ] Sentry: `SENTRY_DSN` cho API (và web).
+- [ ] Gửi thư như staging (`BREVO_API_KEY`, `MAIL_FROM`, `APP_URL` https domain thật) và Supabase prod
+      **Minimum password length = 8**. Thiếu khoá Brevo API vẫn lên, nhưng "Quên mật khẩu?" báo không gửi được thư.
 - [ ] Grafana Cloud: scrape `/metrics` bằng `METRICS_TOKEN`, import `ops/grafana/thumua365-api.json`.
 - [ ] Bật cho nhóm pilot; theo dõi một tuần: **không có op `rejected` ngoài dự kiến**
       (`sync_push_rejected_total`), p95 ≤ 300ms.

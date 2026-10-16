@@ -6,6 +6,7 @@ import type { Logger } from 'winston';
 import { AccountController } from './account/account.controller';
 import { AccountDeletionService } from './account/account-deletion.service';
 import { ProfileService } from './account/profile.service';
+import { RecoveryMailService } from './account/recovery-mail.service';
 import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
 import { AnalyticsListener } from './analytics/analytics.listener';
@@ -28,6 +29,7 @@ import { ENV, type Env } from './config/env';
 import { DATABASE, type Database, DatabaseShutdown } from './db/database';
 import { PRIVILEGED_DATABASE, type PrivilegedDatabase } from './db/privileged-database';
 import { STORAGE_ADMIN, type StorageAdmin } from './storage/storage-admin';
+import { MAILER, type Mailer } from './mail/mailer';
 import { DomainEvents, LOGGER } from './events/domain-events';
 import { HealthController } from './health/health.controller';
 import { LinksController } from './links/links.controller';
@@ -61,6 +63,8 @@ export interface AppDeps {
   /** null khi PRIVILEGED_DATABASE_URL trống — chỉ webhook, quản trị, xoá tài khoản cần. */
   readonly privilegedDb: PrivilegedDatabase | null;
   readonly storage: StorageAdmin;
+  /** Thư xác nhận email / đặt lại mật khẩu (0.16.0). */
+  readonly mailer: Mailer;
   readonly logger: Logger;
 }
 
@@ -99,6 +103,7 @@ export class AppModule {
         { provide: DATABASE, useValue: deps.db },
         { provide: PRIVILEGED_DATABASE, useValue: deps.privilegedDb },
         { provide: STORAGE_ADMIN, useValue: deps.storage },
+        { provide: MAILER, useValue: deps.mailer },
         { provide: LOGGER, useValue: deps.logger },
         DatabaseShutdown,
         DomainEvents,
@@ -112,6 +117,7 @@ export class AppModule {
         OrganizationService,
         ReportsService,
         ProfileService,
+        RecoveryMailService,
         AccountDeletionService,
         BillingService,
         BankWebhookService,
