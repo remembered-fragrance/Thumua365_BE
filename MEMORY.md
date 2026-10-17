@@ -1280,7 +1280,7 @@ Lỗi phía người dùng: thêm khoản cộng/trừ (tiền xe, chiết khấ
 | Render | `/v1/health` → `0.15.0`, commit `02d4d43` |
 | Frontend | PR #35 (gói 0.15.0) merge SAU khi Render lên 0.15.0; www.thumua365.id.vn đã chạy bản mới |
 
-## Xác nhận email · quên mật khẩu · một luật mật khẩu · `v0.16.0` · 18/10/2026
+## Xác nhận email · quên mật khẩu · một luật mật khẩu · `v0.16.0` · 16/10/2026
 
 Yêu cầu: kiểm xoá tài khoản (đã có từ BE6: `DELETE /v1/me`); xác nhận email + tự đặt lại mật khẩu qua email,
 trường hợp đặc biệt liên hệ kỹ thuật viên; độ dài mật khẩu đăng ký (6) và tạo nhân viên (8) chưa đồng bộ.
@@ -1343,6 +1343,7 @@ BE3 300 (`contracts/src/sync-records.ts`). Xem mục "Bỏ chỉ số 300 dòng 
 | ~~Docker Desktop trên máy dev~~ | ✅ đã cài 22/09/2026 (Docker 29.8, WSL2) | — |
 | Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | Không chặn — OTP tạm ẩn tới khi > 100 tổ chức trả phí |
 | Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh | BE6 |
+| Thư xác nhận email / quên mật khẩu | Tài khoản Brevo + xác minh sender; Render env `BREVO_API_KEY`, `MAIL_FROM`; Supabase Auth → Minimum password length = 8 | Không chặn deploy — chưa có khoá thì API trả 503 `EMAIL_UNAVAILABLE` |
 
 ---
 
