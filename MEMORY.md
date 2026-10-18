@@ -1370,6 +1370,13 @@ theo tổ chức" — đã có `subscriptions_one_per_org`, không sửa.
 - Test: core 327, DB 217/217 (`orders` +5, `billing` +3, `account` +1, `sync-push` +2, `links` +1).
 - **Thứ tự deploy:** không đổi hình dạng route ⇒ API trước, rồi nâng app.
 
+| Bước | Kết quả |
+|---|---|
+| Tag (TRƯỚC khi merge) | `v0.18.0` gắn trên `ce9c95e` (đầu PR #38). Release có 3 tgz |
+| Migration staging (TRƯỚC khi merge) | ✅ Qua Supabase MCP, một transaction, ghi `_prisma_migrations` (checksum sha256 nội dung git `5418bf…99a5`). Đủ 14/14. **Bẫy:** `execute_sql` có câu `drop trigger` trả `Invalid or expired requestState` (bước xác nhận của MCP) mà không chạy gì — dùng `create or replace trigger` (Postgres 17) thay cho drop + create, kết quả như nhau |
+| Merge | PR #38 merge commit `fa568e4`, CI `master` xanh; `/v1/health` báo `0.18.0` `fa568e4` |
+| FE | mambo365_deploymentphase#48: lock theo release, verify 232 test, CI xanh, merge `3c40db7`; bundle production có code mới |
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
