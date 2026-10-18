@@ -1342,6 +1342,34 @@ xoá thì nông dân mất quyền xem là đúng (không cần bản sao cho n�
 | Migration staging (TRƯỚC khi merge) | ✅ Qua Supabase MCP, một transaction, ghi `_prisma_migrations` (checksum sha256 nội dung git `0b9bc4…4f7f`). Đủ 13/13. Ba cột tổ chức của `orders` nullable, ba khoá ngoại SET NULL, hai trigger bản mới; `api_privileged` đủ quyền trên các bảng bị gỡ |
 | Merge | PR #36 merge commit `7c2e9cf`, CI `master` xanh; `/v1/health` báo `0.17.0` `7c2e9cf` |
 
+## Rà soát đồng bộ, đơn, thanh toán · `v0.18.0` · 19/10/2026
+
+Theo một báo cáo rà soát hai repo. Đã kiểm từng mục; tất cả đúng trừ "`subscriptions` không có ràng buộc duy nhất
+theo tổ chức" — đã có `subscriptions_one_per_org`, không sửa.
+
+- **Mặt hàng mẫu `prod-…`**: `emptyData()` thôi gieo `DEFAULT_PRODUCTS`; sổ chỉ nằm trên máy dùng `starterData()`.
+  `normalizeProducts` bỏ bản `prod-…` khi đã có mặt hàng cùng tên id thật; `withoutLegacyProducts()` cho sổ có máy
+  chủ; `isLegacyProductId()` ở `catalog.ts`.
+- **Giới hạn phiếu** `RECEIPT_LIMITS` (contracts) — schema đồng bộ dùng chính các hằng này, app chặn ở ô nhập.
+- **Đổi chi nhánh**: từ chối vì chi nhánh mang `details.reason: 'BRANCH_SCOPE'` (app tự bỏ op và báo).
+- **Pool / khoá advisory**: `scoped(..., { maxWait: 10s, timeout: 20s })` cho `/sync/push`, `lock_timeout = 8s`
+  trước khoá; hết giờ chờ (P2024 / P2028 / 55P03) → `RATE_LIMITED` thay vì `INTERNAL`.
+- **Đơn và chi nhánh**: `branchScope()` (`order-records.ts`) — người gắn chi nhánh thấy đơn chi nhánh mình TẠO và
+  mọi đơn bên kia gửi tới (`orders.branch_id` là chi nhánh bên tạo). Dùng cho danh sách / chi tiết / chuyển trạng
+  thái và `findOrderFor` của phiếu theo đơn.
+- **Nháp gắn đơn**: sửa nháp đổi `kind` cũng xét lại đúng bên; nháp gắn đơn đã huỷ → gỡ `orderId` + cảnh báo
+  `ORDER_NOT_OPEN`. Migration `20261019000000_ra_soat_dong_bo`: `book_order_guard` bắt cả `update of order_id, kind`.
+- **Gói**: `extendPeriod(currentEnd, now, months, trialEnd)` — trả tiền lúc dùng thử giữ số ngày thử còn lại; cộng
+  tháng kẹp về ngày cuối tháng theo giờ Việt Nam (31/01 + 1 tháng = 28/02 hoặc 29/02).
+- **Webhook ngân hàng**: khoá ý định `for update`; giao dịch không áp được vẫn ghi `bank_transactions` với
+  `outcome` (`intent_closed` / `underpaid` / `no_intent`) để đối soát tay. Quản trị mở lại bằng đúng mã đó thì dòng
+  chuyển `applied` (`on conflict … where outcome <> 'applied'`).
+- **`links.balance`**: đọc theo trang 500 phiếu, cộng dồn; không còn tải hết một lần.
+- **Xoá tài khoản**: khoá các tổ chức sẽ xoá (`for update`) rồi kiểm lại thành viên trong cùng transaction (người
+  được thêm giữa chừng → 422); kết nối mình là bên sổ bị xoá thì bên được xem nhận `link.revoked`.
+- Test: core 327, DB 217/217 (`orders` +5, `billing` +3, `account` +1, `sync-push` +2, `links` +1).
+- **Thứ tự deploy:** không đổi hình dạng route ⇒ API trước, rồi nâng app.
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không

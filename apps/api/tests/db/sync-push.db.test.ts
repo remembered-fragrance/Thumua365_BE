@@ -244,6 +244,24 @@ describe('quyền từng op', () => {
   });
 });
 
+describe('nhiều máy đẩy cùng lúc', () => {
+  it('chờ khoá của tổ chức quá lâu → RATE_LIMITED (thử lại được), không phải INTERNAL; hết bận thì vào', async () => {
+    const holder = await admin.connect();
+    const op = opMaker()('transaction', 'insert', newId(), txData());
+    try {
+      await holder.query('begin');
+      await holder.query('select pg_advisory_xact_lock(hashtextextended($1, 1))', [org]);
+      const res = await push(ownerToken, [op]);
+      expect(res[0]).toMatchObject({ status: 'rejected', error: { code: 'RATE_LIMITED' } });
+      expect(isRetryable('RATE_LIMITED')).toBe(true);
+    } finally {
+      await holder.query('rollback');
+      holder.release();
+    }
+    expect((await push(ownerToken, [op]))[0]?.status).toBe('applied');
+  });
+});
+
 describe('gói', () => {
   it('hết gói → 402 PLAN_EXPIRED cho cả lượt, không ghi gì', async () => {
     await admin.query(`update subscriptions set trial_ends_at = now() - interval '1 day' where organization_id = $1`, [org]);
@@ -291,7 +309,8 @@ describe('chi nhánh (doanh nghiệp)', () => {
       opMaker()('payment', 'insert', newId(), paymentData(txId, 1_000)),
       opMaker()('transaction', 'update', txId, { note: 'sửa hộ' }),
     ]) {
-      expect((await push(tokenB, [bad], undefined, dn))[0]?.error?.code).toBe('FORBIDDEN');
+      // `BRANCH_SCOPE`: app biết op này không bao giờ gửi được nữa (chủ vừa đổi chi nhánh người này).
+      expect((await push(tokenB, [bad], undefined, dn))[0]?.error).toMatchObject({ code: 'FORBIDDEN', details: { reason: 'BRANCH_SCOPE' } });
     }
   });
 

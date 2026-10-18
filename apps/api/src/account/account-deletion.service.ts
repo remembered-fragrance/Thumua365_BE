@@ -135,6 +135,22 @@ const detachOrders = async (tx: Tx, gone: Gone, actorUserId: string): Promise<nu
  * thấy "đã ngừng kết nối" và mời lại được bằng lời mời mới. Đang active thì báo bên sổ như mọi lần huỷ.
  */
 const detachLinks = async (tx: Tx, gone: Gone, actorUserId: string): Promise<number> => {
+  // Bên được xem của kết nối đang active nhận `link.revoked` như mọi lần huỷ — không thì sổ họ đang
+  // xem biến mất mà không ai báo.
+  const watched = await tx.partnerLink.findMany({
+    where: { ownerOrgId: gone.id, status: 'active', linkedOrgId: { not: null } },
+    select: { id: true, linkedOrgId: true },
+  });
+  for (const l of watched) {
+    await tx.notification.create({
+      data: {
+        organizationId: l.linkedOrgId as string,
+        kind: 'link.revoked',
+        payload: { linkId: l.id, fromOrgId: gone.id, fromOrgName: gone.name, fromOrgType: gone.type },
+      },
+      select: { id: true },
+    });
+  }
   await tx.partnerLink.deleteMany({ where: { ownerOrgId: gone.id } });
 
   const live = await tx.partnerLink.findMany({
@@ -242,8 +258,35 @@ export class AccountDeletionService {
     // 1. Ảnh — hỏng là dừng, chưa xoá gì.
     for (const orgId of plan.owned) await this.storage.removeFolder(ATTACHMENTS_BUCKET, orgId);
 
-    // 2. Dữ liệu.
+    // 2. Dữ liệu. Xét lại ngay trong transaction xoá, sau khi khoá hàng của từng tổ chức: thêm người
+    //    vào tổ chức (insert membership) phải chờ khoá này, nên người được thêm giữa bước kiểm và bước
+    //    xoá hoặc hiện ra ở lần xét lại (dừng), hoặc chỉ thêm được khi tổ chức đã không còn.
     await db.run(async (tx) => {
+      if (plan.owned.length > 0) {
+        await tx.$queryRaw`select id from organizations where id = any(${plan.owned}::uuid[]) for update`;
+      }
+      const joined = await tx.membership.findMany({
+        where: {
+          OR: [
+            { organizationId: { in: plan.owned }, userId: { not: user.id }, status: 'active' },
+            { userId: user.id, status: { not: 'removed' }, role: { not: 'owner' } },
+          ],
+        },
+        select: { organizationId: true, userId: true },
+      });
+      if (joined.length > 0) {
+        const busy = [...new Set(joined.filter((j) => j.userId !== user.id).map((j) => j.organizationId))];
+        throw busy.length > 0
+          ? new ApiException('VALIDATION_FAILED', 'Tổ chức của bạn còn người đang làm — gỡ họ trước rồi xoá tài khoản', {
+              reason: 'ORG_HAS_MEMBERS',
+              organizations: busy,
+            })
+          : new ApiException('VALIDATION_FAILED', 'Bạn còn làm cho tổ chức khác — nhờ chủ gỡ bạn ra trước rồi mới xoá tài khoản', {
+              reason: 'STILL_MEMBER',
+              organizations: [...new Set(joined.map((j) => j.organizationId))],
+            });
+      }
+
       let keptOrders = 0;
       let revokedLinks = 0;
       for (const orgId of plan.owned) {

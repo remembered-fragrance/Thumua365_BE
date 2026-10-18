@@ -123,16 +123,36 @@ export const planFor = (
   return FREE;
 };
 
+/** Giờ Việt Nam (UTC+7, không đổi giờ mùa hè) — "cuối tháng" là cuối tháng ở Việt Nam. */
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/**
+ * Cộng `months` tháng theo lịch Việt Nam; ngày không có ở tháng đích thì lấy ngày cuối tháng đó:
+ * 31/01 + 1 tháng = 28/02 (29/02 năm nhuận), không tràn sang 03/03 như `Date.setMonth`.
+ */
+const addMonths = (from: number, months: number): Date => {
+  const local = new Date(from + VN_OFFSET_MS);
+  const day = local.getUTCDate();
+  local.setUTCDate(1);
+  local.setUTCMonth(local.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 0)).getUTCDate();
+  local.setUTCDate(Math.min(day, lastDay));
+  return new Date(local.getTime() - VN_OFFSET_MS);
+};
+
 /**
  * Mốc kết thúc kỳ mới khi cộng thêm một kỳ đã trả tiền.
  *
- * Cộng dồn vào mốc CŨ nếu mốc đó còn hạn — trả tiền sớm không được mất ngày.
+ * Cộng dồn vào mốc CŨ nếu mốc đó còn hạn — trả tiền sớm không được mất ngày, kể cả ngày dùng thử
+ * còn lại (`trialEnd`): trả tiền giữa kỳ dùng thử thì kỳ trả tiền bắt đầu khi dùng thử hết.
  * Hết hạn rồi thì tính từ hôm nay, không truy hồi khoảng thời gian không dùng.
  */
-export const extendPeriod = (currentEnd: string | undefined, now: Date, months: number): string => {
-  const end = time(currentEnd);
-  const from = end !== null && end > now.getTime() ? new Date(end) : new Date(now);
-  const next = new Date(from);
-  next.setMonth(next.getMonth() + months);
-  return next.toISOString();
+export const extendPeriod = (
+  currentEnd: string | undefined,
+  now: Date,
+  months: number,
+  trialEnd?: string,
+): string => {
+  const from = Math.max(now.getTime(), time(currentEnd) ?? 0, time(trialEnd) ?? 0);
+  return addMonths(from, months).toISOString();
 };

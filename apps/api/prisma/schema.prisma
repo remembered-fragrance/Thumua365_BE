@@ -567,6 +567,8 @@ model BankTransaction {
   description     String?
   /// webhook | admin
   source          String   @default("webhook")
+  /// applied | intent_closed | underpaid | no_intent — chỉ `applied` là đã gia hạn gói
+  outcome         String   @default("applied")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("bank_transactions")

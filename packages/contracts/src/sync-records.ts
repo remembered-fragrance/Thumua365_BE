@@ -16,13 +16,30 @@
 
 import { z } from 'zod';
 
+/**
+ * Giới hạn của một phiếu / nháp. App dùng chính các hằng này để chặn ngay ở ô nhập: để lọt lên máy
+ * chủ thì op bị từ chối `VALIDATION_FAILED` và đứng chặn cả hàng đợi.
+ */
+export const RECEIPT_LIMITS = {
+  lines: 100,
+  adjustments: 20,
+  attachments: 10,
+  /** % chất lượng (mủ), % hao hụt: 0–100. */
+  percent: 100,
+  /** Số cân, đơn giá: 0 – 1 tỷ. */
+  quantity: 1e9,
+  adjustmentLabel: 120,
+  partyName: 200,
+  note: 2000,
+} as const;
+
 const Id = z.uuid();
 const Time = z.iso.datetime({ offset: true });
 /** Số nguyên đồng, có thể âm (khoản trừ, chiết khấu). */
 const Money = z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER);
 const NonNegativeMoney = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
-const Quantity = z.number().min(0).max(1e9);
-const Percent = z.number().min(0).max(100);
+const Quantity = z.number().min(0).max(RECEIPT_LIMITS.quantity);
+const Percent = z.number().min(0).max(RECEIPT_LIMITS.percent);
 const text = (max: number) => z.string().trim().min(1).max(max);
 const nullableText = (max: number) => z.string().trim().max(max).nullable();
 const hasKeys = (patch: object): boolean => Object.keys(patch).length > 0;
@@ -67,7 +84,7 @@ export const FrozenTransactionLine = z.strictObject({ ...lineShape, rawTotal: z.
 const adjustmentShape = {
   id: z.string().min(1).max(64),
   kind: PricingRuleKind,
-  label: z.string().max(120),
+  label: z.string().max(RECEIPT_LIMITS.adjustmentLabel),
   amount: Money,
   ruleId: z.string().min(1).max(64).optional(),
 };
@@ -187,14 +204,14 @@ const draftFields = {
   kind: TransactionKind.nullable(),
   counterpartyId: Id.nullable(),
   supplierId: z.string().max(64).nullable(),
-  supplierName: z.string().trim().max(200),
-  lines: z.array(TransactionLine).max(100),
+  supplierName: z.string().trim().max(RECEIPT_LIMITS.partyName),
+  lines: z.array(TransactionLine).max(RECEIPT_LIMITS.lines),
   /** Số định trả khi chốt — chưa phải lần trả nào. Lần trả thật là `payment`. */
   amountPaid: NonNegativeMoney,
   /** Khoản cộng/trừ đang nhập — cùng hình dạng với phiếu đã chốt. */
-  adjustments: z.array(PriceAdjustment).max(20).nullable(),
-  note: nullableText(2000),
-  attachmentIds: z.array(Id).max(10),
+  adjustments: z.array(PriceAdjustment).max(RECEIPT_LIMITS.adjustments).nullable(),
+  note: nullableText(RECEIPT_LIMITS.note),
+  attachmentIds: z.array(Id).max(RECEIPT_LIMITS.attachments),
   /** (BE5) Nháp lập theo đơn — chốt thành phiếu thì phiếu mang `orderId` này. */
   orderId: Id.nullable(),
 };
@@ -238,12 +255,12 @@ export const TransactionInsert = z.strictObject({
   counterpartyId: Id.nullable(),
   /** @deprecated core còn giữ `supplierId`; gửi thì lưu nguyên để kéo về khớp bản cũ. */
   supplierId: z.string().max(64).nullable().optional(),
-  supplierName: z.string().trim().max(200),
-  lines: z.array(FrozenTransactionLine).min(1).max(100),
+  supplierName: z.string().trim().max(RECEIPT_LIMITS.partyName),
+  lines: z.array(FrozenTransactionLine).min(1).max(RECEIPT_LIMITS.lines),
   creditTerms: z.array(CreditTerm).max(24).nullable().optional(),
-  adjustments: z.array(PriceAdjustment).max(20).nullable().optional(),
-  attachmentIds: z.array(Id).max(10).optional(),
-  note: nullableText(2000).optional(),
+  adjustments: z.array(PriceAdjustment).max(RECEIPT_LIMITS.adjustments).nullable().optional(),
+  attachmentIds: z.array(Id).max(RECEIPT_LIMITS.attachments).optional(),
+  note: nullableText(RECEIPT_LIMITS.note).optional(),
   /**
    * Doanh nghiệp: chi nhánh của phiếu. Người gắn với một chi nhánh thì server tự điền chi nhánh
    * đó — gửi chi nhánh khác → FORBIDDEN. Chủ (không gắn chi nhánh) để trống = cả tổ chức.
@@ -255,7 +272,7 @@ export const TransactionInsert = z.strictObject({
 
 /** Phiếu đã chốt chỉ sửa được chứng từ đính kèm và ghi chú. Sai cân, sai giá = xoá phiếu, lập phiếu mới. */
 export const TransactionPatch = z
-  .strictObject({ attachmentIds: z.array(Id).max(10), note: nullableText(2000) })
+  .strictObject({ attachmentIds: z.array(Id).max(RECEIPT_LIMITS.attachments), note: nullableText(RECEIPT_LIMITS.note) })
   .partial()
   .refine(hasKeys, EMPTY_PATCH);
 

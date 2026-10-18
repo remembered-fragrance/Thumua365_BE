@@ -153,6 +153,16 @@ describe('#1 + #7 — tự đi hết, không ai can thiệp', () => {
     expect(days).toBeGreaterThanOrEqual(365 + 10 - 2);
     expect(days).toBeLessThanOrEqual(366 + 10 + 1);
   });
+
+  it('trả tiền giữa kỳ dùng thử → kỳ trả tiền nối tiếp sau dùng thử, không mất ngày thử còn lại', async () => {
+    await admin.query(`update subscriptions set trial_ends_at = now() + interval '10 days' where organization_id = $1`, [vua]);
+    const intent = PaymentIntentView.parse((await (await as(vuaOwner, vua)).post('/v1/billing/intents', { months: 1 }).expect(200)).body);
+    await casso({ tid: 'FT-THU', amount: 149_000, description: intent.transferContent }).expect(200);
+    const plan = await planOf(vua);
+    expect(plan?.status).toBe('active');
+    expect(daysFromNow(plan?.current_period_end)).toBeGreaterThanOrEqual(10 + 28);
+    expect(daysFromNow(plan?.current_period_end)).toBeLessThanOrEqual(10 + 31 + 1);
+  });
 });
 
 describe('#2 #3 #4 — ba chốt của webhook', () => {
@@ -168,6 +178,40 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
     const { rows } = await admin.query(`select count(*)::int as n from bank_transactions where bank_tx_id = 'FT-TRUNG'`);
     expect(rows[0]?.n).toBe(1);
     expect(daysFromNow((await planOf(vua))?.current_period_end)).toBeLessThanOrEqual(31);
+  });
+
+  it('🔴 hai giao dịch KHÁC mã cùng trả một ý định, đến song song → gia hạn đúng một lần; giao dịch kia vẫn vào sổ đối soát', async () => {
+    const i = await intent();
+    const results = await Promise.all([
+      casso({ tid: 'FT-LAN1', amount: 149_000, description: i.transferContent }),
+      casso({ tid: 'FT-LAN2', amount: 149_000, description: i.transferContent }),
+    ]);
+    expect(results.flatMap((r) => BankWebhookResult.parse(r.body).handled)).toHaveLength(1);
+    expect(daysFromNow((await planOf(vua))?.current_period_end)).toBeLessThanOrEqual(31);
+    const { rows } = await admin.query('select outcome, organization_id, payment_intent_id from bank_transactions order by outcome');
+    expect(rows).toEqual([
+      { outcome: 'applied', organization_id: vua, payment_intent_id: i.id },
+      { outcome: 'intent_closed', organization_id: vua, payment_intent_id: i.id },
+    ]);
+
+    // Đến lần lượt cũng vậy; ngân hàng gọi lại giao dịch đã ghi → không ghi thêm dòng nào.
+    await casso({ tid: 'FT-LAN3', amount: 149_000, description: i.transferContent }).expect(200);
+    await casso({ tid: 'FT-LAN3', amount: 149_000, description: i.transferContent }).expect(200);
+    const { rows: after } = await admin.query(`select count(*)::int as n from bank_transactions where outcome = 'intent_closed'`);
+    expect(after[0]?.n).toBe(2);
+  });
+
+  it('chuyển thiếu đã ghi sổ → quản trị viên mở gói bằng đúng mã đó được, gọi lại → đã xử lý', async () => {
+    const i = await intent();
+    await casso({ tid: 'FT-BU', amount: 100_000, description: i.transferContent }).expect(200);
+    const adminApi = await as(ADMIN_ID);
+    const input = { organizationId: vua, months: 1, amount: 149_000, bankTxId: 'FT-BU', approvedBy: 'Tài', reason: 'Chuyển thiếu, bù sau' };
+    const first = AdminActivatePlanResult.parse((await adminApi.post('/v1/admin/plans/activate', input).expect(200)).body);
+    expect(first).toMatchObject({ alreadyProcessed: false, plan: { tier: 'premium', status: 'active' } });
+    const second = AdminActivatePlanResult.parse((await adminApi.post('/v1/admin/plans/activate', input).expect(200)).body);
+    expect(second.alreadyProcessed).toBe(true);
+    const { rows } = await admin.query(`select outcome, source, amount::int as amount from bank_transactions where bank_tx_id = 'FT-BU'`);
+    expect(rows).toEqual([{ outcome: 'applied', source: 'admin', amount: 149_000 }]);
   });
 
   it('#3 không có bí mật, sai bí mật, bí mật SePay sai → 401, không đổi gì', async () => {
@@ -196,7 +240,7 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
     expect(ok.handled).toEqual(['78']);
   });
 
-  it('#4 chuyển thiếu → không mở gói, không ghi sổ đối soát; không có mã → bỏ qua', async () => {
+  it('#4 chuyển thiếu → không mở gói, sổ đối soát ghi `underpaid`; không có mã → bỏ qua, không ghi', async () => {
     const i = await intent();
     const res = BankWebhookResult.parse(
       (await casso({ tid: 'FT-THIEU', amount: 100_000, description: i.transferContent }).expect(200)).body,
@@ -204,8 +248,8 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
     expect(res).toEqual({ handled: [], skipped: ['FT-THIEU'] });
     await casso({ tid: 'FT-KHONGMA', amount: 149_000, description: 'chuyen tien mua goi' }).expect(200);
     expect((await planOf(vua))?.status).toBe('trialing');
-    const { rows } = await admin.query('select count(*)::int as n from bank_transactions');
-    expect(rows[0]?.n).toBe(0);
+    const { rows } = await admin.query('select bank_tx_id, organization_id, payment_intent_id, outcome from bank_transactions');
+    expect(rows).toEqual([{ bank_tx_id: 'FT-THIEU', organization_id: vua, payment_intent_id: i.id, outcome: 'underpaid' }]);
   });
 });
 
