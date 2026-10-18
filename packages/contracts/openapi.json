@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.16.0"
+    "version": "0.17.0"
   },
   "servers": [
     {
@@ -2741,31 +2741,38 @@
                             "type": "boolean"
                           },
                           "counterpart": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string",
+                                    "enum": [
+                                      "farmer",
+                                      "trader",
+                                      "enterprise"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "type"
+                                ],
+                                "additionalProperties": false
                               },
-                              "name": {
-                                "type": "string"
-                              },
-                              "type": {
-                                "type": "string",
-                                "enum": [
-                                  "farmer",
-                                  "trader",
-                                  "enterprise"
-                                ]
+                              {
+                                "type": "null"
                               }
-                            },
-                            "required": [
-                              "id",
-                              "name",
-                              "type"
-                            ],
-                            "additionalProperties": false
+                            ]
                           },
                           "crop": {
                             "anyOf": [
@@ -2849,6 +2856,13 @@
                               }
                             ]
                           },
+                          "partnerName": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -2876,6 +2890,7 @@
                           "pickupAddress",
                           "branchId",
                           "partnerId",
+                          "partnerName",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -3122,31 +3137,38 @@
                       "type": "boolean"
                     },
                     "counterpart": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "type"
+                          ],
+                          "additionalProperties": false
                         },
-                        "name": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "farmer",
-                            "trader",
-                            "enterprise"
-                          ]
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "crop": {
                       "anyOf": [
@@ -3230,6 +3252,13 @@
                         }
                       ]
                     },
+                    "partnerName": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -3257,6 +3286,7 @@
                     "pickupAddress",
                     "branchId",
                     "partnerId",
+                    "partnerName",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -3385,31 +3415,38 @@
                       "type": "boolean"
                     },
                     "counterpart": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "type"
+                          ],
+                          "additionalProperties": false
                         },
-                        "name": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "farmer",
-                            "trader",
-                            "enterprise"
-                          ]
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "crop": {
                       "anyOf": [
@@ -3491,6 +3528,13 @@
                         {
                           "type": "null"
                         }
+                      ]
+                    },
+                    "partnerName": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
                       ]
                     },
                     "createdAt": {
@@ -3581,6 +3625,7 @@
                     "pickupAddress",
                     "branchId",
                     "partnerId",
+                    "partnerName",
                     "createdAt",
                     "updatedAt",
                     "events"
@@ -3754,31 +3799,38 @@
                       "type": "boolean"
                     },
                     "counterpart": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "type"
+                          ],
+                          "additionalProperties": false
                         },
-                        "name": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "farmer",
-                            "trader",
-                            "enterprise"
-                          ]
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "crop": {
                       "anyOf": [
@@ -3862,6 +3914,13 @@
                         }
                       ]
                     },
+                    "partnerName": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -3889,6 +3948,7 @@
                     "pickupAddress",
                     "branchId",
                     "partnerId",
+                    "partnerName",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -4071,31 +4131,38 @@
                       "type": "boolean"
                     },
                     "counterpart": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "type"
+                          ],
+                          "additionalProperties": false
                         },
-                        "name": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "farmer",
-                            "trader",
-                            "enterprise"
-                          ]
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "crop": {
                       "anyOf": [
@@ -4179,6 +4246,13 @@
                         }
                       ]
                     },
+                    "partnerName": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -4206,6 +4280,7 @@
                     "pickupAddress",
                     "branchId",
                     "partnerId",
+                    "partnerName",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -4405,31 +4480,38 @@
                       "type": "boolean"
                     },
                     "counterpart": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "type"
+                          ],
+                          "additionalProperties": false
                         },
-                        "name": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "farmer",
-                            "trader",
-                            "enterprise"
-                          ]
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "crop": {
                       "anyOf": [
@@ -4513,6 +4595,13 @@
                         }
                       ]
                     },
+                    "partnerName": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -4540,6 +4629,7 @@
                     "pickupAddress",
                     "branchId",
                     "partnerId",
+                    "partnerName",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -4721,31 +4811,38 @@
                       "type": "boolean"
                     },
                     "counterpart": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "type"
+                          ],
+                          "additionalProperties": false
                         },
-                        "name": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "farmer",
-                            "trader",
-                            "enterprise"
-                          ]
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "crop": {
                       "anyOf": [
@@ -4829,6 +4926,13 @@
                         }
                       ]
                     },
+                    "partnerName": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -4856,6 +4960,7 @@
                     "pickupAddress",
                     "branchId",
                     "partnerId",
+                    "partnerName",
                     "createdAt",
                     "updatedAt"
                   ],

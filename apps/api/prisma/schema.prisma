@@ -209,9 +209,10 @@ model Order {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   sellerOrgId     String?   @map("seller_org_id") @db.Uuid
   sellerPartnerId String?   @map("seller_partner_id") @db.Uuid
-  buyerOrgId      String    @map("buyer_org_id") @db.Uuid
+  /// null: bên đó đã xoá tài khoản (cùng seller_org_id, created_by_org_id) — đơn còn trong sổ bên kia.
+  buyerOrgId      String?   @map("buyer_org_id") @db.Uuid
   buyerPartnerId  String?   @map("buyer_partner_id") @db.Uuid
-  createdByOrgId  String    @map("created_by_org_id") @db.Uuid
+  createdByOrgId  String?   @map("created_by_org_id") @db.Uuid
   createdBy       String    @map("created_by") @db.Uuid
   productId       String?   @map("product_id") @db.Uuid
   crop            String?
@@ -229,8 +230,8 @@ model Order {
   updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   seller       Organization? @relation("OrderSeller", fields: [sellerOrgId], references: [id])
-  buyer        Organization  @relation("OrderBuyer", fields: [buyerOrgId], references: [id])
-  creatorOrg   Organization  @relation("OrderCreator", fields: [createdByOrgId], references: [id])
+  buyer        Organization? @relation("OrderBuyer", fields: [buyerOrgId], references: [id])
+  creatorOrg   Organization? @relation("OrderCreator", fields: [createdByOrgId], references: [id])
   branch       Branch?       @relation(fields: [branchId], references: [id])
   events       OrderEvent[]
   transactions Transaction[]

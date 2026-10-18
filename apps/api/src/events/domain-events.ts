@@ -55,7 +55,7 @@ export interface OrderChanged {
   readonly actorOrgId: string;
   readonly actorUserId: string;
   readonly sellerOrgId: string | null;
-  readonly buyerOrgId: string;
+  readonly buyerOrgId: string | null;
 }
 
 export type OrderEventName = 'order.submitted' | 'order.accepted' | 'order.scheduled' | 'order.cancelled' | 'order.fulfilled';

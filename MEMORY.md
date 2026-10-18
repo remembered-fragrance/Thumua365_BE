@@ -1307,6 +1307,34 @@ Người dùng chọn **8 ký tự** và **Brevo** (không Firebase: sẽ thành
 - **Người dùng phải tự làm:** tạo Brevo + xác minh sender; Render env `BREVO_API_KEY`, `MAIL_FROM`; Supabase Auth
   → Minimum password length = 8.
 
+## Xoá tài khoản không làm sổ bên kia mất đơn · `v0.17.0` · 18/10/2026
+
+Thử xoá tài khoản nông dân "Hộ Khôi" trên production: `purgeOrganization` xoá luôn đơn, lịch sử đơn và kết nối
+phía vựa. Người dùng chốt: **sổ là của vựa, nông dân chỉ vào xem**. Nông dân xoá thì vựa không được mất gì; vựa
+xoá thì nông dân mất quyền xem là đúng (không cần bản sao cho nông dân).
+
+- Migration `20261018010000_xoa_tai_khoan_giu_don`: `orders.buyer_org_id`, `created_by_org_id` thôi NOT NULL, khoá
+  ngoại ON DELETE SET NULL (như `seller_org_id`). `orders_guard`: cột tổ chức chỉ được đổi từ có giá trị về null,
+  chỉ dưới quyền khác `api_service`; chỉ gỡ (không chuyển trạng thái) thì không tăng version; INSERT vẫn bắt buộc
+  có bên mua + bên tạo. `partner_links_guard`: gỡ bên được liên kết chỉ khi cùng câu lệnh chuyển `revoked`.
+- `detachOrders`: GIỮ đơn khi bên kia còn tài khoản, có sổ (`hasBook`) và có dòng danh bạ ứng với tổ chức bị xoá
+  (`seller_partner_id` / `buyer_partner_id`) — không có dòng đó thì đơn không còn tên, cũng vi phạm CHECK
+  `orders_two_sides`. Đơn còn mở tự huỷ (mốc `cancelled`, ghi chú `ORDER_DETACHED_NOTE`, actor = tổ chức bị xoá)
+  + thông báo `order.cancelled` cùng payload với `notify_order()`. Còn lại xoá cùng lịch sử.
+- `detachLinks`: tổ chức bị xoá giữ sổ ⇒ xoá kết nối; là bên được xem ⇒ `revoked`, `linked_org_id` null, đang
+  active thì báo `link.revoked`. Bên sổ mời lại được (index `partner_links_one_live` bỏ qua `revoked`).
+- Bẫy đã gặp khi review: đơn giữ lại mà `branch_id` là chi nhánh của DN bị xoá ⇒ lúc `branch.deleteMany`, khoá
+  ngoại SET NULL đổi đơn mà không tăng version ⇒ `orders_guard` chặn ⇒ xoá tài khoản 500. Gỡ `branch_id` ngay trong
+  lần gỡ tổ chức (đã chứng minh bằng test đỏ khi bỏ dòng đó).
+- `audit_log` `account.deleted` thêm `keptOrders`, `revokedLinks`.
+- Contracts: `OrderSummary.counterpart` nullable (phá vỡ có chủ đích — app phải nâng trước/cùng lúc),
+  `partnerName` mới. `toSummary` trước đây ném lỗi khi không đọc được bên kia ⇒ danh sách đơn của vựa sẽ 500.
+- Test: `account.db.test.ts` +5 (nông dân xoá, vựa xoá khi bên kia là DN, DN có chi nhánh xoá, một người xoá hai tổ
+  chức có đơn với nhau, luật trigger); mỗi test một IP vì `DELETE /v1/me` giới hạn 5 lần/phút. SDK +1 (đơn mất
+  bên kia; API cũ không gửi `partnerName`). DB test 206/206.
+- **Thứ tự deploy:** SDK ≤ 0.16 validate response ⇒ gặp `counterpart: null` là `CONTRACT_MISMATCH` cả danh sách
+  đơn. Cắt tag `v0.17.0` → FE nâng gói và lên Vercel → rồi mới merge/deploy API. SDK 0.17 đọc được API cũ.
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
