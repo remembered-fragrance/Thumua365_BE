@@ -1335,6 +1335,13 @@ xoá thì nông dân mất quyền xem là đúng (không cần bản sao cho n�
 - **Thứ tự deploy:** SDK ≤ 0.16 validate response ⇒ gặp `counterpart: null` là `CONTRACT_MISMATCH` cả danh sách
   đơn. Cắt tag `v0.17.0` → FE nâng gói và lên Vercel → rồi mới merge/deploy API. SDK 0.17 đọc được API cũ.
 
+| Bước | Kết quả |
+|---|---|
+| Tag (TRƯỚC khi merge) | `v0.17.0` gắn trên `ef50e3c` (đầu PR #36), KHÔNG trên `master`: merge trước thì Render deploy API ngay. Release có 3 tgz. PR merge bằng merge commit để tag nằm trong lịch sử `master` |
+| FE | mambo365_deploymentphase#47: lock theo release, `npm ci` + verify 221 test, CI xanh, merge; Vercel production có nhãn mới |
+| Migration staging (TRƯỚC khi merge) | ✅ Qua Supabase MCP, một transaction, ghi `_prisma_migrations` (checksum sha256 nội dung git `0b9bc4…4f7f`). Đủ 13/13. Ba cột tổ chức của `orders` nullable, ba khoá ngoại SET NULL, hai trigger bản mới; `api_privileged` đủ quyền trên các bảng bị gỡ |
+| Merge | PR #36 merge commit `7c2e9cf`, CI `master` xanh; `/v1/health` báo `0.17.0` `7c2e9cf` |
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
