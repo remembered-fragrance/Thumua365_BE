@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyData, normalize } from '../src/normalize';
+import { emptyData, normalize, starterData, withoutLegacyProducts } from '../src/normalize';
 import { normalizeTransaction } from '../src/normalizeTransaction';
 import { DEFAULT_PRODUCTS } from '../src/catalog';
 
@@ -66,10 +66,34 @@ describe('L1 — không bao giờ tự gieo dữ liệu mẫu', () => {
     expect(normalize(42)).toEqual(emptyData());
   });
 
-  it('sổ rỗng vẫn có sẵn bốn mặt hàng gợi ý', () => {
-    expect(normalize(null).products.map((p) => p.id)).toEqual(
-      DEFAULT_PRODUCTS.map((p) => p.id),
-    );
+  it('sổ rỗng không tự có mặt hàng `prod-…` — sổ có máy chủ kéo mặt hàng (id UUID) về', () => {
+    expect(normalize(null).products).toEqual([]);
+    expect(normalize({ products: [] }).products).toEqual([]);
+  });
+
+  it('sổ chỉ nằm trên máy có sẵn bốn mặt hàng gợi ý', () => {
+    expect(starterData().products.map((p) => p.id)).toEqual(DEFAULT_PRODUCTS.map((p) => p.id));
+  });
+});
+
+describe('mặt hàng mặc định kiểu cũ (`prod-…`)', () => {
+  const real = { id: '3f1c1f0e-8a39-4b8e-9a51-0c3b0b5b6d11', name: 'Cao su', unit: 'kg', formulaType: 'rubberLatex' };
+
+  it('đã có mặt hàng cùng tên với id thật → bỏ bản cũ, không hiện hai "Cao su"', () => {
+    const d = normalize({ products: [...DEFAULT_PRODUCTS, real] });
+    expect(d.products.filter((p) => p.name === 'Cao su').map((p) => p.id)).toEqual([real.id]);
+    expect(d.products.map((p) => p.id)).toContain('prod-cashew');
+  });
+
+  it('máy chủ đã đổi tên / xoá mặt hàng → mở lại app không tự thêm lại bản cũ', () => {
+    expect(normalize({ products: [{ ...real, name: 'Cao su loại 1' }] }).products.map((p) => p.id)).toEqual([real.id]);
+  });
+
+  it('withoutLegacyProducts bỏ hết `prod-…`, giữ nguyên sổ khi không có', () => {
+    const d = normalize({ products: [...DEFAULT_PRODUCTS, real] });
+    expect(withoutLegacyProducts(d).products.map((p) => p.id)).toEqual([real.id]);
+    const clean = withoutLegacyProducts(d);
+    expect(withoutLegacyProducts(clean)).toBe(clean);
   });
 });
 

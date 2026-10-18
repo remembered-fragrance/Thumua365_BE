@@ -24,6 +24,11 @@ export const cropMeta = (id?: CropType): CropMeta | undefined =>
 export const productNameFromCrop = (crop?: CropType): string =>
   cropMeta(crop)?.label ?? 'Mặt hàng';
 
+/**
+ * Bốn mặt hàng gợi ý cho sổ CHỈ NẰM TRÊN MÁY (tài khoản máy, dữ liệu mẫu). Id `prod-…` không phải
+ * UUID nên không đồng bộ được: sổ có máy chủ nhận bộ mặt hàng này từ máy chủ (`/v1/me/bootstrap` tạo
+ * với id UUID), không bao giờ dùng bản ở đây.
+ */
 export const DEFAULT_PRODUCTS: readonly Product[] = [
   {
     id: 'prod-rubber',
@@ -62,3 +67,6 @@ export const DEFAULT_PRODUCTS: readonly Product[] = [
     crop: 'pepper',
   },
 ] as const;
+
+/** Id mặt hàng mặc định kiểu cũ (`prod-rubber`…) — máy chủ từ chối mọi thao tác trên id này. */
+export const isLegacyProductId = (id: string): boolean => DEFAULT_PRODUCTS.some((p) => p.id === id);

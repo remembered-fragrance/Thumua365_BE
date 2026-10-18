@@ -33,6 +33,8 @@ import type { Prisma } from '../generated/prisma/client';
 import { freshLinkCode, needsFreshCode, withFreshCodeRetry } from './link-code';
 
 const RECEIPTS_DEFAULT_LIMIT = 50;
+/** Tổng công nợ đọc phiếu theo từng trang: sổ lớn không bị nạp hết vào bộ nhớ một lần. */
+const BALANCE_PAGE = 500;
 
 /** Số điện thoại ĐÃ XÁC THỰC OTP của người gọi, dạng +84… — rỗng nếu chưa. Lấy từ Auth ngay lúc gọi. */
 export const verifiedPhone = (account: SupabaseAccount): string =>
@@ -121,6 +123,14 @@ const toReceipt = (row: LinkedRow): LinkedReceipt => {
     debt: totals.debt,
   };
 };
+
+/** Công nợ còn lại của một phiếu — đúng `debt` của `toReceipt`, không dựng cả biên nhận. */
+const debtOf = (row: LinkedRow): number =>
+  transactionTotals({
+    lines: row.lines as TransactionLine[],
+    adjustments: (row.adjustments ?? []) as PriceAdjustment[],
+    amountPaid: row.payments.reduce((sum, p) => sum + Number(p.amount), 0),
+  }).debt;
 
 const Cursor = z.strictObject({ d: z.iso.datetime(), i: z.uuid() });
 const encodeCursor = (row: LinkedRow): string =>
@@ -315,22 +325,37 @@ export class LinksService {
       }
       if (owners.size === 0) return { items: [] };
 
-      const receipts = (await linkedReceipts(tx, null, null, null, null)).map(toReceipt);
+      // Chỉ cộng số, không dựng biên nhận (dòng hàng, lần trả) như `receipts` — mỗi trang xong là bỏ.
+      const sums = new Map<string, { theyOwe: number; youOwe: number; count: number; last: string | null }>();
+      let before: LinkedRow | undefined;
+      for (;;) {
+        const rows = await linkedReceipts(tx, null, before?.date ?? null, before?.id ?? null, BALANCE_PAGE);
+        for (const row of rows) {
+          const sum = sums.get(row.organization_id) ?? { theyOwe: 0, youOwe: 0, count: 0, last: null };
+          const debt = debtOf(row);
+          if (row.kind === 'purchase') sum.theyOwe += debt;
+          else sum.youOwe += debt;
+          sum.count += 1;
+          // Trang đi từ mới tới cũ: phiếu đầu tiên gặp là phiếu gần nhất.
+          sum.last ??= row.date.toISOString();
+          sums.set(row.organization_id, sum);
+        }
+        if (rows.length < BALANCE_PAGE) break;
+        before = rows.at(-1);
+      }
       return {
         items: [...owners.values()].map((owner) => {
-          const mine = receipts.filter((r) => r.organizationId === owner.counterpart_id);
-          const debtOf = (kind: LinkedReceipt['kind']) =>
-            mine.filter((r) => r.kind === kind).reduce((sum, r) => sum + r.debt, 0);
+          const sum = sums.get(owner.counterpart_id ?? '');
           return {
             organization: {
               id: owner.counterpart_id ?? '',
               name: owner.counterpart_name ?? '',
               type: OrgType.parse(owner.counterpart_type),
             },
-            theyOwe: debtOf('purchase'),
-            youOwe: debtOf('sale'),
-            receiptCount: mine.length,
-            lastReceiptAt: mine[0]?.date ?? null,
+            theyOwe: sum?.theyOwe ?? 0,
+            youOwe: sum?.youOwe ?? 0,
+            receiptCount: sum?.count ?? 0,
+            lastReceiptAt: sum?.last ?? null,
           };
         }),
       };

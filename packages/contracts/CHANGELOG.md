@@ -3,6 +3,34 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.18.0 — 19/10/2026 (rà soát đồng bộ, đơn, thanh toán)
+
+Không đổi hình dạng route nào. App 0.17 chạy được với API 0.18 ⇒ **deploy API trước, rồi nâng app**.
+
+- `RECEIPT_LIMITS` — giới hạn của phiếu / nháp mà schema đồng bộ đang dùng (100 dòng, 20 khoản cộng/trừ, 10 ảnh,
+  % 0–100, số cân / đơn giá ≤ 1 tỷ, nhãn khoản 120, tên người bán 200, ghi chú 2000 ký tự). App chặn ở ô nhập bằng
+  đúng các hằng này: để lọt lên thì op bị `VALIDATION_FAILED` và chặn cả hàng đợi.
+- `/sync/push` — từ chối vì chi nhánh (`FORBIDDEN`) mang `details.reason: 'BRANCH_SCOPE'`: người gắn chi nhánh đụng
+  phiếu của chi nhánh khác, gặp khi chủ vừa đổi chi nhánh của người đó mà máy còn thao tác chưa gửi. Op đó không
+  bao giờ gửi được nữa.
+- `/sync/push` — chờ khoá của tổ chức quá lâu (nhiều máy cùng đẩy) → `RATE_LIMITED` (thử lại được), trước đây là
+  `INTERNAL`.
+- `/sync/push` — nháp: đổi `kind` mà giữ `orderId` cũng xét lại đúng bên; nháp gắn đơn đã huỷ → gỡ `orderId`,
+  `ORDER_NOT_OPEN` (như phiếu). Trigger `book_order_guard` chạy cả khi đổi `kind`.
+- Đơn của người gắn chi nhánh (`ordersList`, `orderGet`, chuyển trạng thái, phiếu theo đơn): thấy đơn chi nhánh mình
+  tạo **và mọi đơn bên kia gửi tới**. Trước đây đơn bên kia gửi tới bị ẩn (lọc theo chi nhánh của bên tạo), còn phiếu
+  theo đơn lại gắn được vào đơn của chi nhánh khác.
+- Gói: trả tiền giữa kỳ dùng thử giữ ngày dùng thử còn lại; cộng tháng không tràn (31/01 + 1 tháng = 28/02, theo giờ
+  Việt Nam). Webhook khoá ý định thanh toán trước khi xét — hai giao dịch khác mã cùng trả một ý định không gia hạn
+  hai lần. `bank_transactions.outcome` (`applied | intent_closed | underpaid | no_intent`): giao dịch có mã mà không
+  gia hạn cũng được ghi để đối soát; quản trị viên mở gói bằng mã đã ghi (chưa `applied`) được.
+- `linkedBalance` — không đổi hình dạng; đọc phiếu theo trang thay vì nạp hết một lần.
+- `DELETE /v1/me` — xoá tổ chức là bên sổ của kết nối đang active ⇒ bên được xem nhận `link.revoked`. Xét lại người
+  trong tổ chức ngay trong transaction xoá (khoá hàng tổ chức): người được thêm giữa bước kiểm và bước xoá → 422.
+- `@mambo/core`: `emptyData()` **không còn** bốn mặt hàng `prod-…` (sổ có máy chủ kéo mặt hàng id UUID về);
+  `normalize()` không tự thêm chúng, bỏ bản `prod-…` trùng tên với mặt hàng id thật. Mới: `starterData()` (sổ chỉ
+  nằm trên máy, có sẵn bốn mặt hàng), `withoutLegacyProducts()`, `isLegacyProductId()`. `extendPeriod(…, trialEnd?)`.
+
 ## 0.17.0 — 18/10/2026 (xoá tài khoản không làm sổ bên kia mất đơn)
 
 - **Phá vỡ có chủ đích:** `OrderSummary.counterpart` (cả `OrderDetail`, `OrdersListResult`) thành `OrgRef | null`.

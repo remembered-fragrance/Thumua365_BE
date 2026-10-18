@@ -20,7 +20,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { admin, asService, createOrg, createSupplier, newId, service, serviceError, truncateAll } from './db';
-import { addMember, buildSyncApp, giveTrial, opMaker, paymentData, pullAs, pushAs, txData } from './sync-fixture';
+import { addMember, buildSyncApp, createBranch, giveTrial, opMaker, paymentData, pullAs, pushAs, txData } from './sync-fixture';
 
 let app: INestApplication;
 let tokenFor: (userId: string) => Promise<string>;
@@ -429,6 +429,104 @@ describe('phiếu theo đơn', () => {
     const pulled = SyncPullResult.parse((await staff.pull().expect(200)).body);
     expect(pulled.changes.drafts.find((d) => d.id === draftId)?.orderId).toBe(orderId);
   });
+
+  it('🔴 nháp đổi chiều mà giữ đơn → xét lại: thành sai bên thì gỡ khỏi đơn, ORDER_NOT_OPEN', async () => {
+    const orderId = await acceptedOrder();
+    const staff = await as(vuaStaff, vua);
+    const op = opMaker();
+    const draftId = newId();
+    const draft = { status: 'draft', kind: 'purchase', supplierName: 'Cô Mai', lines: [], amountPaid: 0, orderId };
+    await staff.push([op('draft', 'insert', draftId, draft)]).expect(200);
+
+    // Vựa là bên MUA của đơn này: đổi nháp sang BÁN mà vẫn gắn đơn là sai bên.
+    const res = SyncPushResult.parse((await staff.push([op('draft', 'update', draftId, { kind: 'sale' })]).expect(200)).body);
+    expect(res.results[0]).toMatchObject({ status: 'applied', warning: 'ORDER_NOT_OPEN' });
+    const { rows } = await admin.query('select kind, order_id from drafts where id = $1', [draftId]);
+    expect(rows[0]).toEqual({ kind: 'sale', order_id: null });
+  });
+
+  it('🔴 nháp gắn đơn đã huỷ (thêm mới hay sửa) → nháp vẫn lưu, gỡ khỏi đơn, ORDER_NOT_OPEN', async () => {
+    const orderId = await acceptedOrder();
+    await (await as(mai, farm)).post(`/v1/orders/${orderId}/cancel`, { version: 2 }).expect(200);
+    const staff = await as(vuaStaff, vua);
+    const op = opMaker();
+    const fresh = newId();
+    const later = newId();
+    const draft = { status: 'draft', supplierName: 'Cô Mai', lines: [], amountPaid: 0 };
+    const res = SyncPushResult.parse(
+      (
+        await staff
+          .push([
+            op('draft', 'insert', fresh, { ...draft, orderId }),
+            op('draft', 'insert', later, draft),
+            op('draft', 'update', later, { orderId }),
+          ])
+          .expect(200)
+      ).body,
+    );
+    expect(res.results.map((r) => r.warning)).toEqual(['ORDER_NOT_OPEN', undefined, 'ORDER_NOT_OPEN']);
+    const { rows } = await admin.query('select order_id from drafts where id = any($1::uuid[])', [[fresh, later]]);
+    expect(rows).toEqual([{ order_id: null }, { order_id: null }]);
+  });
+});
+
+describe('đơn và chi nhánh (doanh nghiệp)', () => {
+  let dn: string;
+  let boss: string;
+  let staffA: string;
+  let staffB: string;
+
+  beforeEach(async () => {
+    boss = newId();
+    staffA = newId();
+    staffB = newId();
+    dn = await createOrg('enterprise', boss, 'Công ty Đồng Phú');
+    await giveTrial(dn);
+    const branchA = await createBranch(dn, 'Chi nhánh A');
+    const branchB = await createBranch(dn, 'Chi nhánh B');
+    await addMember(dn, staffA, 'staff', branchA);
+    await addMember(dn, staffB, 'staff', branchB);
+    await link(dn, 'supplier', await createSupplier(dn, '0912 345 678', 'Cô Mai'), farm);
+  });
+
+  const ids = async (userId: string) =>
+    OrdersListResult.parse((await (await as(userId, dn)).get('/v1/orders').expect(200)).body).orders.map((o) => o.id);
+
+  it('🔴 người gắn chi nhánh thấy đơn bên kia gửi tới; đơn chi nhánh khác tạo thì không', async () => {
+    const incoming = OrderSummary.parse((await (await as(mai, farm)).post('/v1/orders', { ...sellOrder, counterpartOrgId: dn }).expect(200)).body);
+    const ofA = OrderSummary.parse(
+      (await (await as(staffA, dn)).post('/v1/orders', { ...sellOrder, role: 'buyer', counterpartOrgId: farm }).expect(200)).body,
+    );
+
+    expect((await ids(staffA)).sort()).toEqual([incoming.id, ofA.id].sort());
+    expect(await ids(staffB)).toEqual([incoming.id]);
+    expect((await ids(boss)).sort()).toEqual([incoming.id, ofA.id].sort());
+    await (await as(staffB, dn)).get(`/v1/orders/${ofA.id}`).expect(404);
+    await (await as(staffB, dn)).get(`/v1/orders/${incoming.id}`).expect(200);
+  });
+
+  it('🔴 phiếu theo đơn: đơn chi nhánh khác tạo → gỡ khỏi đơn; đơn bên kia gửi tới → hoàn thành', async () => {
+    const incoming = OrderSummary.parse((await (await as(mai, farm)).post('/v1/orders', { ...sellOrder, counterpartOrgId: dn }).expect(200)).body);
+    const ofA = OrderSummary.parse(
+      (await (await as(staffA, dn)).post('/v1/orders', { ...sellOrder, role: 'buyer', counterpartOrgId: farm }).expect(200)).body,
+    );
+    const op = opMaker();
+    const wrong = newId();
+    const right = newId();
+    const res = SyncPushResult.parse(
+      (
+        await (await as(staffB, dn))
+          .push([op('transaction', 'insert', wrong, txData({ orderId: ofA.id })), op('transaction', 'insert', right, txData({ orderId: incoming.id }))])
+          .expect(200)
+      ).body,
+    );
+    expect(res.results.map((r) => [r.status, r.warning])).toEqual([
+      ['applied', 'ORDER_NOT_OPEN'],
+      ['applied', undefined],
+    ]);
+    const { rows } = await admin.query('select id, status from orders where id = any($1::uuid[]) order by id = $2 desc', [[ofA.id, incoming.id], ofA.id]);
+    expect(rows.map((r) => r.status)).toEqual(['submitted', 'fulfilled']);
+  });
 });
 
 describe('thông báo', () => {
@@ -483,6 +581,19 @@ describe('luật ở database', () => {
       [newId(), other, otherOwner, orderId],
     );
     expect(msg).toMatch(/không phải đúng bên/);
+  });
+
+  it('🔴 đổi chiều phiếu/nháp đang gắn đơn thành sai bên → bị chặn ở database', async () => {
+    const orderId = await insertOrder();
+    const draftId = newId();
+    await admin.query(
+      `insert into drafts (id, organization_id, created_by, kind, supplier_name, order_id) values ($1, $2, $3, 'purchase', 'Cô Mai', $4)`,
+      [draftId, vua, vuaOwner, orderId],
+    );
+    const msg = await serviceError({ userId: vuaOwner, orgId: vua }, `update drafts set kind = 'sale' where id = $1`, [draftId]);
+    expect(msg).toMatch(/không phải đúng bên/);
+    // Gỡ đơn cùng lúc đổi chiều thì được — đúng như server làm khi gặp ORDER_NOT_OPEN.
+    await asService({ userId: vuaOwner, orgId: vua }, (c) => c.query(`update drafts set kind = 'sale', order_id = null where id = $1`, [draftId]));
   });
 
   it('đơn: không tạo thẳng trạng thái khác submitted, không đổi hai bên, không nhảy trạng thái, bên tạo không tự nhận', async () => {

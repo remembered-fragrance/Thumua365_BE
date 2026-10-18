@@ -15,6 +15,11 @@ import { Inject, Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { type Prisma, PrismaClient } from '../generated/prisma/client';
 
+export interface TxOptions {
+  readonly maxWait?: number;
+  readonly timeout?: number;
+}
+
 /** Client bên trong một transaction đã có ngữ cảnh RLS. */
 export type Tx = Prisma.TransactionClient;
 
@@ -40,14 +45,17 @@ export class Database {
     this.client = new PrismaClient({ adapter: new PrismaPg({ connectionString, max: 5 }) });
   }
 
-  /** Chạy `work` trong MỘT transaction có ngữ cảnh RLS. Lỗi ⇒ rollback toàn bộ. */
-  scoped<T>(scope: Scope, work: (tx: Tx) => Promise<T>): Promise<T> {
+  /**
+   * Chạy `work` trong MỘT transaction có ngữ cảnh RLS. Lỗi ⇒ rollback toàn bộ.
+   * `options`: hạn đợi kết nối / hạn cả transaction, khi mặc định của Prisma (2 giây / 5 giây) không đủ.
+   */
+  scoped<T>(scope: Scope, work: (tx: Tx) => Promise<T>, options?: TxOptions): Promise<T> {
     return this.client.$transaction(async (tx) => {
       await tx.$queryRaw`
         select set_config('app.user_id', ${scope.userId}, true),
                set_config('app.org_id', ${scope.orgId ?? ''}, true)`;
       return work(tx);
-    });
+    }, options);
   }
 
   /**

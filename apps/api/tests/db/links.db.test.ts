@@ -402,6 +402,23 @@ describe('phần sổ cho xem', () => {
     expect(second.cursor).toBeNull();
   });
 
+  it('công nợ sổ lớn hơn một trang (phiếu cùng thời điểm) → cộng đủ mọi trang, không sót không trùng', async () => {
+    await connectMai();
+    const n = 1_201;
+    await admin.query(
+      `insert into transactions (id, organization_id, created_by, date, kind, counterparty_id, supplier_name, lines)
+       select gen_random_uuid(), $1, $2, '2026-09-28T03:00:00Z', 'purchase', $3, 'Cô Mai', $4::jsonb from generate_series(1, $5::int)`,
+      [vua, vuaOwner, maiSupplier, JSON.stringify([rubberLine()]), n],
+    );
+    await purchase(vua, maiSupplier, { paid: 438_000, date: '2026-09-29T03:00:00Z' });
+    const [item] = LinkedBalance.parse((await (await as(mai, farm)).get('/v1/linked/balance').expect(200)).body).items;
+    expect(item).toMatchObject({
+      theyOwe: (n + 1) * 1_438_000 - 438_000,
+      receiptCount: n + 1,
+      lastReceiptAt: '2026-09-29T03:00:00.000Z',
+    });
+  });
+
   it('vựa ↔ doanh nghiệp bằng mã: phiếu vựa BÁN cho DN → DN thấy "mình còn nợ"', async () => {
     const boss = newId();
     const dn = await createOrg('enterprise', boss, 'Công ty Đồng Phú');

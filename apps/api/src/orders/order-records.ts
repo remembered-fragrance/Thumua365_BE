@@ -5,15 +5,34 @@
 
 import { type OrderStatus, type OrderSummary, OrgType } from '@mambo/contracts';
 import type { AuthUser } from '../auth/auth-user';
+import type { MembershipContext } from '../auth/membership';
 import type { Tx } from '../db/database';
 import type { OrderChanged } from '../events/domain-events';
-import type { Order } from '../generated/prisma/client';
+import type { Order, Prisma } from '../generated/prisma/client';
 
 export interface Counterpart {
   id: string;
   name: string;
   type: string;
 }
+
+/**
+ * Đơn người gắn chi nhánh đụng được: đơn tổ chức mình tạo ở ĐÚNG chi nhánh mình, và mọi đơn bên kia
+ * gửi tới. `orders.branch_id` là chi nhánh của BÊN TẠO đơn — đơn bên kia gửi tới không mang chi
+ * nhánh nào của mình (nông dân gửi: `null`; vựa / DN khác: chi nhánh của họ), lọc theo cột đó thì
+ * người gắn chi nhánh không bao giờ thấy đơn gửi tới. Dùng chung cho danh sách đơn và phiếu theo đơn.
+ */
+export const branchScope = (m: Pick<MembershipContext, 'organizationId' | 'branchId'>): Prisma.OrderWhereInput =>
+  m.branchId === null
+    ? {}
+    : {
+        OR: [
+          { createdByOrgId: m.organizationId, branchId: m.branchId },
+          // `<>` bỏ qua NULL: bên tạo đã xoá tài khoản thì `created_by_org_id` là null.
+          { createdByOrgId: { not: m.organizationId } },
+          { createdByOrgId: null },
+        ],
+      };
 
 export const logStep = async (
   tx: Tx,

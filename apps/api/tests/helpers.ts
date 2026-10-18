@@ -142,6 +142,8 @@ export class FakeStorageAdmin implements StorageAdmin {
   readonly objects = new Set<string>();
   /** Đặt true để giả Storage hỏng. */
   failing = false;
+  /** Chạy giữa chừng lúc xoá thư mục — giả việc khác xen vào giữa các bước của một luồng. */
+  during: (() => Promise<void>) | null = null;
 
   async signUpload(bucket: string, path: string): Promise<string> {
     return `https://storage.test/upload/${bucket}/${path}?token=up`;
@@ -153,6 +155,7 @@ export class FakeStorageAdmin implements StorageAdmin {
 
   async removeFolder(bucket: string, folder: string): Promise<number> {
     if (this.failing) throw new Error('Storage hỏng');
+    await this.during?.();
     this.removed.push(`${bucket}/${folder}`);
     return 0;
   }

@@ -91,6 +91,7 @@ beforeEach(async () => {
   auth.deleted.length = 0;
   storage.removed.length = 0;
   storage.failing = false;
+  storage.during = null;
 });
 
 describe('hồ sơ', () => {
@@ -224,10 +225,11 @@ describe('xoá tài khoản', () => {
     // Giữ lại: sổ đối soát ngân hàng, nhật ký xoá tài khoản.
     expect(await count(`bank_transactions where bank_tx_id = 'FT-CU'`)).toBe(1);
     expect(await count(`audit_log where action = 'account.deleted' and actor_user_id = $1`, [owner])).toBe(1);
-    // Bên kia vẫn nguyên: tổ chức, thông báo của chính họ.
+    // Bên kia vẫn nguyên: tổ chức, thông báo của chính họ — thêm `link.revoked`: sổ họ đang xem đã mất.
     expect(await count('organizations where id = $1', [farm])).toBe(1);
     expect(await count('memberships where user_id = $1', [mai])).toBe(1);
-    expect(await count('notifications where organization_id = $1', [farm])).toBe(1);
+    expect(await count(`notifications where organization_id = $1 and kind = 'order.accepted'`, [farm])).toBe(1);
+    expect(await count(`notifications where organization_id = $1 and kind = 'link.revoked' and payload->>'fromOrgId' = $2`, [farm, vua])).toBe(1);
   });
 
   it('nông dân xoá tài khoản → sổ vựa giữ nguyên: đơn, lịch sử đơn, phiếu theo đơn; kết nối thành revoked; vựa được báo', async () => {
@@ -440,6 +442,17 @@ describe('xoá tài khoản', () => {
     expect(ErrorBody.parse(res.body).error.details).toMatchObject({ reason: 'ORG_HAS_MEMBERS', organizations: [vua] });
     expect(storage.removed).toEqual([]);
     expect(auth.deleted).toEqual([]);
+    expect(await count('transactions where organization_id = $1', [vua])).toBe(1);
+  });
+
+  it('🔴 người được thêm vào tổ chức GIỮA bước kiểm và bước xoá → 422 ORG_HAS_MEMBERS, dữ liệu và người đó còn nguyên', async () => {
+    const { owner, vua } = await fullTrader();
+    const late = newId();
+    storage.during = () => addMember(vua, late, 'staff');
+    const res = await (await as(owner)).del('/v1/me').expect(422);
+    expect(ErrorBody.parse(res.body).error.details).toMatchObject({ reason: 'ORG_HAS_MEMBERS', organizations: [vua] });
+    expect(auth.deleted).toEqual([]);
+    expect(await count('memberships where user_id = $1', [late])).toBe(1);
     expect(await count('transactions where organization_id = $1', [vua])).toBe(1);
   });
 

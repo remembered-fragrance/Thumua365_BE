@@ -6,6 +6,11 @@
  *   2. CHỐNG TRÙNG theo mã giao dịch ngân hàng — ghi sổ đối soát TRƯỚC khi gia hạn (`activatePlan`).
  *   3. KHỚP SỐ TIỀN — chuyển thiếu thì không mở gói, để đường thủ công (`/v1/admin/plans/activate`).
  *
+ * Ý định thanh toán bị KHOÁ HÀNG (`for update`) trước khi xét: hai giao dịch khác mã cùng trả cho một
+ * ý định mà đến song song thì giao dịch sau đợi, thấy ý định đã `paid` — không gia hạn hai lần.
+ * Giao dịch có mã mà không gia hạn (ý định đã trả / hết hạn, chuyển thiếu, không khớp ý định nào)
+ * vẫn vào `bank_transactions` với `outcome` tương ứng — để đối soát tay thấy khoản tiền đó.
+ *
  * Mã đối soát dò bằng `findTransferCode` của `@mambo/core` — cùng hàm sinh mã trên app.
  */
 
@@ -19,6 +24,7 @@ import { ENV, type Env } from '../config/env';
 import { monthsForAmount } from '../config/plans';
 import { PRIVILEGED_DATABASE, type PrivilegedDatabase, privileged } from '../db/privileged-database';
 import { DomainEvents, LOGGER } from '../events/domain-events';
+import type { Tx } from '../db/database';
 import { activatePlan } from './plan-activation';
 
 interface BankTx {
@@ -92,18 +98,30 @@ export class BankWebhookService {
         continue;
       }
       const done = await db.run(async (tx) => {
-        const intent = await tx.paymentIntent.findFirst({
-          where: { providerRef: code, status: 'pending', deletedAt: null },
-          select: { id: true, organizationId: true, amount: true },
-        });
+        const [intent] = await tx.$queryRaw<{ id: string; organization_id: string; amount: bigint }[]>`
+          select id, organization_id, amount from payment_intents
+          where provider_ref = ${code} and status = 'pending' and deleted_at is null
+          for update`;
+        if (!intent) {
+          const closed = await tx.paymentIntent.findFirst({
+            where: { providerRef: code },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, organizationId: true },
+          });
+          await recordUnapplied(tx, bank, closed ? 'intent_closed' : 'no_intent', closed);
+          return null;
+        }
         // Chuyển thiếu cũng để đường thủ công: cộng nửa kỳ hạn là thứ không giải thích được.
-        if (!intent || bank.amount < Number(intent.amount)) return null;
+        if (bank.amount < Number(intent.amount)) {
+          await recordUnapplied(tx, bank, 'underpaid', { id: intent.id, organizationId: intent.organization_id });
+          return null;
+        }
 
         const months = monthsForAmount(Number(intent.amount)) ?? 1;
         const plan = await activatePlan(
           tx,
           {
-            organizationId: intent.organizationId,
+            organizationId: intent.organization_id,
             months,
             source: 'webhook',
             bankTxId: bank.bankTxId,
@@ -115,7 +133,7 @@ export class BankWebhookService {
         );
         if (!plan) return null;
         await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'paid' }, select: { id: true } });
-        return { organizationId: intent.organizationId, months };
+        return { organizationId: intent.organization_id, months };
       });
 
       if (done) {
@@ -130,3 +148,20 @@ export class BankWebhookService {
     return { handled, skipped };
   }
 }
+
+/**
+ * Ghi giao dịch KHÔNG gia hạn vào sổ đối soát. Mã đã có (ngân hàng gọi lại) thì thôi. Sau này quản
+ * trị viên mở gói bằng đúng mã này thì `activatePlan` đổi dòng sang `applied`.
+ */
+const recordUnapplied = async (
+  tx: Tx,
+  bank: BankTx,
+  outcome: 'intent_closed' | 'underpaid' | 'no_intent',
+  intent: { id: string; organizationId: string } | null,
+): Promise<void> => {
+  await tx.$executeRaw`
+    insert into bank_transactions (bank_tx_id, organization_id, payment_intent_id, amount, description, source, outcome)
+    values (${bank.bankTxId}, ${intent?.organizationId ?? null}::uuid, ${intent?.id ?? null}::uuid, ${bank.amount},
+            ${bank.description}, 'webhook', ${outcome})
+    on conflict (bank_tx_id) do nothing`;
+};

@@ -17,7 +17,7 @@ import type {
   Product,
   Supplier,
 } from './types.js';
-import { DEFAULT_PRODUCTS, productNameFromCrop } from './catalog.js';
+import { DEFAULT_PRODUCTS, isLegacyProductId, productNameFromCrop } from './catalog.js';
 import { cropFrom, formulaFrom } from './normalizeTransaction.js';
 
 export const defaultSettings = (): AppSettings => ({
@@ -25,16 +25,33 @@ export const defaultSettings = (): AppSettings => ({
   displayMode: 'normal',
 });
 
+/**
+ * Sổ rỗng, KHÔNG có mặt hàng nào: sổ có máy chủ kéo bộ mặt hàng mặc định (id UUID) từ máy chủ về.
+ * Gieo `DEFAULT_PRODUCTS` (id `prod-…`) ở đây thì phiếu lập trước lần kéo đầu tiên sinh thao tác
+ * mà máy chủ luôn từ chối, kẹt cả hàng đợi.
+ */
 export const emptyData = (): AppData => ({
   suppliers: [],
   buyers: [],
-  products: [...DEFAULT_PRODUCTS],
+  products: [],
   transactions: [],
   drafts: [],
   notes: [],
   settings: defaultSettings(),
   pricingRules: [],
 });
+
+/** Sổ rỗng cho sổ CHỈ NẰM TRÊN MÁY (tài khoản máy): có sẵn bốn mặt hàng gợi ý. */
+export const starterData = (): AppData => ({ ...emptyData(), products: [...DEFAULT_PRODUCTS] });
+
+/**
+ * Bỏ mặt hàng mặc định kiểu cũ (`prod-…`) khỏi sổ có máy chủ. Sổ lưu trên máy từ bản cũ còn giữ
+ * chúng; máy chủ không bao giờ nhận id này, bộ mặt hàng thật đã kéo về (hoặc sẽ kéo về) với id UUID.
+ */
+export const withoutLegacyProducts = (data: AppData): AppData =>
+  data.products.some((p) => isLegacyProductId(p.id))
+    ? { ...data, products: data.products.filter((p) => !isLegacyProductId(p.id)) }
+    : data;
 
 const asRecords = (raw: unknown): Record<string, unknown>[] =>
   Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
@@ -63,12 +80,10 @@ export const normalizeProducts = (raw: unknown): Product[] => {
     };
   });
 
-  const byName = new Map(incoming.map((p) => [p.name.trim().toLowerCase(), p]));
-  const merged = DEFAULT_PRODUCTS.map((p) => ({ ...p, ...byName.get(p.name.toLowerCase()) }));
-  const custom = incoming.filter(
-    (p) => !DEFAULT_PRODUCTS.some((d) => d.name.toLowerCase() === p.name.toLowerCase()),
-  );
-  return [...merged, ...custom];
+  // Không tự thêm mặt hàng mặc định (xem `emptyData`). Bản `prod-…` còn trong sổ cũ mà đã có mặt
+  // hàng cùng tên với id thật (máy chủ tạo) thì bỏ bản cũ — không thì sổ hiện hai "Cao su".
+  const real = new Set(incoming.filter((p) => !isLegacyProductId(p.id)).map((p) => p.name.toLowerCase()));
+  return incoming.filter((p) => !isLegacyProductId(p.id) || !real.has(p.name.toLowerCase()));
 };
 
 // ─── Đối tác ─────────────────────────────────────────────────────────────────

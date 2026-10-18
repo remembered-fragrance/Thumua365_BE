@@ -13,6 +13,8 @@
  * với phiếu; sau commit phát `order.fulfilled`. Đơn đã huỷ, không còn (bên kia xoá tài khoản) hay
  * không đúng bên → phiếu vẫn ghi, gỡ `orderId`, cảnh báo `ORDER_NOT_OPEN` — phiếu là việc đã cân thật
  * ngoài đời, không bao giờ bị từ chối vì đơn (gặp `rejected` là cả hàng đợi dừng). Nháp cũng vậy.
+ *
+ * Chờ khoá quá lâu (nhiều máy đẩy cùng lúc) → `RATE_LIMITED`: thử lại được, không phải lỗi máy chủ.
  */
 
 import { computeReceiptTotal, freezeLineTotals, totalAdjustments } from '@mambo/core/calc';
@@ -41,7 +43,7 @@ import { DATABASE, type Database, type Tx } from '../db/database';
 import { DomainEvents, LOGGER, type OrderChanged } from '../events/domain-events';
 import { Prisma } from '../generated/prisma/client';
 import { syncPushBatch, syncPushOps, syncPushRejected } from '../metrics/metrics';
-import { changeOf, logStep } from '../orders/order-records';
+import { branchScope, changeOf, logStep } from '../orders/order-records';
 import { type BranchRule, delegateOf, SYNC_TABLES } from './sync-tables';
 
 type Input = z.output<typeof SyncPushInput>;
@@ -70,6 +72,14 @@ interface PushContext {
 }
 
 const APPLIED: Outcome = { status: 'applied' };
+
+/**
+ * Mỗi op một transaction, chờ khoá advisory của tổ chức NGAY TRONG transaction đó. Mặc định của
+ * Prisma (đợi kết nối 2 giây, cả transaction 5 giây) quá chặt khi vài máy của một vựa đẩy cùng lúc
+ * qua pool 5 kết nối: hết giờ là `INTERNAL`. Chờ khoá có hạn riêng (`lock_timeout`), quá hạn thì trả
+ * `RATE_LIMITED` để app thử lại theo lịch.
+ */
+const PUSH_TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 } as const;
 const DUPLICATE: Outcome = { status: 'duplicate' };
 
 @Injectable()
@@ -142,6 +152,7 @@ export class SyncPushService {
       const { fulfilled, ...outcome } = await this.db.scoped(
         { userId: ctx.user.id, orgId: ctx.membership.organizationId },
         (tx) => this.inTransaction(tx, ctx, op),
+        PUSH_TX_OPTIONS,
       );
       if (fulfilled) this.events.emit('order.fulfilled', fulfilled);
       return { opId: op.opId, ...outcome };
@@ -152,6 +163,7 @@ export class SyncPushService {
 
   private async inTransaction(tx: Tx, ctx: PushContext, op: ParsedSyncOp): Promise<Outcome> {
     const orgId = ctx.membership.organizationId;
+    await tx.$executeRaw`set local lock_timeout = '8s'`;
     await tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${orgId}, 1))`;
 
     const seen = await tx.syncOp.findUnique({ where: { opId: op.opId }, select: { opId: true } });
@@ -212,10 +224,13 @@ export class SyncPushService {
       if (deletedAt) return { status: 'applied', warning: 'RECORD_DELETED' };
       const patch = { ...(op.data ?? {}) };
       let warning: SyncWarning | undefined;
-      if (op.entity === 'draft' && typeof patch.orderId === 'string') {
-        // Chiều của nháp: trong vá nếu có, không thì chiều đang lưu — trigger cũng xét đúng như vậy.
-        const kind = patch.kind ?? (await tx.draft.findUnique({ where: { id: op.recordId }, select: { kind: true } }))?.kind;
-        if (!(await findOrderFor(tx, ctx, patch.orderId, (kind ?? null) as string | null))) {
+      if (op.entity === 'draft' && (typeof patch.orderId === 'string' || patch.kind !== undefined)) {
+        // Xét đơn theo cặp (đơn, chiều) SAU khi vá: đổi chiều nháp mà giữ đơn cũng phải xét lại — không
+        // thì nháp mua gắn được vào đơn mình là bên bán. Trigger `book_order_guard` xét đúng như vậy.
+        const stored = await tx.draft.findUnique({ where: { id: op.recordId }, select: { kind: true, orderId: true } });
+        const orderId = patch.orderId !== undefined ? patch.orderId : stored?.orderId;
+        const kind = patch.kind !== undefined ? patch.kind : stored?.kind;
+        if (typeof orderId === 'string' && !(await findDraftOrder(tx, ctx, orderId, (kind ?? null) as string | null))) {
           patch.orderId = null;
           warning = 'ORDER_NOT_OPEN';
         }
@@ -248,7 +263,7 @@ export class SyncPushService {
     }
 
     if (op.entity === 'draft' && typeof data.orderId === 'string') {
-      if (!(await findOrderFor(tx, ctx, data.orderId, (data.kind ?? null) as string | null))) return notOpen(data);
+      if (!(await findDraftOrder(tx, ctx, data.orderId, (data.kind ?? null) as string | null))) return notOpen(data);
     }
 
     if (op.entity === 'payment') {
@@ -331,6 +346,10 @@ export class SyncPushService {
 
   private toRejection(op: ParsedSyncOp, err: unknown, requestId: string): SyncOpResult {
     if (err instanceof OpRejected) return rejected(op.opId, err.code, err.message, err.details);
+    if (isBusy(err)) {
+      this.logger.warn('sync.op_busy', { requestId, opId: op.opId, error: err instanceof Error ? err.message : String(err) });
+      return rejected(op.opId, 'RATE_LIMITED', 'Nhiều máy đang gửi cùng lúc — sẽ thử lại');
+    }
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') {
         return rejected(op.opId, 'VALIDATION_FAILED', 'Id của bản ghi hoặc thao tác đã được dùng ở nơi khác — sinh id mới');
@@ -371,11 +390,17 @@ const branchOf = (rule: BranchRule, row: Record<string, unknown>): string | null
   return undefined;
 };
 
+/**
+ * Từ chối vì chi nhánh: `details.reason = 'BRANCH_SCOPE'`. Gặp sau khi chủ đổi chi nhánh của người
+ * này mà máy họ còn thao tác chưa gửi — thao tác đó không bao giờ gửi được nữa, app bỏ nó và báo.
+ */
+const BRANCH_SCOPE = { reason: 'BRANCH_SCOPE' } as const;
+
 /** Người gắn với một chi nhánh chỉ đụng được phiếu của chi nhánh đó. */
 const assertBranch = (membership: MembershipContext, recordBranch: string | null | undefined): void => {
   if (recordBranch === undefined || membership.branchId === null) return;
   if (recordBranch !== membership.branchId) {
-    throw new OpRejected('FORBIDDEN', 'Chỉ làm việc được với phiếu của chi nhánh mình');
+    throw new OpRejected('FORBIDDEN', 'Chỉ làm việc được với phiếu của chi nhánh mình', BRANCH_SCOPE);
   }
 };
 
@@ -383,7 +408,7 @@ const assertBranch = (membership: MembershipContext, recordBranch: string | null
 const resolveBranch = (membership: MembershipContext, requested: string | null | undefined): string | null => {
   if (membership.branchId === null) return requested ?? null;
   if (requested && requested !== membership.branchId) {
-    throw new OpRejected('FORBIDDEN', 'Chỉ ghi được phiếu cho chi nhánh của mình');
+    throw new OpRejected('FORBIDDEN', 'Chỉ ghi được phiếu cho chi nhánh của mình', BRANCH_SCOPE);
   }
   return membership.branchId;
 };
@@ -411,20 +436,42 @@ const notOpen = (data: Record<string, unknown>): { data: Record<string, unknown>
 
 /**
  * Đơn mà tổ chức là ĐÚNG bên: phiếu mua ↔ bên mua, phiếu bán ↔ bên bán, nháp chưa chọn chiều ↔ bên
- * nào cũng được. Không có (kể cả đã bị xoá cùng tài khoản bên kia) hoặc sai bên → `null`: KHÔNG từ
- * chối op — phiếu là việc đã cân thật, `rejected` làm kẹt cả hàng đợi. Trigger `book_order_guard`
- * giữ cùng luật ở database.
+ * nào cũng được. Không có (kể cả đã bị xoá cùng tài khoản bên kia), sai bên, hoặc người gắn chi nhánh
+ * mà đơn là của chi nhánh khác (như danh sách đơn — `branchScope`) → `null`: KHÔNG từ chối op — phiếu
+ * là việc đã cân thật, `rejected` làm kẹt cả hàng đợi. Trigger `book_order_guard` giữ luật đúng bên ở
+ * database.
  */
 const findOrderFor = (tx: Tx, ctx: PushContext, orderId: string, kind: string | null) => {
   const orgId = ctx.membership.organizationId;
   return tx.order.findFirst({
     where: {
       id: orderId,
-      OR: [
-        ...(kind !== 'sale' ? [{ buyerOrgId: orgId }] : []),
-        ...(kind !== 'purchase' ? [{ sellerOrgId: orgId }] : []),
+      AND: [
+        {
+          OR: [
+            ...(kind !== 'sale' ? [{ buyerOrgId: orgId }] : []),
+            ...(kind !== 'purchase' ? [{ sellerOrgId: orgId }] : []),
+          ],
+        },
+        branchScope(ctx.membership),
       ],
     },
     select: { id: true, status: true },
   });
+};
+
+/** Nháp: như phiếu, thêm đơn đã huỷ không gắn được (phiếu thì `fulfil` tự xét sau khi khoá đơn). */
+const findDraftOrder = async (tx: Tx, ctx: PushContext, orderId: string, kind: string | null) => {
+  const order = await findOrderFor(tx, ctx, orderId, kind);
+  return order && order.status !== 'cancelled' ? order : null;
+};
+
+/**
+ * Chờ quá lâu — khoá advisory (`lock_timeout`, SQLSTATE 55P03), kết nối trong pool hoặc hạn của
+ * transaction (Prisma P2024 / P2028). Đông máy cùng đẩy, không phải lỗi dữ liệu: thử lại là qua.
+ */
+const isBusy = (err: unknown): boolean => {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && (err.code === 'P2024' || err.code === 'P2028')) return true;
+  const text = err instanceof Error ? `${err.message} ${JSON.stringify((err as { meta?: unknown }).meta ?? '')}` : '';
+  return text.includes('55P03') || /lock timeout|canceling statement due to lock timeout/i.test(text);
 };

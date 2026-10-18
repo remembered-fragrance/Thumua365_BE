@@ -30,7 +30,7 @@ import { encodeCursor, olderThan } from '../common/page-cursor';
 import { DATABASE, type Database } from '../db/database';
 import { DomainEvents, type OrderEventName } from '../events/domain-events';
 import type { Order, Prisma } from '../generated/prisma/client';
-import { changeOf, logStep, orderNames, summaryOf, toSummary } from './order-records';
+import { branchScope, changeOf, logStep, orderNames, summaryOf, toSummary } from './order-records';
 
 const LIST_DEFAULT_LIMIT = 50;
 
@@ -58,10 +58,9 @@ const stateChanged = (order: Pick<Order, 'status' | 'version'>): ApiException =>
     version: order.version,
   });
 
-/** Đơn tổ chức này thấy: là một bên; người gắn chi nhánh chỉ thấy đơn của chi nhánh mình. */
+/** Đơn tổ chức này thấy: là một bên; người gắn chi nhánh thấy đơn chi nhánh mình tạo và đơn gửi tới. */
 const visible = (m: MembershipContext): Prisma.OrderWhereInput => ({
-  OR: [{ sellerOrgId: m.organizationId }, { buyerOrgId: m.organizationId }],
-  ...(m.branchId ? { branchId: m.branchId } : {}),
+  AND: [{ OR: [{ sellerOrgId: m.organizationId }, { buyerOrgId: m.organizationId }] }, branchScope(m)],
 });
 
 const assertCanView = (m: MembershipContext): void => {

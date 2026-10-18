@@ -88,4 +88,27 @@ describe('extendPeriod', () => {
   it('chưa từng trả tiền thì cũng tính từ hôm nay', () => {
     expect(extendPeriod(undefined, NOW, 12).slice(0, 10)).toBe('2027-08-10');
   });
+
+  it('trả tiền giữa kỳ dùng thử thì giữ ngày dùng thử còn lại', () => {
+    expect(extendPeriod(undefined, NOW, 1, '2026-08-20T00:00:00.000Z').slice(0, 10)).toBe('2026-09-20');
+  });
+
+  it('dùng thử đã hết thì không cộng gì thêm', () => {
+    expect(extendPeriod(undefined, NOW, 1, '2026-08-01T00:00:00.000Z').slice(0, 10)).toBe('2026-09-10');
+  });
+
+  it('cuối tháng không tràn sang tháng sau: 31/01 + 1 tháng = 28/02', () => {
+    // 31/01/2027 10:00 giờ Việt Nam
+    const end = extendPeriod('2027-01-31T03:00:00.000Z', new Date('2027-01-01T00:00:00.000Z'), 1);
+    expect(end).toBe('2027-02-28T03:00:00.000Z');
+  });
+
+  it('năm nhuận: 31/01/2028 + 1 tháng = 29/02/2028', () => {
+    expect(extendPeriod('2028-01-31T03:00:00.000Z', new Date('2028-01-01T00:00:00.000Z'), 1)).toBe('2028-02-29T03:00:00.000Z');
+  });
+
+  it('ngày cuối tháng theo giờ Việt Nam, không theo UTC', () => {
+    // 01/02/2027 02:00 giờ Việt Nam = 31/01 19:00 UTC → + 1 tháng = 01/03 giờ Việt Nam
+    expect(extendPeriod('2027-01-31T19:00:00.000Z', new Date('2027-01-01T00:00:00.000Z'), 1)).toBe('2027-02-28T19:00:00.000Z');
+  });
 });
