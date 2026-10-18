@@ -70,7 +70,11 @@ export const OrderSummary = z.object({
   role: OrderRole,
   /** Tổ chức mình là bên tạo đơn. */
   createdByMe: z.boolean(),
-  counterpart: OrgRef,
+  /**
+   * Tổ chức bên kia. null: bên kia đã xoá tài khoản — đơn và lịch sử vẫn ở trong sổ của mình,
+   * đơn còn mở đã tự huỷ; hiện tên bằng `partnerName`.
+   */
+  counterpart: OrgRef.nullable(),
   crop: CropType.nullable(),
   /** Mặt hàng trong sổ của bên tạo — chỉ có khi `createdByMe`. */
   productId: z.uuid().nullable(),
@@ -87,6 +91,11 @@ export const OrderSummary = z.object({
    * không có sổ hoặc bên kia chưa có trong danh bạ của mình.
    */
   partnerId: z.uuid().nullable(),
+  /**
+   * Tên dòng danh bạ `partnerId` như mình ghi trong sổ (cả dòng đã xoá). null khi `partnerId` null.
+   * API ≤ 0.16 không gửi ⇒ mặc định null, app mới vẫn đọc được API cũ.
+   */
+  partnerName: z.string().nullable().default(null),
   createdAt: Time,
   updatedAt: Time,
 });

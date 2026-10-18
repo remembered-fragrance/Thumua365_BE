@@ -113,7 +113,8 @@ describe('luồng nghiệm thu R2', () => {
     const forVua = OrdersListResult.parse((await vuaApi.get('/v1/orders', { role: 'buyer' }).expect(200)).body);
     expect(forVua.orders).toHaveLength(1);
     expect(forVua.orders[0]).toMatchObject({ id: created.id, role: 'buyer', createdByMe: false, partnerId: maiSupplier });
-    expect(forVua.orders[0]?.counterpart.name).toBe('Hộ cô Mai');
+    expect(forVua.orders[0]?.counterpart?.name).toBe('Hộ cô Mai');
+    expect(forVua.orders[0]?.partnerName).toBe('Cô Mai'); // tên trong danh bạ của vựa
     const [submitted] = await notificationsOf(vua, 'order.submitted');
     expect(submitted?.payload).toMatchObject({ orderId: created.id, fromOrgName: 'Hộ cô Mai' });
 

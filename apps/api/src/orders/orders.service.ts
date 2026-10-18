@@ -30,7 +30,7 @@ import { encodeCursor, olderThan } from '../common/page-cursor';
 import { DATABASE, type Database } from '../db/database';
 import { DomainEvents, type OrderEventName } from '../events/domain-events';
 import type { Order, Prisma } from '../generated/prisma/client';
-import { changeOf, counterparts, logStep, summaryOf, toSummary } from './order-records';
+import { changeOf, logStep, orderNames, summaryOf, toSummary } from './order-records';
 
 const LIST_DEFAULT_LIMIT = 50;
 
@@ -96,7 +96,7 @@ export class OrdersService {
       };
       const rows = await tx.order.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: limit + 1 });
       const page = rows.slice(0, limit);
-      const names = await counterparts(tx, orgId, page);
+      const names = await orderNames(tx, orgId, page);
       const last = page.at(-1);
       return {
         orders: page.map((row) => toSummary(row, orgId, names)),

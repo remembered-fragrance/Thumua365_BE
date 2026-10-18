@@ -181,7 +181,8 @@ describe('@mambo/sdk', () => {
     const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
 
     const input = { version: 2, pickupAt: '2026-10-05T01:00:00.000Z' };
-    await expect(client.orders.schedule(order.id, input)).resolves.toEqual(order);
+    // API ≤ 0.16 chưa gửi partnerName — SDK vẫn đọc được, coi như null.
+    await expect(client.orders.schedule(order.id, input)).resolves.toEqual({ ...order, partnerName: null });
     expect(calls[0]?.url).toBe(`https://api.test/v1/orders/${order.id}/schedule`);
     expect(calls[0]?.init?.method).toBe('POST');
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual(input);
@@ -190,6 +191,32 @@ describe('@mambo/sdk', () => {
     const listing = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: list.fetchFn });
     await listing.orders.list({ role: 'buyer' });
     expect(list.calls[0]?.url).toBe('https://api.test/v1/orders?role=buyer');
+  });
+
+  it('orders.list: bên kia đã xoá tài khoản → counterpart null, tên lấy từ danh bạ của mình', async () => {
+    const order = {
+      id: '0b9e4c1a-2d3f-4a5b-9c6d-7e8f9a0b1c2d',
+      status: 'cancelled',
+      version: 2,
+      role: 'buyer',
+      createdByMe: false,
+      counterpart: null,
+      crop: null,
+      productId: null,
+      estQuantity: 100,
+      unit: 'kg',
+      offeredPrice: null,
+      pickupAt: null,
+      pickupAddress: null,
+      branchId: null,
+      partnerId: '6f1c1d2e-3b4a-4c5d-8e9f-0a1b2c3d4e5f',
+      partnerName: 'Cô Mai',
+      createdAt: '2026-10-03T03:00:00.000Z',
+      updatedAt: '2026-10-18T03:05:00.000Z',
+    };
+    const { fetchFn } = recorder(json(200, { orders: [order], cursor: null }));
+    const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });
+    await expect(client.orders.list()).resolves.toEqual({ orders: [order], cursor: null });
   });
 
   it('attachments.upload: xin URL rồi PUT đúng header; 409 (đã lên từ trước) là xong; 500 thì ném', async () => {

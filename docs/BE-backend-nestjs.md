@@ -613,7 +613,14 @@ việc đã cân thật). Đơn đã xong nhận thêm phiếu (chỉ gắn). Lu
 `ADMIN_USER_IDS` (RouteAuth `admin`). Webhook + kích hoạt tay dùng chung `activatePlan`: ghi sổ
 đối soát → gia hạn → thông báo + nhật ký trong MỘT transaction. Trigger `billing_guard`: api_service
 không mở / gia hạn gói, không đánh dấu "đã trả". Xoá tài khoản: ảnh → dữ liệu (tổ chức chủ duy nhất bị
-xoá hẳn, kể cả đơn / kết nối với bên kia) → Auth; giữ `bank_transactions`, `audit_log`.
+xoá hẳn cùng sổ của nó) → Auth; giữ `bank_transactions`, `audit_log`.
+
+**Sửa 18/10/2026 (0.17.0):** sổ là của vựa, nông dân chỉ vào xem ⇒ xoá tài khoản không được làm sổ bên kia
+mất gì. Đơn với bên kia còn tài khoản, có sổ và có dòng danh bạ ứng với tổ chức bị xoá thì GIỮ: gỡ tổ chức bị
+xoá về null (`buyer_org_id`, `created_by_org_id` thôi NOT NULL), đơn còn mở tự huỷ, lịch sử giữ nguyên. Kết nối
+mà tổ chức bị xoá là bên được xem ⇒ `revoked`, `linked_org_id` null. Bên kia là nông dân (không có sổ) hay
+cũng đã xoá ⇒ đơn xoá theo. Trigger `orders_guard` / `partner_links_guard` chỉ cho gỡ dưới quyền khác
+`api_service`.
 
 
 - **Backend:** `/me/profile`, `/me/subscription`, `/billing/intents`, `/referrals/claim`,

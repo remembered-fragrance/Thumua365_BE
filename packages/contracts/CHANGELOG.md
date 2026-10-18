@@ -3,6 +3,20 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.17.0 — 18/10/2026 (xoá tài khoản không làm sổ bên kia mất đơn)
+
+- **Phá vỡ có chủ đích:** `OrderSummary.counterpart` (cả `OrderDetail`, `OrdersListResult`) thành `OrgRef | null`.
+  `null` = bên kia đã xoá tài khoản: đơn và lịch sử đơn vẫn ở trong sổ của mình, đơn còn mở đã tự huỷ (mốc
+  `cancelled`, `by: 'counterpart'`), bên còn lại nhận `order.cancelled` / `link.revoked` như mọi lần huỷ. Trước đây
+  những đơn này bị xoá cùng tài khoản bên kia nên không bao giờ gặp `null`. App phải đọc `counterpart?.` —
+  **nâng app lên 0.17 TRƯỚC rồi mới deploy API**.
+- `OrderSummary.partnerName: string | null` — tên dòng danh bạ `partnerId` như mình ghi trong sổ (cả dòng đã xoá
+  mềm); dùng để hiện tên khi `counterpart` null. Mình không có sổ (nông dân) ⇒ luôn `null`. API ≤ 0.16 không gửi
+  trường này ⇒ schema mặc định `null` (SDK 0.17 đọc được API cũ; SDK ≤ 0.16 gặp `counterpart: null` thì báo
+  `CONTRACT_MISMATCH` cho cả danh sách đơn).
+- `DELETE /v1/me` (không đổi hình dạng): tổ chức bị xoá là bên được xem của một kết nối ⇒ kết nối ở lại trong
+  sổ bên kia thành `revoked`, `counterpart: null`; bên sổ mời lại được bằng `linksInvite`.
+
 ## 0.16.0 — 18/10/2026 (xác nhận email · quên mật khẩu · một luật mật khẩu)
 
 - `PASSWORD_MIN_LENGTH` (8), `PASSWORD_MAX_LENGTH` (72), schema `Password` — một luật cho mọi chỗ đặt mật khẩu.
