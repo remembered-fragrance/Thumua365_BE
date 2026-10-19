@@ -96,6 +96,12 @@ describe('meUserFrom', () => {
     ).toEqual({ id: 'u', name: 'Mai', phone: '+84912345678', email: 'mai@gmail.com', phoneVerified: false });
   });
 
+  it('có hồ sơ: email lấy từ hồ sơ, không từ email khai lúc đăng ký (C4)', () => {
+    const account = { id: 'u', email: '84912345678@id.thumua365.vn', phone: null, phone_confirmed_at: null, user_metadata: { recoveryEmail: 'cu@gmail.com' } };
+    expect(meUserFrom(account, 'Moi@Gmail.com')).toMatchObject({ email: 'moi@gmail.com' });
+    expect(meUserFrom(account, null)).toMatchObject({ email: null });
+  });
+
   it('đăng ký bằng SĐT, không khai email → email null (email nội bộ vẫn bị giấu)', () => {
     expect(
       meUserFrom({ id: 'u', email: '84912345678@id.thumua365.vn', phone: null, phone_confirmed_at: null, user_metadata: {} }),

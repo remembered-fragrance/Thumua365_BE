@@ -9,7 +9,7 @@
 
 import { freezeLineTotals, transactionTotals } from './calc.js';
 import { newId } from './id.js';
-import { resolveBuyer, resolveSupplier } from './partyActions.js';
+import { type PartyMatch, resolveBuyer, resolveSupplier } from './partyActions.js';
 import type { AppData, Payment, Product, Transaction, TransactionLine } from './types.js';
 
 export type NewTransaction = Omit<Transaction, 'id' | 'supplierId'> & { supplierId?: string };
@@ -30,11 +30,12 @@ const rememberPrices = (
 export const addTransaction = (
   data: AppData,
   input: NewTransaction,
+  match: PartyMatch = {},
 ): { data: AppData; transaction: Transaction } => {
   const party =
     input.kind === 'sale'
-      ? resolveBuyer(data, input.counterpartyId ?? input.supplierId, input.supplierName)
-      : resolveSupplier(data, input.counterpartyId ?? input.supplierId, input.supplierName);
+      ? resolveBuyer(data, input.counterpartyId ?? input.supplierId, input.supplierName, match)
+      : resolveSupplier(data, input.counterpartyId ?? input.supplierId, input.supplierName, match);
 
   const lines = input.lines.map(freezeLineTotals);
 

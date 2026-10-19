@@ -1396,6 +1396,43 @@ Theo `prompt-sua-loi-thumua365.md` (đợt 1). Phần lớn ở app (mambo365_de
 | Merge | PR #40 merge commit `bd7eb2e` (CI verify / db / docker xanh); `/v1/health` báo `0.19.0` `bd7eb2e` lúc 13:53Z |
 | FE | mambo365_deploymentphase#50: lock theo release `v0.19.0`, verify 271 test, CI xanh, merge `3b03b53`; bundle production có code mới lúc 13:54Z |
 
+## Trùng tên, giới hạn ô nhập, ảnh, chi nhánh, email chưa xác nhận · `v0.20.0` · 20/10/2026 · đợt 2, chưa phát hành
+
+Theo `prompt-sua-loi-thumua365.md` (đợt 2). Phần lớn ở app (mambo365_deploymentphase, cùng ngày); phía BE (nhánh
+`fix/dot2`, chi tiết ở `packages/contracts/CHANGELOG.md` 0.20.0):
+
+- **B3** (`@mambo/core`): `partiesNamed` + `PartyMatch { asNew?, keepApart? }` cho `addSupplier` / `addBuyer` /
+  `resolve*` / `addTransaction` / `importSuppliers` / `importReceipts`. Không truyền gì thì như 0.19 (trùng tên ⇒
+  dùng lại người cũ) — app 0.19 vẫn chạy. Test `core/tests/partyMatch.test.ts`.
+- **B4** (contracts): `PARTY_LIMITS`, `PRODUCT_LIMITS`, `NOTE_LIMITS` — đúng con số schema đồng bộ đang dùng, để app
+  đặt `maxLength`. Test `contracts/tests/limits.test.ts` khoá hằng với schema.
+- **B6** (sdk): tải ảnh đọc `statusCode` trong thân lỗi Storage (Storage trả HTTP 400 cho mọi lỗi). 409 ⇒ đã có;
+  413 / 415 / 400 có lý do ⇒ ảnh hỏng thật; 401/403/429/5xx ⇒ lỗi tạm, app giữ ảnh.
+- **C1**: chi nhánh chỉ cho doanh nghiệp — vựa tạo / mở lại chi nhánh hay gắn người vào chi nhánh ⇒ `FORBIDDEN`
+  (`assertEnterprise` trong `branches.service.ts`, `assertBranch` trong `members.service.ts`). **Không đổi
+  `permissions.ts`.** Chi nhánh cũ của vựa vẫn lưu trữ, đổi tên, gỡ người ra được. Kiểm staging 19/10 (chỉ đọc):
+  **0 chi nhánh** ở mọi loại tổ chức (enterprise, farmer, trader) ⇒ không vựa nào bị ảnh hưởng.
+- **C4**: migration `20261020000000_email_chua_xac_nhan`:
+  - index duy nhất mới `profiles_recovery_email_verified` chỉ trên email **đã xác nhận** (bỏ
+    `profiles_recovery_email_live`);
+  - `find_login_user` chỉ khớp email đã xác nhận.
+  - Ai bấm link trước thì giữ; người sau nhận `VALIDATION_FAILED` + `details.reason = 'EMAIL_TAKEN'` (không thêm mã
+    lỗi). Bước đăng ký luôn lưu email khai (trước đây lặng lẽ bỏ nếu trùng), chỉ không gửi thư khi đã có người xác
+    nhận. `/v1/me` lấy `user.email` từ hồ sơ.
+- **C2, C3**: chỉ đề xuất, chờ chủ dự án duyệt — `docs/DE_XUAT_C2_C3.md`.
+- B1, B5, B7, B8, B10 chỉ ở app.
+- Không đổi hình dạng route ⇒ app 0.19 chạy được với API 0.20 ⇒ **API trước, rồi app**.
+- Test: core 335, contracts 113, sdk 17, api 50; `npm run test:db` 13 file / 222 test (20/10). `openapi.json` sinh lại.
+- Để ý: `npm run test:db` chạy trên chính DB dev (localhost:54329) và `truncateAll()` — dữ liệu chạy thử app ở local
+  mất sạch, app sẽ dọn sổ trên máy vì membership biến mất. Chạy thử xong rồi mới chạy test:db, hoặc dựng lại tổ chức.
+
+| Bước | Kết quả |
+|---|---|
+| Migration staging (TRƯỚC khi merge) | chưa — câu có `drop index` nên **không chạy được qua Supabase MCP** (lỗi "Invalid or expired requestState"); chạy bằng SQL editor của Supabase hoặc `prisma migrate deploy` có `DIRECT_URL` |
+| Tag (TRƯỚC khi merge) | chưa — `v0.20.0`, release phải có 3 tgz |
+| Merge | chưa |
+| FE | chưa — đổi `package.json` từ `file:../tmp-pack/0.20.0` về URL release |
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không

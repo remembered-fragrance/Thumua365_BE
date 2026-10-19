@@ -14,7 +14,7 @@ import type { Logger } from 'winston';
 import { SUPABASE_ADMIN, type SupabaseAdmin } from '../auth/supabase-admin';
 import { ApiException } from '../common/api-exception';
 import { ENV, type Env } from '../config/env';
-import { DATABASE, type Database } from '../db/database';
+import { DATABASE, type Database, type Tx } from '../db/database';
 import { LOGGER } from '../events/domain-events';
 import { MAILER, type Mailer, appUrlOf } from '../mail/mailer';
 import { resetPasswordMail, verifyEmailMail } from '../mail/templates';
@@ -26,6 +26,24 @@ export const hashToken = (token: string): string => createHash('sha256').update(
 
 const unavailable = (): ApiException =>
   new ApiException('EMAIL_UNAVAILABLE', 'Chưa gửi được thư lúc này — thử lại sau, hoặc liên hệ kỹ thuật viên');
+
+/**
+ * Email đã là email khôi phục ĐÃ XÁC NHẬN của tài khoản khác (C4). Email chưa xác nhận không giữ chỗ:
+ * hai người cùng khai được, ai bấm link trước thì giữ — người sau nhận lỗi này, không lặng lẽ thành công.
+ */
+export const emailTaken = (): ApiException =>
+  new ApiException('VALIDATION_FAILED', 'Email này đã được tài khoản khác xác nhận — dùng email khác', {
+    reason: 'EMAIL_TAKEN',
+    fields: { recoveryEmail: 'Email này đã thuộc tài khoản khác' },
+  });
+
+/** Chủ của email nếu email đã được xác nhận (`find_login_user` chỉ khớp email đã xác nhận). */
+export const verifiedOwnerOf = async (tx: Tx, email: string): Promise<string | null> =>
+  (await tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${email})::text as id`)[0]?.id ?? null;
+
+/** Bấm link khi email đã có người xác nhận trước: index `profiles_recovery_email_verified` chặn. */
+const isTakenViolation = (err: unknown): boolean =>
+  err instanceof Error && err.message.includes('profiles_recovery_email_verified');
 
 @Injectable()
 export class RecoveryMailService {
@@ -67,6 +85,8 @@ export class RecoveryMailService {
       if (!row) throw new ApiException('NOT_FOUND', 'Chưa có hồ sơ — làm bước "Bạn là ai?" trước');
       if (!row.recoveryEmail) return 'no_email' as const;
       if (row.recoveryEmailVerifiedAt) return 'already_verified' as const;
+      const owner = await verifiedOwnerOf(tx, row.recoveryEmail);
+      if (owner && owner !== userId) throw emailTaken();
       const { count } = await tx.profile.updateMany({
         where: {
           id: userId,
@@ -109,11 +129,19 @@ export class RecoveryMailService {
     }
   }
 
-  /** Bấm link xác nhận — chưa đăng nhập cũng được. Mã sai / đã dùng / hết hạn → `email: null`. */
+  /**
+   * Bấm link xác nhận — chưa đăng nhập cũng được. Mã sai / đã dùng / hết hạn → `email: null`. Email đã có
+   * tài khoản khác xác nhận trước → 422 `EMAIL_TAKEN` (mã giữ nguyên, đổi email rồi gửi lại).
+   */
   async confirm(token: string): Promise<RecoveryEmailConfirmResult> {
-    const rows = await this.db.anonymous((tx) =>
-      tx.$queryRaw<{ email: string | null }[]>`select public.confirm_recovery_email(${hashToken(token)}) as email`,
-    );
+    let rows: { email: string | null }[];
+    try {
+      rows = await this.db.anonymous((tx) =>
+        tx.$queryRaw<{ email: string | null }[]>`select public.confirm_recovery_email(${hashToken(token)}) as email`,
+      );
+    } catch (err) {
+      throw isTakenViolation(err) ? emailTaken() : err;
+    }
     return { email: rows[0]?.email ?? null };
   }
 

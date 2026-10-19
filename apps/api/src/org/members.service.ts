@@ -81,10 +81,14 @@ const assertRole = (orgType: OrgType, role: AssignableRole): void => {
   }
 };
 
-/** Chi nhánh còn dùng của CHÍNH tổ chức này. */
-const assertBranch = async (tx: Tx, orgId: string, branchId: string | null | undefined): Promise<void> => {
+/**
+ * Chi nhánh còn dùng của CHÍNH tổ chức này. Chỉ doanh nghiệp gắn người vào chi nhánh (C1) — vựa có chi
+ * nhánh từ trước vẫn gỡ người ra được (`branchId: null`).
+ */
+const assertBranch = async (tx: Tx, m: MembershipContext, branchId: string | null | undefined): Promise<void> => {
   if (!branchId) return;
-  const branch = await tx.branch.findFirst({ where: { id: branchId, organizationId: orgId, deletedAt: null }, select: { id: true } });
+  if (m.orgType !== 'enterprise') throw new ApiException('FORBIDDEN', 'Chỉ doanh nghiệp mới gắn người vào chi nhánh');
+  const branch = await tx.branch.findFirst({ where: { id: branchId, organizationId: m.organizationId, deletedAt: null }, select: { id: true } });
   if (!branch) {
     throw new ApiException('VALIDATION_FAILED', 'Không có chi nhánh này, hoặc chi nhánh đã lưu trữ', {
       fields: { branchId: 'Không có chi nhánh này' },
@@ -126,7 +130,7 @@ export class MembersService {
     const scope = { userId: user.id, orgId: m.organizationId };
 
     const existing = await this.db.scoped(scope, async (tx) => {
-      await assertBranch(tx, m.organizationId, input.branchId);
+      await assertBranch(tx, m, input.branchId);
       const rows = await tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${phone}) as id`;
       return rows[0]?.id ?? null;
     });
@@ -191,7 +195,7 @@ export class MembersService {
         throw new ApiException('VALIDATION_FAILED', 'Người này đã bị gỡ khỏi tổ chức — thêm lại trước', { fields: { id: 'Đã bị gỡ' } });
       }
       if (patch.role) assertRole(m.orgType, patch.role);
-      await assertBranch(tx, m.organizationId, patch.branchId);
+      await assertBranch(tx, m, patch.branchId);
 
       await tx.membership.update({
         where: { id },

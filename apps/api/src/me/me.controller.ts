@@ -18,13 +18,17 @@ const e164 = (phone: string | null | undefined): string | null =>
 
 /**
  * Email nội bộ (người đăng ký bằng SĐT) là khoá đăng nhập — không trả ra như thể họ có email.
- * Thay vào đó: `phone` = số mã hoá trong email nội bộ, `email` = email khôi phục khai lúc đăng ký
- * (`user_metadata.recoveryEmail`). Nhờ vậy cùng một tài khoản hiện đủ SĐT lẫn email (FE#9).
+ * Thay vào đó: `phone` = số mã hoá trong email nội bộ, `email` = email khôi phục. Nhờ vậy cùng một tài
+ * khoản hiện đủ SĐT lẫn email (FE#9).
+ *
+ * Email khôi phục lấy từ HỒ SƠ (`profileEmail`, C4) — người dùng sửa ở hồ sơ thì `user_metadata` không đổi
+ * theo. Chỉ khi chưa có hồ sơ (trước bước "Bạn là ai?", `undefined`) mới dùng email khai lúc đăng ký.
  */
-export const meUserFrom = (account: SupabaseAccount): Me['user'] => {
+export const meUserFrom = (account: SupabaseAccount, profileEmail?: string | null): Me['user'] => {
   const email = text(account.email);
   const internal = email !== null && isInternalEmail(email);
-  const recovery = text(account.user_metadata?.recoveryEmail)?.toLowerCase() ?? null;
+  const recovery =
+    profileEmail !== undefined ? (profileEmail?.toLowerCase() ?? null) : (text(account.user_metadata?.recoveryEmail)?.toLowerCase() ?? null);
   return {
     id: account.id,
     name: text(account.user_metadata?.name),
@@ -69,10 +73,11 @@ export class MeController {
   }
 
   private async build(user: AuthUser, account: SupabaseAccount): Promise<Me> {
-    const [memberships, pendingLinks] = await Promise.all([
+    const [memberships, pendingLinks, profileEmail] = await Promise.all([
       this.memberships.listForUser(user.id),
       this.memberships.pendingLinks(user.id),
+      this.memberships.recoveryEmail(user.id),
     ]);
-    return { user: meUserFrom(account), memberships, pendingLinks };
+    return { user: meUserFrom(account, profileEmail), memberships, pendingLinks };
   }
 }

@@ -164,11 +164,15 @@ describe('POST /v1/me/bootstrap', () => {
       USER_ID,
     ]);
     expect(rows[0]?.recovery_email).toBe('hung@gmail.com');
-    const found = await admin.query<{ id: string }>(`select public.find_login_user('hung@gmail.com')::text as id`);
-    expect(found.rows[0]?.id).toBe(USER_ID);
+    const found = async () =>
+      (await admin.query<{ id: string | null }>(`select public.find_login_user('hung@gmail.com')::text as id`)).rows[0]?.id;
+    // Chưa bấm link xác nhận thì email chưa là định danh đăng nhập (C4).
+    expect(await found()).toBeNull();
+    await admin.query('update profiles set recovery_email_verified_at = now() where id = $1', [USER_ID]);
+    expect(await found()).toBe(USER_ID);
   });
 
-  it('email khôi phục đã thuộc tài khoản khác → vẫn tạo xong, chỉ bỏ email', async () => {
+  it('email khôi phục người khác mới khai (chưa xác nhận) → không chặn, vẫn lưu email (C4)', async () => {
     await admin.query(`insert into profiles (id, name, recovery_email) values ($1, 'Người khác', 'hung@gmail.com')`, [newId()]);
     users.account = { ...users.account, user_metadata: { name: 'Tư Hùng', recoveryEmail: 'hung@gmail.com' } };
     await bootstrap({ orgType: 'trader', orgName: 'Vựa', name: 'Hùng' }).expect(200);
@@ -176,7 +180,7 @@ describe('POST /v1/me/bootstrap', () => {
       'select recovery_email from profiles where id = $1',
       [USER_ID],
     );
-    expect(rows[0]?.recovery_email).toBeNull();
+    expect(rows[0]?.recovery_email).toBe('hung@gmail.com');
   });
 
   it('tên đăng nhập đã có người dùng → 422 chỉ đúng trường, không tạo gì', async () => {
@@ -265,10 +269,18 @@ describe('POST /v1/auth/resolve-identifier', () => {
   beforeEach(async () => {
     const hung = newId();
     await admin.query(
-      `insert into profiles (id, name, username, phone, recovery_email) values ($1, 'Hùng', 'vuatuhung', '+84912345678', 'hung@gmail.com')`,
+      `insert into profiles (id, name, username, phone, recovery_email, recovery_email_verified_at)
+       values ($1, 'Hùng', 'vuatuhung', '+84912345678', 'hung@gmail.com', now())`,
       [hung],
     );
     supabaseAdmin.emails.set(hung, 'hung-login@gmail.com');
+    const lan = newId();
+    await admin.query(`insert into profiles (id, name, phone, recovery_email) values ($1, 'Lan', '+84912345679', 'lan@gmail.com')`, [lan]);
+    supabaseAdmin.emails.set(lan, 'lan-login@gmail.com');
+  });
+
+  it('email chưa xác nhận không phải định danh đăng nhập (C4) → trả lại đúng email đã gõ', async () => {
+    expect((await resolve('lan@gmail.com').expect(200)).body).toEqual({ email: 'lan@gmail.com' });
   });
 
   it('tìm thấy theo tên / SĐT / email khôi phục → email đăng nhập thật', async () => {
@@ -279,7 +291,7 @@ describe('POST /v1/auth/resolve-identifier', () => {
 
   it('không có tài khoản → vẫn 200 với email cùng hình dạng, không lộ gì', async () => {
     expect((await resolve('0987 654 321').expect(200)).body).toEqual({ email: '84987654321@id.thumua365.vn' });
-    expect((await resolve('lan@gmail.com').expect(200)).body).toEqual({ email: 'lan@gmail.com' });
+    expect((await resolve('mai@gmail.com').expect(200)).body).toEqual({ email: 'mai@gmail.com' });
     expect((await resolve('khongcoai').expect(200)).body.email).toMatch(/^849\d{8}@id\.thumua365\.vn$/);
   });
 

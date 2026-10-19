@@ -105,4 +105,11 @@ export class PrismaMemberships implements MembershipLookup {
       }),
     );
   }
+
+  async recoveryEmail(userId: string): Promise<string | null | undefined> {
+    const row = await this.db.scoped({ userId, orgId: null }, (tx) =>
+      tx.profile.findFirst({ where: { id: userId, deletedAt: null }, select: { recoveryEmail: true } }),
+    );
+    return row ? row.recoveryEmail : undefined;
+  }
 }

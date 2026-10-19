@@ -10,8 +10,8 @@ import { isInternalEmail, phoneFromLoginEmail } from '../auth/login-email';
 import type { SupabaseAccount } from '../auth/supabase-users';
 import { ApiException } from '../common/api-exception';
 import { TRIAL_DAYS } from '../config/plans';
-import { RecoveryMailService } from '../account/recovery-mail.service';
-import { DATABASE, type Database, type Tx } from '../db/database';
+import { RecoveryMailService, verifiedOwnerOf } from '../account/recovery-mail.service';
+import { DATABASE, type Database } from '../db/database';
 import { DomainEvents } from '../events/domain-events';
 import { Prisma } from '../generated/prisma/client';
 
@@ -101,16 +101,10 @@ export class BootstrapService {
     const recoveryEmail = profileRecoveryEmail(account);
     const organizationId = randomUUID();
 
-    // Email đã là định danh của tài khoản khác (index `profiles_recovery_email_live`) thì bỏ qua:
-    // không chặn cả bước đăng ký vì một trường người dùng không sửa được ở màn này. Người đó vẫn
-    // đăng nhập bằng SĐT, đặt email khác sau ở PATCH /v1/me/profile. RLS chỉ cho thấy hồ sơ của
-    // chính mình ⇒ hỏi qua `find_login_user` (security definer), giống /v1/auth/resolve-identifier.
-    const freeEmail = async (tx: Tx): Promise<string | null> => {
-      if (!recoveryEmail) return null;
-      const rows = await tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${recoveryEmail})::text as id`;
-      const owner = rows[0]?.id;
-      return owner && owner !== user.id ? null : recoveryEmail;
-    };
+    // Email khai lúc đăng ký luôn được lưu (chưa xác nhận) — không lặng lẽ bỏ (C4). Email chưa xác nhận
+    // không giữ chỗ, nên không vướng ai. Đã có tài khoản khác XÁC NHẬN email đó thì không gửi thư: hồ sơ
+    // hiện "chưa xác nhận", bấm gửi lại / bấm link nhận lỗi EMAIL_TAKEN và đổi email khác.
+    let mailable = false;
 
     let created: boolean;
     try {
@@ -123,9 +117,10 @@ export class BootstrapService {
         const profile = await tx.profile.findUnique({ where: { id: user.id }, select: { id: true } });
         if (!profile) {
           await tx.profile.create({
-            data: { id: user.id, name: input.name, phone, username: input.username ?? null, recoveryEmail: await freeEmail(tx) },
+            data: { id: user.id, name: input.name, phone, username: input.username ?? null, recoveryEmail },
             select: { id: true },
           });
+          if (recoveryEmail) mailable = (await verifiedOwnerOf(tx, recoveryEmail)) === null;
         }
 
         await tx.organization.create({
@@ -176,7 +171,7 @@ export class BootstrapService {
     if (created) {
       this.events.emit('organization.created', { organizationId, orgType: input.orgType, userId: user.id, role: 'owner' });
       // Email khai lúc đăng ký: gửi thư xác nhận luôn (sau commit, lỗi chỉ ghi log).
-      if (recoveryEmail) await this.recoveryMail.sendVerificationQuietly(user.id);
+      if (mailable) await this.recoveryMail.sendVerificationQuietly(user.id);
     }
     return created;
   }

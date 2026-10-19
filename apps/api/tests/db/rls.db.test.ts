@@ -269,7 +269,8 @@ describe('ràng buộc dữ liệu', () => {
 describe('find_login_user — đăng nhập một ô', () => {
   beforeEach(async () => {
     await admin.query(
-      `insert into profiles (id, name, username, phone, recovery_email) values ($1, 'Tư Hùng', 'vuatuhung', '+84912345678', 'hung@gmail.com')`,
+      `insert into profiles (id, name, username, phone, recovery_email, recovery_email_verified_at)
+       values ($1, 'Tư Hùng', 'vuatuhung', '+84912345678', 'hung@gmail.com', now())`,
       [alice],
     );
   });
@@ -285,7 +286,10 @@ describe('find_login_user — đăng nhập một ô', () => {
 
   it('hồ sơ lưu chữ HOA vẫn tìm được bằng chữ thường', async () => {
     const id = newId();
-    await admin.query(`insert into profiles (id, name, username, recovery_email) values ($1, 'x', 'VuaBaTam', 'BaTam@Gmail.com')`, [id]);
+    await admin.query(
+      `insert into profiles (id, name, username, recovery_email, recovery_email_verified_at) values ($1, 'x', 'VuaBaTam', 'BaTam@Gmail.com', now())`,
+      [id],
+    );
     expect(await find('vuabatam')).toBe(id);
     expect(await find('batam@gmail.com')).toBe(id);
   });
@@ -296,7 +300,7 @@ describe('find_login_user — đăng nhập một ô', () => {
     expect(await find('vuatuhung')).toBeNull();
   });
 
-  it('🔴 mỗi định danh trỏ đúng một người: tên đăng nhập không giống SĐT, email khôi phục không trùng', async () => {
+  it('🔴 mỗi định danh trỏ đúng một người: tên đăng nhập không giống SĐT, email khôi phục ĐÃ XÁC NHẬN không trùng', async () => {
     // Trước đây hàm tra "tên OR SĐT OR email … LIMIT 1": ai đặt tên đăng nhập là số của người khác
     // (hay email khôi phục của người khác) thì đăng nhập bằng số / email đó trúng ngẫu nhiên một trong hai.
     for (const username of ['0912345678', '0912.345.678', '84912345678']) {
@@ -306,12 +310,21 @@ describe('find_login_user — đăng nhập một ô', () => {
       ).rejects.toThrow(/profiles_username_not_phone/);
     }
     await expect(
-      admin.query(`insert into profiles (id, name, recovery_email) values ($1, 'Kẻ chen', 'HUNG@gmail.com')`, [newId()]),
-    ).rejects.toThrow(/profiles_recovery_email_live/);
+      admin.query(
+        `insert into profiles (id, name, recovery_email, recovery_email_verified_at) values ($1, 'Kẻ chen', 'HUNG@gmail.com', now())`,
+        [newId()],
+      ),
+    ).rejects.toThrow(/profiles_recovery_email_verified/);
+    // Khai mà chưa xác nhận thì được (không giữ chỗ — C4), nhưng không đăng nhập được bằng email đó.
+    await admin.query(`insert into profiles (id, name, recovery_email) values ($1, 'Kẻ chen', 'HUNG@gmail.com')`, [newId()]);
+    expect(await find('hung@gmail.com')).toBe(alice);
     // Hồ sơ đã xoá không giữ chỗ email khôi phục.
     await admin.query('update profiles set deleted_at = now() where id = $1', [alice]);
     const next = newId();
-    await admin.query(`insert into profiles (id, name, recovery_email) values ($1, 'Người mới', 'hung@gmail.com')`, [next]);
+    await admin.query(
+      `insert into profiles (id, name, recovery_email, recovery_email_verified_at) values ($1, 'Người mới', 'hung@gmail.com', now())`,
+      [next],
+    );
     expect(await find('hung@gmail.com')).toBe(next);
   });
 

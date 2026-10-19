@@ -76,6 +76,10 @@ export class FakeMemberships implements MembershipLookup {
   async pendingLinks(): Promise<number> {
     return 0;
   }
+
+  async recoveryEmail(): Promise<string | null | undefined> {
+    return undefined;
+  }
 }
 
 /** Auth Admin giả: id → email đăng nhập. */

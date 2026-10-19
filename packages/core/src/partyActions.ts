@@ -17,11 +17,34 @@ const clean = (value?: string): string | undefined => {
 const sameName = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
+/** Hồ sơ trùng tên (không phân biệt hoa thường) — app hỏi người dùng chọn ai trước khi chốt phiếu. */
+export const partiesNamed = <P extends { readonly name: string }>(parties: readonly P[], name: string): P[] =>
+  name.trim() ? parties.filter((p) => sameName(p.name, name)) : [];
+
+/**
+ * Gõ tên trùng hồ sơ đã có thì dùng lại hồ sơ đó — trừ khi:
+ * - `asNew`: người dùng đã chọn "tạo người mới". Hai "Anh Ba" là hai người, gộp lại là gộp công nợ.
+ * - hồ sơ nằm trong `keepApart`: đang kết nối với tài khoản nông dân. Gộp theo tên thì nông dân thật thấy
+ *   phiếu và số dư của người cùng tên (`linked_receipts` lọc theo `counterparty_id`).
+ */
+export interface PartyMatch {
+  readonly asNew?: boolean;
+  readonly keepApart?: ReadonlySet<string>;
+}
+
+const reusable = <P extends { readonly id: string; readonly name: string }>(
+  parties: readonly P[],
+  name: string,
+  match: PartyMatch,
+): P | undefined =>
+  match.asNew ? undefined : partiesNamed(parties, name).find((p) => !match.keepApart?.has(p.id));
+
 export const addSupplier = (
   data: AppData,
   input: Omit<Supplier, 'id'>,
+  match: PartyMatch = {},
 ): { data: AppData; supplier: Supplier } => {
-  const existing = data.suppliers.find((s) => sameName(s.name, input.name));
+  const existing = reusable(data.suppliers, input.name, match);
   if (existing) return { data, supplier: existing };
 
   const supplier: Supplier = {
@@ -37,8 +60,9 @@ export const addSupplier = (
 export const addBuyer = (
   data: AppData,
   input: Omit<Buyer, 'id'>,
+  match: PartyMatch = {},
 ): { data: AppData; buyer: Buyer } => {
-  const existing = data.buyers.find((b) => sameName(b.name, input.name));
+  const existing = reusable(data.buyers, input.name, match);
   if (existing) return { data, buyer: existing };
 
   const buyer: Buyer = {
@@ -89,12 +113,13 @@ export interface ResolvedParty {
 
 /**
  * Người bán của phiếu mua. Gõ tên mới thì tự tạo hồ sơ; để trống hoặc gõ
- * "Khách lẻ" thì dùng mã khách lẻ, không tạo hồ sơ rác.
+ * "Khách lẻ" thì dùng mã khách lẻ, không tạo hồ sơ rác. Tên trùng hồ sơ đã có: xem `PartyMatch`.
  */
 export const resolveSupplier = (
   data: AppData,
   supplierId: string | undefined,
   supplierName: string,
+  match: PartyMatch = {},
 ): ResolvedParty => {
   if (supplierId && supplierId !== GUEST_SUPPLIER_ID) {
     return {
@@ -107,7 +132,7 @@ export const resolveSupplier = (
   const name = supplierName.trim();
   if (!name || name === WALK_IN) return { data, id: GUEST_SUPPLIER_ID, name: WALK_IN };
 
-  const { data: next, supplier } = addSupplier(data, { name });
+  const { data: next, supplier } = addSupplier(data, { name }, match);
   return { data: next, id: supplier.id, name: supplier.name };
 };
 
@@ -116,6 +141,7 @@ export const resolveBuyer = (
   data: AppData,
   buyerId: string | undefined,
   buyerName: string,
+  match: PartyMatch = {},
 ): ResolvedParty => {
   if (buyerId && buyerId !== GUEST_BUYER_ID) {
     return {
@@ -128,6 +154,6 @@ export const resolveBuyer = (
   const name = buyerName.trim();
   if (!name || name === WALK_IN) return { data, id: GUEST_BUYER_ID, name: WALK_IN };
 
-  const { data: next, buyer } = addBuyer(data, { name });
+  const { data: next, buyer } = addBuyer(data, { name }, match);
   return { data: next, id: buyer.id, name: buyer.name };
 };

@@ -251,6 +251,35 @@ describe('@mambo/sdk', () => {
     }
   });
 
+  it('attachments.upload (B6): chỉ lỗi ảnh hỏng thật mới là VALIDATION_FAILED; 401/403/408/429 thử lại được', async () => {
+    const id = '0b9e4c1a-2d3f-4a5b-9c6d-7e8f9a0b1c2d';
+    const target = { attachmentId: id, uploadUrl: 'https://storage.test/u', method: 'PUT', headers: {}, expiresAt: '2026-10-03T05:00:00.000Z' };
+    const image = new Blob([new Uint8Array([1])], { type: 'image/jpeg' });
+    const storage = (status: number, body?: object) =>
+      new Response(body ? JSON.stringify(body) : '', { status, headers: body ? { 'content-type': 'application/json' } : {} });
+    const cases: readonly [Response, string | null][] = [
+      [storage(413), 'PAYLOAD_TOO_LARGE'],
+      [storage(415), 'VALIDATION_FAILED'],
+      [storage(400, { statusCode: '415', error: 'invalid_mime_type', message: 'mime type not supported' }), 'VALIDATION_FAILED'],
+      [storage(400, { statusCode: '413', error: 'Payload too large' }), 'PAYLOAD_TOO_LARGE'],
+      // Storage bản cũ: trùng ảnh trả HTTP 400 kèm statusCode 409 — vẫn là "đã lên rồi".
+      [storage(400, { statusCode: '409', error: 'Duplicate' }), null],
+      [storage(400, { statusCode: '403', error: 'Unauthorized', message: 'jwt expired' }), 'FORBIDDEN'],
+      [storage(400), 'INTERNAL'],
+      [storage(401), 'UNAUTHENTICATED'],
+      [storage(403), 'FORBIDDEN'],
+      [storage(408), 'INTERNAL'],
+      [storage(429), 'RATE_LIMITED'],
+    ];
+    for (const [res, code] of cases) {
+      const responses = [json(200, target), res];
+      const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: async () => responses.shift() ?? new Response('', { status: 599 }) });
+      const run = client.attachments.upload(id, image);
+      if (code === null) await expect(run).resolves.toBeUndefined();
+      else await expect(run).rejects.toMatchObject({ code });
+    }
+  });
+
   it('sync.pull lần đầu: không có query string', async () => {
     const { calls, fetchFn } = recorder(json(200, emptyPull));
     const client = createClient({ baseUrl: 'https://api.test', getAccessToken: () => 'tok', fetch: fetchFn });

@@ -9,7 +9,7 @@ import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth-user';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database } from '../db/database';
-import { RecoveryMailService } from './recovery-mail.service';
+import { RecoveryMailService, emailTaken, verifiedOwnerOf } from './recovery-mail.service';
 import { Prisma, type Profile } from '../generated/prisma/client';
 
 const toProfile = (row: Profile): MeProfile => ({
@@ -49,6 +49,11 @@ export class ProfileService {
       updated = await this.db.scoped({ userId: user.id, orgId: null }, async (tx) => {
         const before = await tx.profile.findFirst({ where: { id: user.id, deletedAt: null }, select: { recoveryEmail: true } });
         if (!before) throw noProfile();
+        // Email người khác đã xác nhận: báo ngay. Email người khác mới khai (chưa xác nhận) không chặn (C4).
+        if (patch.recoveryEmail) {
+          const owner = await verifiedOwnerOf(tx, patch.recoveryEmail);
+          if (owner && owner !== user.id) throw emailTaken();
+        }
         const { count } = await tx.profile.updateMany({ where: { id: user.id, deletedAt: null }, data: patch });
         if (count === 0) throw noProfile();
         const row = await tx.profile.findUniqueOrThrow({ where: { id: user.id } });
@@ -59,7 +64,7 @@ export class ProfileService {
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         // Hai thứ duy nhất sửa được ở đây: tên đăng nhập và email khôi phục (index một phần
-        // `profiles_recovery_email_live`) — mỗi định danh đăng nhập chỉ trỏ đúng một người.
+        // `profiles_recovery_email_verified`, chỉ email đã xác nhận) — mỗi định danh đăng nhập chỉ trỏ đúng một người.
         if (`${JSON.stringify(err.meta ?? {})} ${err.message}`.includes('recovery_email')) {
           throw new ApiException('VALIDATION_FAILED', 'Email này đang là email khôi phục của tài khoản khác', {
             fields: { recoveryEmail: 'Đã có tài khoản dùng email này' },

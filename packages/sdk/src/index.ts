@@ -23,6 +23,33 @@ import {
   type SyncPushRequest,
 } from '@mambo/contracts';
 
+/**
+ * Lỗi thật của Storage. Storage bản cũ trả HTTP 400 cho mọi lỗi và ghi mã thật trong thân
+ * (`{ statusCode: "409" | "413" | "415" | "403", error, message }`) — chỉ đọc HTTP status thì ảnh trùng
+ * (đã lên rồi) hay token hết hạn thành "ảnh hỏng", và app bỏ ảnh khỏi hàng đợi.
+ */
+const storageFailure = async (res: Response): Promise<{ readonly status: number; readonly reason: boolean }> => {
+  const body = (await res.json().catch(() => null)) as { statusCode?: unknown; error?: unknown } | null;
+  const inner = Number(body?.statusCode);
+  return {
+    status: Number.isInteger(inner) && inner >= 400 && inner < 600 ? inner : res.status,
+    reason: typeof body?.error === 'string' && body.error !== '',
+  };
+};
+
+/**
+ * Chỉ ảnh hỏng THẬT mới là lỗi vĩnh viễn (B6): quá cỡ (413), sai loại (415), hay 400 có thân nêu lý do.
+ * 401/403 (phiên, token hết hạn), 408, 429, 5xx và 400 không rõ lý do: hàng đợi ảnh giữ ảnh, thử lại sau.
+ */
+const storageErrorCode = ({ status, reason }: { readonly status: number; readonly reason: boolean }): ErrorCode => {
+  if (status === 413) return 'PAYLOAD_TOO_LARGE';
+  if (status === 415 || (status === 400 && reason)) return 'VALIDATION_FAILED';
+  if (status === 401) return 'UNAUTHENTICATED';
+  if (status === 403) return 'FORBIDDEN';
+  if (status === 429) return 'RATE_LIMITED';
+  return 'INTERNAL';
+};
+
 export class ApiError extends Error {
   readonly code: ErrorCode | 'CONTRACT_MISMATCH';
   readonly status: number;
@@ -211,15 +238,17 @@ export const createClient = (options: ClientOptions) => {
       uploadUrl: (input: RouteBody<'attachmentsUploadUrl'>) => send('attachmentsUploadUrl', input),
       /**
        * Xin URL rồi PUT ảnh lên. Ảnh đã lên từ lần trước (mất phản hồi) → Storage trả 409 → coi là
-       * xong. Lỗi khác ném `ApiError` — hàng đợi ảnh thử lại theo lịch giãn cách.
+       * xong. Lỗi khác ném `ApiError`: `VALIDATION_FAILED` / `PAYLOAD_TOO_LARGE` là ảnh hỏng thật, còn lại
+       * hàng đợi ảnh thử lại theo lịch giãn cách — xem `storageErrorCode`.
        */
       upload: async (attachmentId: string, image: Blob) => {
         const contentType = image.type as RouteBody<'attachmentsUploadUrl'>['contentType'];
         const target = await send('attachmentsUploadUrl', { attachmentId, contentType, size: image.size });
         const res = await doFetch(target.uploadUrl, { method: target.method, headers: target.headers, body: image });
-        if (!res.ok && res.status !== 409) {
-          throw new ApiError(res.status >= 500 ? 'INTERNAL' : 'VALIDATION_FAILED', res.status, `Tải ảnh lên hỏng (HTTP ${res.status})`);
-        }
+        if (res.ok) return;
+        const failure = await storageFailure(res);
+        if (failure.status === 409) return;
+        throw new ApiError(storageErrorCode(failure), failure.status, `Tải ảnh lên hỏng (HTTP ${failure.status})`);
       },
       /** URL xem ảnh, hết hạn sau `expiresAt`. Ảnh chưa lên → `NOT_FOUND`. */
       url: (id: string) => call('attachmentUrl', undefined, undefined, { id }),

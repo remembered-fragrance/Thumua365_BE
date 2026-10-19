@@ -4,7 +4,8 @@
  * Không tự viết lại việc tạo hồ sơ hay lập phiếu: gấp `addSupplier` và
  * `addTransaction` trên bản sổ đang lớn dần. Nhờ vậy phiếu nhập từ file đi qua
  * đúng những bất biến của phiếu gõ tay — đóng băng dòng hàng, `amountPaid =
- * sum(payments)`, trùng tên thì dùng lại hồ sơ cũ chứ không tạo hồ sơ thứ hai.
+ * sum(payments)`, trùng tên thì dùng lại hồ sơ cũ chứ không tạo hồ sơ thứ hai — trừ hồ sơ trong
+ * `keepApart` (đang kết nối với nông dân, xem `PartyMatch`).
  *
  * KHÔNG tạo mặt hàng mới cho từng dòng. Sổ cũ ghi tên hàng bằng chữ, mỗi người
  * một kiểu ("mủ nước", "mu nuoc", "mủ"); tạo hồ sơ mặt hàng từ đó là gieo vào
@@ -12,7 +13,7 @@
  */
 
 import { newId } from './id.js';
-import { addSupplier } from './partyActions.js';
+import { addSupplier, type PartyMatch } from './partyActions.js';
 import { addTransaction } from './receiptActions.js';
 import type { ReceiptImport, SupplierImport } from './sheetImport.js';
 import type { AppData, Supplier, Transaction, TransactionLine } from './types.js';
@@ -20,13 +21,14 @@ import type { AppData, Supplier, Transaction, TransactionLine } from './types.js
 export const importSuppliers = (
   data: AppData,
   rows: readonly SupplierImport[],
+  match: Pick<PartyMatch, 'keepApart'> = {},
 ): { data: AppData; added: readonly Supplier[] } => {
   let next = data;
   const added: Supplier[] = [];
 
   for (const row of rows) {
     const before = next;
-    const result = addSupplier(next, row);
+    const result = addSupplier(next, row, match);
     next = result.data;
     // Tên đã có thì `addSupplier` trả lại hồ sơ cũ và sổ không đổi — lúc đó
     // không có gì để đẩy lên, và cũng không được đếm là "đã nhập thêm".
@@ -51,6 +53,7 @@ const lineFrom = (row: ReceiptImport): TransactionLine => ({
 export const importReceipts = (
   data: AppData,
   rows: readonly ReceiptImport[],
+  match: Pick<PartyMatch, 'keepApart'> = {},
 ): { data: AppData; added: readonly Transaction[] } => {
   let next = data;
   const added: Transaction[] = [];
@@ -65,7 +68,7 @@ export const importReceipts = (
       amountPaid: row.amountPaid,
       payments: [],
       note: row.note,
-    });
+    }, match);
     next = result.data;
     added.push(result.transaction);
   }
