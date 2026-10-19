@@ -1377,7 +1377,7 @@ theo tổ chức" — đã có `subscriptions_one_per_org`, không sửa.
 | Merge | PR #38 merge commit `fa568e4`, CI `master` xanh; `/v1/health` báo `0.18.0` `fa568e4` |
 | FE | mambo365_deploymentphase#48: lock theo release, verify 232 test, CI xanh, merge `3c40db7`; bundle production có code mới |
 
-## Hàng đợi không kẹt vì cả lượt bị từ chối · `v0.19.0` · 19/10/2026 · đợt 1, chưa phát hành
+## Hàng đợi không kẹt vì cả lượt bị từ chối · `v0.19.0` · 19/10/2026 · đợt 1, đã phát hành
 
 Theo `prompt-sua-loi-thumua365.md` (đợt 1). Phần lớn ở app (mambo365_deploymentphase, cùng ngày); phía BE:
 
@@ -1391,10 +1391,10 @@ Theo `prompt-sua-loi-thumua365.md` (đợt 1). Phần lớn ở app (mambo365_de
 
 | Bước | Kết quả |
 |---|---|
-| Tag (TRƯỚC khi merge) | chưa — đang sửa ở local |
+| Tag (TRƯỚC khi merge) | `v0.19.0` gắn trên `ad85f15` (đầu PR #40). Release có 3 tgz |
 | Migration staging | không có |
-| Merge | chưa |
-| FE | chưa — lock đang trỏ tgz local |
+| Merge | PR #40 merge commit `bd7eb2e` (CI verify / db / docker xanh); `/v1/health` báo `0.19.0` `bd7eb2e` lúc 13:53Z |
+| FE | mambo365_deploymentphase#50: lock theo release `v0.19.0`, verify 271 test, CI xanh, merge `3b03b53`; bundle production có code mới lúc 13:54Z |
 
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
