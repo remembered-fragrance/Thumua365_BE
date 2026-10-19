@@ -33,6 +33,13 @@ export const RECEIPT_LIMITS = {
   note: 2000,
 } as const;
 
+/** Hồ sơ người bán / người mua. Cùng lý do với `RECEIPT_LIMITS`: app chặn ở ô nhập bằng chính các hằng này. */
+export const PARTY_LIMITS = { name: 200, phone: 30, location: 300, note: 2000 } as const;
+/** Mặt hàng. */
+export const PRODUCT_LIMITS = { name: 200, unit: 20, group: 100, qualityGrade: 60, qualityGrades: 20 } as const;
+/** Ghi chú nhanh. */
+export const NOTE_LIMITS = { body: 5000 } as const;
+
 const Id = z.uuid();
 const Time = z.iso.datetime({ offset: true });
 /** Số nguyên đồng, có thể âm (khoản trừ, chiết khấu). */
@@ -98,11 +105,11 @@ const LineRecord = z.object(lineShape);
 // ─── Người bán (supplier) / người mua (buyer) ───────────────────────────────
 
 const partyFields = {
-  name: text(200),
+  name: text(PARTY_LIMITS.name),
   /** Như vựa gõ; so khớp kết nối qua số đã chuẩn hoá (BE4). */
-  phone: nullableText(30),
-  location: nullableText(300),
-  note: nullableText(2000),
+  phone: nullableText(PARTY_LIMITS.phone),
+  location: nullableText(PARTY_LIMITS.location),
+  note: nullableText(PARTY_LIMITS.note),
 };
 export const PartyInsert = z.strictObject(partyFields).partial({ phone: true, location: true, note: true });
 export const PartyPatch = z.strictObject(partyFields).partial().refine(hasKeys, EMPTY_PATCH);
@@ -118,15 +125,15 @@ export type PartyRecord = z.infer<typeof PartyRecord>;
 // ─── Mặt hàng ────────────────────────────────────────────────────────────────
 
 const productFields = {
-  name: text(200),
-  unit: text(20),
+  name: text(PRODUCT_LIMITS.name),
+  unit: text(PRODUCT_LIMITS.unit),
   formulaType: FormulaType,
   isSuggested: z.boolean(),
   isActive: z.boolean(),
   crop: CropType.nullable(),
   lastPricePerUnit: Quantity.nullable(),
-  group: nullableText(100),
-  qualityGrades: z.array(text(60)).max(20),
+  group: nullableText(PRODUCT_LIMITS.group),
+  qualityGrades: z.array(text(PRODUCT_LIMITS.qualityGrade)).max(PRODUCT_LIMITS.qualityGrades),
   trackInventory: z.boolean().nullable(),
 };
 /** Bỏ qua thì server điền: `unit` 'kg', `isSuggested` false, `isActive` true, `qualityGrades` []. */
@@ -191,7 +198,7 @@ export type PricingRuleRecord = z.infer<typeof PricingRuleRecord>;
 
 // ─── Ghi chú ─────────────────────────────────────────────────────────────────
 
-const noteFields = { body: text(5000), pinned: z.boolean(), done: z.boolean() };
+const noteFields = { body: text(NOTE_LIMITS.body), pinned: z.boolean(), done: z.boolean() };
 export const NoteInsert = z.strictObject(noteFields).partial({ pinned: true, done: true });
 export const NotePatch = z.strictObject(noteFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const NoteRecord = z.object({ ...meta, body: z.string(), pinned: z.boolean(), done: z.boolean() });

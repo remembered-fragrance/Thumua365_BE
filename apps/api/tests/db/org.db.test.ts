@@ -383,6 +383,29 @@ describe('chi nhánh', () => {
   });
 });
 
+describe('chi nhánh chỉ dành cho doanh nghiệp (C1)', () => {
+  it('🔴 vựa gọi thẳng API: không tạo, không bỏ lưu trữ chi nhánh, không gắn người vào chi nhánh', async () => {
+    const owner = await as(vuaOwner, vua);
+    const created = await owner.post('/v1/org/branches', { name: 'Trạm 2' }).expect(403);
+    expect(ErrorBody.parse(created.body).error.code).toBe('FORBIDDEN');
+
+    // Chi nhánh có sẵn từ trước khi chặn (dữ liệu cũ): lưu trữ được, đổi tên được, bỏ lưu trữ thì không.
+    const legacy = newId();
+    await admin.query(`insert into branches (id, organization_id, name) values ($1, $2, 'Trạm cũ')`, [legacy, vua]);
+    // Người cân có sẵn: chèn thẳng — route tạo người giới hạn 20 lần mỗi phút cho cả file test.
+    const staff = newId();
+    await admin.query(
+      `insert into memberships (id, user_id, organization_id, role, branch_id) values ($1, $2, $3, 'staff', $4)`,
+      [staff, newId(), vua, legacy],
+    );
+    await owner.patch(`/v1/org/members/${staff}`, { branchId: legacy }).expect(403);
+    await owner.post('/v1/org/members', { name: 'Chi', phone: '0903 333 333', password: 'matkhau-12', role: 'staff', branchId: legacy }).expect(403);
+    await owner.patch(`/v1/org/members/${staff}`, { branchId: null }).expect(200);
+    await owner.patch(`/v1/org/branches/${legacy}`, { archived: true, name: 'Trạm cũ (đóng)' }).expect(200);
+    await owner.patch(`/v1/org/branches/${legacy}`, { archived: false }).expect(403);
+  });
+});
+
 describe('báo cáo của nông dân', () => {
   it('phiếu vựa ghi về mình, lật chiều: vựa mua của mình = mình bán', async () => {
     const mai = newId();

@@ -118,12 +118,15 @@ describe('hồ sơ', () => {
     await (await as(newId())).get('/v1/me/profile').expect(404);
   });
 
-  it('🔴 tên đăng nhập giống SĐT → 422; email khôi phục người khác đang dùng → 422 đúng trường', async () => {
+  it('🔴 tên đăng nhập giống SĐT → 422; email khôi phục người khác ĐÃ XÁC NHẬN → 422 đúng trường', async () => {
     const me = newId();
     const other = newId();
     await profile(me, 'Anh Hùng', '+84905112233');
     await profile(other, 'Chị Lan', '+84905112244');
+    // Chưa xác nhận thì không giữ chỗ (C4) — xem recovery-mail.db.test.ts.
+    // Hai câu riêng: trigger bỏ xác nhận mỗi khi email đổi.
     await admin.query(`update profiles set recovery_email = 'lan@example.com' where id = $1`, [other]);
+    await admin.query('update profiles set recovery_email_verified_at = now() where id = $1', [other]);
     const api = await as(me);
 
     const phoneLike = await api.patch('/v1/me/profile', { username: '0905112244' }).expect(422);

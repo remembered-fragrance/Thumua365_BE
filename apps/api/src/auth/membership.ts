@@ -19,6 +19,8 @@ export interface MembershipLookup {
   listForUser(userId: string): Promise<MeMembership[]>;
   /** Lời mời kết nối đang chờ, cộng trên mọi tổ chức người này thuộc (`/v1/me`). */
   pendingLinks(userId: string): Promise<number>;
+  /** Email khôi phục trong hồ sơ (`/v1/me`, C4); `undefined` khi chưa có hồ sơ (chưa qua "Bạn là ai?"). */
+  recoveryEmail(userId: string): Promise<string | null | undefined>;
 }
 
 export const MEMBERSHIP_LOOKUP = Symbol('MEMBERSHIP_LOOKUP');
@@ -34,5 +36,9 @@ export class NoMembershipsYet implements MembershipLookup {
 
   async pendingLinks(): Promise<number> {
     return 0;
+  }
+
+  async recoveryEmail(): Promise<string | null | undefined> {
+    return undefined;
   }
 }

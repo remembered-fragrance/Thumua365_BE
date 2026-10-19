@@ -47,6 +47,15 @@ const assertRoom = async (tx: Tx, orgId: string): Promise<void> => {
   }
 };
 
+/**
+ * Chi nhánh là của doanh nghiệp (C1). Chủ vựa có `branch:manage` vì chủ sổ có mọi quyền, và gói vựa không
+ * giới hạn chi nhánh — chặn ở đây chứ không đổi ma trận quyền. Vựa có chi nhánh từ trước vẫn lưu trữ / đổi
+ * tên được, chỉ không thêm và không mở lại.
+ */
+const assertEnterprise = (m: MembershipContext): void => {
+  if (m.orgType !== 'enterprise') throw new ApiException('FORBIDDEN', 'Chỉ doanh nghiệp mới có chi nhánh');
+};
+
 const lock = (tx: Tx, orgId: string) => tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${orgId}, 2))`;
 
 @Injectable()
@@ -76,6 +85,7 @@ export class BranchesService {
   }
 
   create(user: AuthUser, m: MembershipContext, input: CreateInput, requestId: string): Promise<OrgBranch> {
+    assertEnterprise(m);
     const orgId = m.organizationId;
     return this.db.scoped({ userId: user.id, orgId }, async (tx) => {
       await lock(tx, orgId);
@@ -111,6 +121,7 @@ export class BranchesService {
         deletedAt = new Date();
       }
       if (patch.archived === false && row.deletedAt !== null) {
+        assertEnterprise(m);
         await assertRoom(tx, orgId);
         deletedAt = null;
       }

@@ -223,6 +223,80 @@ describe('xác nhận email khôi phục', () => {
   });
 });
 
+describe('email chưa xác nhận không giữ chỗ (C4)', () => {
+  const loginUser = async (identifier: string) =>
+    (await admin.query<{ id: string | null }>('select public.find_login_user($1)::text as id', [identifier])).rows[0]?.id ?? null;
+
+  it('🔴 khai trước email của người khác: không đăng nhập được bằng email đó, không chặn chủ thật; ai xác nhận trước thì giữ', async () => {
+    const squatter = newId();
+    const owner = newId();
+    await profile(squatter, '+84907000141');
+    await profile(owner, '+84907000142');
+    const squatterApi = await as(squatter);
+    const ownerApi = await as(owner);
+
+    await squatterApi.patch('/v1/me/profile', { recoveryEmail: 'that@example.com' }).expect(200);
+    const squatterLink = mailer.lastLink();
+    // Chưa xác nhận: email không phải định danh đăng nhập của ai cả.
+    expect(await loginUser('that@example.com')).toBeNull();
+
+    // Chủ thật khai cùng email: không bị chặn.
+    await ownerApi.patch('/v1/me/profile', { recoveryEmail: 'THAT@example.com' }).expect(200);
+    expect((await confirm(tokenOf(mailer.lastLink())).expect(200)).body.email?.toLowerCase()).toBe('that@example.com');
+    expect(await loginUser('that@example.com')).toBe(owner);
+
+    // Người khai trước bấm link sau: lỗi rõ ràng, không lặng lẽ thành công.
+    const late = await confirm(tokenOf(squatterLink)).expect(422);
+    expect(ErrorBody.parse(late.body).error.details).toMatchObject({ reason: 'EMAIL_TAKEN' });
+    await pastCooldown(squatter);
+    const resend = await squatterApi.post('/v1/me/recovery-email/verify').expect(422);
+    expect(ErrorBody.parse(resend.body).error.details).toMatchObject({ reason: 'EMAIL_TAKEN' });
+
+    // Sửa sang email đã có người xác nhận → 422 ngay.
+    const third = newId();
+    await profile(third, '+84907000143');
+    const taken = await (await as(third)).patch('/v1/me/profile', { recoveryEmail: 'that@example.com' }).expect(422);
+    expect(ErrorBody.parse(taken.body).error.details).toMatchObject({ fields: { recoveryEmail: expect.any(String) } });
+  });
+
+  it('đăng ký với email người khác đã xác nhận: vẫn lưu (chưa xác nhận), không gửi thư; email người khác chưa xác nhận: lưu và gửi thư', async () => {
+    await profile(newId(), '+84907000151', { email: 'roi@example.com', verified: true });
+    await profile(newId(), '+84907000152', { email: 'chua@example.com' });
+    const signUp = async (recoveryEmail: string) => {
+      users.account = {
+        id: USER_ID,
+        email: '84912345678@id.thumua365.vn',
+        phone: '84912345678',
+        phone_confirmed_at: '2026-09-21T03:00:00Z',
+        user_metadata: { name: 'Cô Mai', recoveryEmail },
+      };
+      await (await as(USER_ID)).post('/v1/me/bootstrap', { orgType: 'trader', orgName: 'Vựa cô Mai', name: 'Cô Mai' }).expect(200);
+      return (await admin.query<{ email: string | null }>('select recovery_email::text as email from profiles where id = $1', [USER_ID])).rows[0]?.email;
+    };
+
+    expect(await signUp('roi@example.com')).toBe('roi@example.com');
+    expect(mailer.sent).toHaveLength(0);
+
+    await truncateAll();
+    await profile(newId(), '+84907000152', { email: 'chua@example.com' });
+    expect(await signUp('chua@example.com')).toBe('chua@example.com');
+    expect(mailer.sent.map((m) => m.to)).toEqual(['chua@example.com']);
+  });
+
+  it('/v1/me lấy email từ hồ sơ, không từ user_metadata lúc đăng ký', async () => {
+    await profile(USER_ID, '+84912345678', { email: 'moi@example.com' });
+    users.account = {
+      id: USER_ID,
+      email: '84912345678@id.thumua365.vn',
+      phone: '84912345678',
+      phone_confirmed_at: '2026-09-21T03:00:00Z',
+      user_metadata: { name: 'Cô Mai', recoveryEmail: 'cu@example.com' },
+    };
+    const me = await (await as(USER_ID)).get('/v1/me').expect(200);
+    expect(me.body.user.email).toBe('moi@example.com');
+  });
+});
+
 describe('quên mật khẩu', () => {
   const ok = async (identifier: string) => expect(PasswordResetRequestResult.parse((await forgot(identifier).expect(200)).body)).toEqual({ ok: true });
 

@@ -3,6 +3,27 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.20.0 — 19/10/2026 (Đợt 2: trùng tên, giới hạn ô nhập, ảnh, chi nhánh, email chưa xác nhận)
+
+Không đổi hình dạng route nào. Có **migration** `20261020000000_email_chua_xac_nhan` — chạy trên staging trước khi merge.
+App 0.19 chạy được với API 0.20 ⇒ **deploy API trước, rồi nâng app**.
+
+- Mới: `PARTY_LIMITS`, `PRODUCT_LIMITS`, `NOTE_LIMITS` — độ dài tối đa của từng ô, đúng con số schema đồng bộ đang
+  dùng (không đổi giá trị). App đặt `maxLength` theo đây để người dùng không gõ quá rồi bị máy chủ từ chối cả op.
+- `@mambo/core`: `partiesNamed(parties, name)` và tham số `PartyMatch { asNew?, keepApart? }` cho `addSupplier`,
+  `addBuyer`, `resolveSupplier`, `resolveBuyer`, `addTransaction`, `importSuppliers`, `importReceipts`. Mặc định giữ
+  nguyên hành vi cũ (trùng tên ⇒ dùng lại người cũ); `asNew` ép tạo người mới, `keepApart` không gộp vào những hồ sơ
+  đã kết nối. Không truyền gì thì như 0.19.
+- `@mambo/sdk`: tải ảnh lên Storage đọc mã lỗi thật trong thân phản hồi (Storage trả HTTP 400 kèm `statusCode`):
+  409 ⇒ coi như đã có (xong), 413 ⇒ `PAYLOAD_TOO_LARGE`, 415 / 400 có lý do ⇒ `VALIDATION_FAILED`, 401 / 403 / 429 ⇒
+  `UNAUTHENTICATED` / `FORBIDDEN` / `RATE_LIMITED`, còn lại ⇒ `INTERNAL` (lỗi tạm, app giữ ảnh lại thử sau).
+- Chi nhánh chỉ dành cho doanh nghiệp: vựa tạo / bỏ lưu trữ chi nhánh, hay gắn người vào chi nhánh ⇒ `FORBIDDEN`.
+  Chi nhánh cũ của vựa (nếu có) vẫn lưu trữ, đổi tên, gỡ người ra được.
+- Email khôi phục **chưa xác nhận** không giữ chỗ và không đăng nhập được: chỉ email đã bấm link mới là duy nhất và
+  dùng được ở ô đăng nhập. Ai bấm link trước thì giữ; người sau nhận `VALIDATION_FAILED` với
+  `details.reason = 'EMAIL_TAKEN'` (không thêm mã lỗi mới — app cũ vẫn hiểu). Sửa hồ sơ sang email người khác đã xác
+  nhận ⇒ 422 như cũ. `/v1/me` lấy `user.email` từ hồ sơ (trước đây từ lúc đăng ký, sửa ở hồ sơ không đổi theo).
+
 ## 0.19.0 — 19/10/2026 (hàng đợi đồng bộ không kẹt vì cả lượt bị từ chối)
 
 Không đổi hình dạng route nào. App 0.18 chạy được với API 0.19 ⇒ **deploy API trước, rồi nâng app**.
