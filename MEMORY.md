@@ -1396,7 +1396,7 @@ Theo `prompt-sua-loi-thumua365.md` (đợt 1). Phần lớn ở app (mambo365_de
 | Merge | PR #40 merge commit `bd7eb2e` (CI verify / db / docker xanh); `/v1/health` báo `0.19.0` `bd7eb2e` lúc 13:53Z |
 | FE | mambo365_deploymentphase#50: lock theo release `v0.19.0`, verify 271 test, CI xanh, merge `3b03b53`; bundle production có code mới lúc 13:54Z |
 
-## Trùng tên, giới hạn ô nhập, ảnh, chi nhánh, email chưa xác nhận · `v0.20.0` · 20/10/2026 · đợt 2, chưa phát hành
+## Trùng tên, giới hạn ô nhập, ảnh, chi nhánh, email chưa xác nhận · `v0.20.0` · 20/10/2026 · đợt 2, đã phát hành
 
 Theo `prompt-sua-loi-thumua365.md` (đợt 2). Phần lớn ở app (mambo365_deploymentphase, cùng ngày); phía BE (nhánh
 `fix/dot2`, chi tiết ở `packages/contracts/CHANGELOG.md` 0.20.0):
@@ -1428,10 +1428,12 @@ Theo `prompt-sua-loi-thumua365.md` (đợt 2). Phần lớn ở app (mambo365_de
 
 | Bước | Kết quả |
 |---|---|
-| Migration staging (TRƯỚC khi merge) | chưa — câu có `drop index` nên **không chạy được qua Supabase MCP** (lỗi "Invalid or expired requestState"); chạy bằng SQL editor của Supabase hoặc `prisma migrate deploy` có `DIRECT_URL` |
-| Tag (TRƯỚC khi merge) | chưa — `v0.20.0`, release phải có 3 tgz |
-| Merge | chưa |
-| FE | chưa — đổi `package.json` từ `file:../tmp-pack/0.20.0` về URL release |
+| Migration staging (TRƯỚC khi merge) | ✅ Qua Supabase MCP, `begin … commit` tường minh, ghi `_prisma_migrations` (checksum sha256 nội dung git `35b358…7fe8`). Đủ 15/15. `drop index` lần này chạy được (khác `drop trigger` ở 0.18). Index cũ đã bỏ, `profiles_recovery_email_verified` có; `find_login_user` bản mới, giữ `security definer` và quyền |
+| Tag (TRƯỚC khi merge) | `v0.20.0` gắn trên `b949471` (đầu PR #42). Release có 3 tgz |
+| Merge | PR #42 merge commit `af83b71` (CI verify / db / docker xanh); `/v1/health` báo `0.20.0` `af83b71` lúc 17:47Z |
+| FE | mambo365_deploymentphase#52: lock theo release `v0.20.0`, verify 312 test, CI xanh, merge `3ac5aec`; bundle production có code mới lúc 17:49Z |
+
+Commit `b949471` thiếu dòng trống sau tiêu đề nên `git log --oneline` in cả thân — đã đẩy nên để nguyên.
 
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
