@@ -1,4 +1,4 @@
-import { ERROR_STATUS, type ErrorBody, type ErrorCode } from '@mambo/contracts';
+import { API_BODY_LIMIT_BYTES, ERROR_STATUS, type ErrorBody, type ErrorCode } from '@mambo/contracts';
 import type { INestApplication } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -9,8 +9,11 @@ import { type ApiRequest, requestContext } from './common/request-context';
 import type { Env } from './config/env';
 import { metricsEndpoint } from './metrics/metrics';
 
-/** Một lô đồng bộ tối đa 100 thao tác (KH §4.1) nằm gọn dưới mức này. */
-const JSON_BODY_LIMIT = '1mb';
+/**
+ * 1MB. Lô đồng bộ tối đa `SYNC_PUSH_MAX_OPS` (200) thao tác nhưng số op không giữ được lô dưới mức
+ * này (200 op nháp to ~1MB) — app cắt lô theo `SYNC_PUSH_MAX_BYTES` và tự chia đôi khi gặp 413.
+ */
+const JSON_BODY_LIMIT = API_BODY_LIMIT_BYTES;
 
 const ALLOWED_HEADERS = ['authorization', 'content-type', 'x-organization-id', 'x-request-id'];
 const EXPOSED_HEADERS = ['x-request-id', 'retry-after'];

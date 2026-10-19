@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  API_BODY_LIMIT_BYTES,
   can,
   parseSyncOp,
   SYNC_ENTITIES,
   SYNC_OP_DATA,
+  SYNC_PUSH_MAX_BYTES,
   SYNC_PUSH_MAX_OPS,
   SyncOp,
   SyncPullQuery,
@@ -176,6 +178,16 @@ describe('SyncPushInput — vỏ của lô', () => {
     expect(SyncPushInput.safeParse(body([])).success).toBe(false);
     const many = Array.from({ length: SYNC_PUSH_MAX_OPS + 1 }, (_, i) => ({ ...op('note', 'softDelete'), seq: i }));
     expect(SyncPushInput.safeParse(body(many)).success).toBe(false);
+  });
+
+  it('số op không giữ được lô dưới giới hạn thân: app phải cắt theo SYNC_PUSH_MAX_BYTES', () => {
+    // Nháp 30 dòng tự lưu mỗi lần gõ, mỗi op mang trọn các dòng — đúng hình dạng app gửi.
+    const draft = { supplierName: 'Khách lẻ', lines: Array.from({ length: 30 }, (_, i) => ({ ...line, id: `l${i}` })) };
+    const ops = Array.from({ length: SYNC_PUSH_MAX_OPS }, (_, i) => ({ ...op('draft', 'update', draft), seq: i }));
+    const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
+    expect(SyncPushInput.safeParse(body(ops)).success).toBe(true);
+    expect(bytes(body(ops))).toBeGreaterThan(API_BODY_LIMIT_BYTES);
+    expect(SYNC_PUSH_MAX_BYTES).toBeLessThan(API_BODY_LIMIT_BYTES);
   });
 });
 

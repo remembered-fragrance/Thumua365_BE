@@ -1377,6 +1377,25 @@ theo tổ chức" — đã có `subscriptions_one_per_org`, không sửa.
 | Merge | PR #38 merge commit `fa568e4`, CI `master` xanh; `/v1/health` báo `0.18.0` `fa568e4` |
 | FE | mambo365_deploymentphase#48: lock theo release, verify 232 test, CI xanh, merge `3c40db7`; bundle production có code mới |
 
+## Hàng đợi không kẹt vì cả lượt bị từ chối · `v0.19.0` · 19/10/2026 · đợt 1, chưa phát hành
+
+Theo `prompt-sua-loi-thumua365.md` (đợt 1). Phần lớn ở app (mambo365_deploymentphase, cùng ngày); phía BE:
+
+- **A1**: `API_BODY_LIMIT_BYTES` (1MB, `bootstrap.ts` dùng chính hằng này — chú thích cũ ghi "100 thao tác" đã
+  sửa) và `SYNC_PUSH_MAX_BYTES` (700KB) trong contracts. 200 op nháp 30 dòng ~1,2MB: `SYNC_PUSH_MAX_OPS` một mình
+  không giữ lô dưới giới hạn (test trong `contracts/tests/sync.test.ts`).
+- `@mambo/core`: `SyncStatus.refused?` — cả lượt đẩy bị từ chối vì lý do không phải mạng.
+- Không đổi route, không migration, không đổi ma trận quyền ⇒ API trước, rồi nâng app. `npm run test:db` không
+  chạy lại vì không đụng database.
+- Test: core 327, contracts 110 (+1), sdk 16, api 49. `openapi.json` sinh lại (chỉ đổi version).
+
+| Bước | Kết quả |
+|---|---|
+| Tag (TRƯỚC khi merge) | chưa — đang sửa ở local |
+| Migration staging | không có |
+| Merge | chưa |
+| FE | chưa — lock đang trỏ tgz local |
+
 ## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
 
 Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
