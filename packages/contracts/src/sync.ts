@@ -50,8 +50,15 @@ export const SYNC_OP_KINDS = ['insert', 'update', 'softDelete'] as const;
 export const SyncOpKind = z.enum(SYNC_OP_KINDS);
 export type SyncOpKind = z.infer<typeof SyncOpKind>;
 
-/** Một lô tối đa ngần này op — dưới giới hạn thân 1MB và không giữ request quá lâu. */
+/** Một lô tối đa ngần này op — không giữ request quá lâu. Số op KHÔNG đủ giữ lô dưới giới hạn thân. */
 export const SYNC_PUSH_MAX_OPS = 200;
+/**
+ * Giới hạn thân JSON của API (byte). Nháp tự lưu sau mỗi lần gõ, mỗi op mang trọn các dòng hàng
+ * (~5KB với 20 dòng): 200 op như thế đã quá 1MB — nên app phải cắt lô theo cả số byte.
+ */
+export const API_BODY_LIMIT_BYTES = 1_048_576;
+/** App cắt lô `/sync/push` dưới ngần này byte (đo cả thân đã mã hoá UTF-8) — chừa chỗ cho sai số. */
+export const SYNC_PUSH_MAX_BYTES = 700_000;
 export const SYNC_PULL_DEFAULT_LIMIT = 500;
 export const SYNC_PULL_MAX_LIMIT = 1000;
 

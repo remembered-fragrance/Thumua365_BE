@@ -209,6 +209,11 @@ export interface SyncStatus {
    * lại bao nhiêu lần cũng vậy, và câu phải nói với người dùng là khác hẳn.
    */
   readonly blocked?: boolean;
+  /**
+   * Máy chủ từ chối CẢ lượt đẩy vì lý do không phải mạng (không còn trong tổ chức, phiên hết hạn, app lệch
+   * hợp đồng…). Hàng đợi giữ nguyên và tự thử lại, nhưng không được nói với người dùng là "mất mạng".
+   */
+  readonly refused?: boolean;
 }
 
 // ─── DraftReceipt ────────────────────────────────────────────────────────────

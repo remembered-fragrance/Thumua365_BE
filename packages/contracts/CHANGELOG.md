@@ -3,6 +3,16 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.19.0 — 19/10/2026 (hàng đợi đồng bộ không kẹt vì cả lượt bị từ chối)
+
+Không đổi hình dạng route nào. App 0.18 chạy được với API 0.19 ⇒ **deploy API trước, rồi nâng app**.
+
+- Mới: `API_BODY_LIMIT_BYTES` (1MB — giới hạn thân JSON của API, `bootstrap.ts` dùng chính hằng này) và
+  `SYNC_PUSH_MAX_BYTES` (700KB). `SYNC_PUSH_MAX_OPS` (200) không đủ giữ lô dưới 1MB: 200 op nháp tự lưu, mỗi op mang
+  trọn các dòng hàng, đã vượt — máy chủ trả `PAYLOAD_TOO_LARGE` cho cả lượt. App cắt lô theo cả số op lẫn số byte.
+- `@mambo/core`: `SyncStatus.refused?` — máy chủ từ chối cả lượt đẩy vì lý do không phải mạng (`NOT_A_MEMBER`,
+  vỏ request sai…). App giữ nguyên hàng đợi, không gắn cờ kẹt op nào, và không báo là "mất mạng".
+
 ## 0.18.0 — 19/10/2026 (rà soát đồng bộ, đơn, thanh toán)
 
 Không đổi hình dạng route nào. App 0.17 chạy được với API 0.18 ⇒ **deploy API trước, rồi nâng app**.
