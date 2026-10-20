@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { detectIdentifierKind, normalizePhone } from '@mambo/core/identifier';
 import {
   type PasswordResetRequestInput,
@@ -57,18 +57,18 @@ export class AuthController {
   /**
    * Chưa đăng nhập ⇒ transaction không có ngữ cảnh RLS; chỉ gọi được hàm
    * `find_login_user` (security definer, trả đúng một id). Email đọc qua Auth Admin API.
+   *
+   * Không tìm thấy vẫn hỏi Auth Admin một lần bằng id ngẫu nhiên (404): hai nhánh cùng một
+   * lượt gọi mạng, đo độ trễ không phân biệt được có tài khoản hay không (pentest C2).
    */
   @Endpoint(routes.resolveIdentifier)
   async resolve(@Body() input: z.output<typeof ResolveIdentifierInput>): Promise<ResolveIdentifierResult> {
     const rows = await this.db.anonymous((tx) =>
       tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${input.identifier})::text as id`,
     );
-    const userId = rows[0]?.id;
-    if (userId) {
-      const email = await this.admin.loginEmail(userId);
-      if (email) return { email };
-    }
-    return { email: decoyEmail(input.identifier, this.decoyKey) };
+    const userId = rows[0]?.id ?? null;
+    const email = await this.admin.loginEmail(userId ?? randomUUID());
+    return { email: (userId && email) || decoyEmail(input.identifier, this.decoyKey) };
   }
 
   @Endpoint(routes.authRecoveryEmailConfirm)
