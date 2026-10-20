@@ -295,6 +295,19 @@ describe('POST /v1/auth/resolve-identifier', () => {
     expect((await resolve('khongcoai').expect(200)).body.email).toMatch(/^849\d{8}@id\.thumua365\.vn$/);
   });
 
+  it('có hay không có tài khoản đều hỏi Auth Admin đúng một lần — không đo được bằng độ trễ (C2)', async () => {
+    const asked = async (identifier: string): Promise<string[]> => {
+      const before = supabaseAdmin.asked.length;
+      await resolve(identifier).expect(200);
+      return supabaseAdmin.asked.slice(before);
+    };
+    expect(await asked('VuaTuHung')).toHaveLength(1);
+    const missing = await asked('khongcoai');
+    expect(missing).toHaveLength(1);
+    expect(missing[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(supabaseAdmin.emails.has(missing[0] ?? '')).toBe(false);
+  });
+
   it('không cần đăng nhập; thân sai → 422', async () => {
     await http().post('/v1/auth/resolve-identifier').send({}).expect(422);
   });
