@@ -16,10 +16,10 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 
 | | |
 |---|---|
-| Repo | `C:\Users\nino\Desktop\Thumua365_BE` — [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` |
-| Repo frontend | `C:\Users\nino\Desktop\mambo365deployment` — `mambo365_deploymentphase`, nhánh `master` |
-| Người làm | Tài (backend, ghép cặp với AI) · một thành viên khác làm frontend |
-| Trạng thái sản phẩm | BE0–BE4 xong (`v0.5.0`), chạy trên staging (Render + Supabase) — kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10) · **BE5 → BE10 đã merge vào `master` (04/10), phát hành chung `v0.11.0` (07/10)** — gom từ `be/nestjs-be10`, staging đã migrate; **BE5 đã nghiệm thu, BE6 → BE9 chưa** · chỉ có tài khoản thử, **chưa có dữ liệu thật** · **backend làm trước, frontend làm sau** (28/09) |
+| Repo | [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` (máy hiện tại: `D:\EXE201\Thumua365_BE`; trước 10/2026: `C:\Users\nino\Desktop\Thumua365_BE`) |
+| Repo frontend | `mambo365_deploymentphase`, nhánh `master` (máy hiện tại: `D:\EXE201\mambo365_deploymentphase`) |
+| Người làm | Tài (`YuNgTaiwasherebb` — backend, giữ Render / Supabase) · Khôi (`k20elite` — frontend, các bản sửa từ 13/10 ở cả hai repo) · Bảo (`bbao2114` — frontend) · ghép cặp với AI |
+| Trạng thái sản phẩm (23/10/2026) | BE0 → BE10 xong phần code; bản phát hành mới nhất **`v0.20.0`** (20/10) + bản sửa pentest C2 (PR #44, không gắn tag); đang mở PR #46 (bật sẵn cờ `features`, có migration). App web chạy ở **www.thumua365.id.vn** (Vercel) và gọi **API staging** `thumua365-api-staging.onrender.com` (Render free, `APP_ENV=staging`) → Supabase `thumua365-staging` — **chưa có production riêng**, nên "staging" đang chứa **người dùng thật** (17 tổ chức lúc 23/10). Kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10). Còn thiếu để vận hành đủ: bucket `attachments`, backup ra kho ngoài (xem "Việc còn treo") |
 
 ---
 
@@ -119,15 +119,14 @@ từ GitHub Release.
 **Vì sao 315 chứ không phải 358:** 358 là tổng test của repo frontend; 43 test còn lại thuộc
 `tests/data/` và `tests/features/`, ở lại repo frontend.
 
-### 🔴 Chưa xong của BE0 — việc bên frontend
+### Việc bên frontend sau BE0 (kiểm lại 23/10/2026: đã xong)
 
-- [ ] Chốt quy ước §3 (camelCase, tiền số nguyên, header `X-Organization-Id`).
-- [ ] Cài `@mambo/core`, `@mambo/contracts` từ release `v0.1.0`; thay `@/core/` →
-      `@mambo/core/`; xoá `src/core/`, `tests/core/`; 43 test còn lại phải xanh.
-- [ ] Sửa `ci.yml` của repo frontend sang nhánh `master` (đang ghi `main`).
-- [ ] Commit các file tài liệu mới trong repo frontend (`THONG_TIN_DU_AN.md`,
-      `deploy_plan/BE-backend-nestjs.md`, `I-huong-moi.md`, `so-do-kien-truc-v2.html`,
-      `README.md`) — đang nằm chưa commit.
+- [x] Chốt quy ước §3 (camelCase, tiền số nguyên, header `X-Organization-Id`).
+- [x] Cài `@mambo/core`, `@mambo/contracts` từ release `v0.1.0`; thay `@/core/` →
+      `@mambo/core/`; xoá `src/core/`, `tests/core/`; 43 test còn lại phải xanh. (Nay cài cả ba gói ở `v0.20.0`.)
+- [x] Sửa `ci.yml` của repo frontend sang nhánh `master` (đang ghi `main`).
+- [x] Các file tài liệu mới (`THONG_TIN_DU_AN.md`, `BE-backend-nestjs.md`…) không commit ở repo frontend mà nằm ở
+      `docs/` của repo này; `I-huong-moi.md` đã gỡ.
 
 ---
 
@@ -1186,6 +1185,19 @@ hành trong 0.11.0".
   nghiệm thu thay "chưa phát hành".
 - Tag `v0.11.0` gắn trên `master` SAU khi PR phát hành merge — `release.yml` đóng gói ba `.tgz` vào GitHub Release.
 
+## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
+
+Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
+đếm dòng), chỉ áp cho `packages/*/src` trong khi `apps/api` đã có file 430 dòng (`sync/sync-push.service.ts`) và 368
+dòng (`links/links.service.ts`), lại đếm cả dòng trống, comment và dòng do formatter tách. Từ nay việc tách file do
+review quyết theo trách nhiệm của file.
+
+- Bảng chỉ số dưới đây còn ba số; số đo cũ ghi ở chú thích dưới bảng. Mục BE5 (tách `route-def.ts`,
+  `sync-records-core.ts` để file ≤ 300 dòng) giữ nguyên như nhật ký.
+- `ops/README.md`: "bốn số" → "ba số".
+- Repo frontend bỏ luật cùng loại cùng ngày, kèm bước kiểm trong `scripts/check-rules.mjs`
+  (mambo365_deploymentphase#7).
+
 ---
 
 ## Đổi tên / tự rời tổ chức · phát hành `v0.12.0` · 13/10/2026
@@ -1435,18 +1447,38 @@ Theo `prompt-sua-loi-thumua365.md` (đợt 2). Phần lớn ở app (mambo365_de
 
 Commit `b949471` thiếu dòng trống sau tiêu đề nên `git log --oneline` in cả thân — đã đẩy nên để nguyên.
 
-## Bỏ chỉ số 300 dòng mỗi file · 09/10/2026
+## Pentest C2: không dò tài khoản qua độ trễ · PR #44 · 20/10/2026
 
-Theo issue #19. Chỉ số "file dài nhất trong `packages/*/src` ≤ 300 dòng" không có máy kiểm (`npm run verify` không
-đếm dòng), chỉ áp cho `packages/*/src` trong khi `apps/api` đã có file 430 dòng (`sync/sync-push.service.ts`) và 368
-dòng (`links/links.service.ts`), lại đếm cả dòng trống, comment và dòng do formatter tách. Từ nay việc tách file do
-review quyết theo trách nhiệm của file.
+"C2" ở đây là mục của báo cáo pentest — **khác** C2 "giới hạn chi nhánh" trong `docs/DE_XUAT_C2_C3.md`.
 
-- Bảng chỉ số dưới đây còn ba số; số đo cũ ghi ở chú thích dưới bảng. Mục BE5 (tách `route-def.ts`,
-  `sync-records-core.ts` để file ≤ 300 dòng) giữ nguyên như nhật ký.
-- `ops/README.md`: "bốn số" → "ba số".
-- Repo frontend bỏ luật cùng loại cùng ngày, kèm bước kiểm trong `scripts/check-rules.mjs`
-  (mambo365_deploymentphase#7).
+- `POST /v1/auth/resolve-identifier`: trước đây có tài khoản thì gọi thêm Auth Admin API (một lượt mạng), không
+  có thì trả email mồi ngay — đo độ trễ vài lần là đoán được SĐT / tên đăng nhập nào đã có tài khoản. Nay không
+  tìm thấy vẫn hỏi Auth Admin bằng id ngẫu nhiên (404): hai nhánh cùng một lượt gọi. Test thêm ở
+  `tests/db/api.db.test.ts`.
+- Không đổi hợp đồng, không migration, **không gắn tag** — gói vẫn `0.20.0`.
+- Hai chỗ rò rỉ còn lại của `resolve-identifier` (gõ tên đăng nhập / email khôi phục của người khác ra email nội bộ
+  chứa SĐT; email không có thật trả nguyên văn) vẫn còn — đó là đề xuất C3, chờ duyệt.
+- Merge `2662a47` (commit `87990a8`, tác giả `k20elite`); `/v1/health` báo `0.20.0` `2662a47`.
+- Cùng đợt, phía app: mambo365_deploymentphase#56 (`68b49b0`) — chặn mật khẩu phổ biến, CSP + HSTS, đăng xuất xoá
+  hàng đợi đo lường và khoá gói đã nhớ.
+
+## Cờ `features` trong `/v1/me` · PR #46 · 23/10/2026 · mở, chưa merge
+
+- Phát hiện: không chỗ nào ghi `organization_features` (bootstrap, migration, seed) ⇒ `features` luôn `[]` cho mọi
+  tổ chức; staging 0 dòng. Tài liệu lại ghi ví dụ `["orders", "links"]`. App không ẩn gì theo `features` — đơn và
+  kết nối chỉ theo `permissions`.
+- PR #45 (`docs/features-rong`) sửa tài liệu theo hướng "luôn rỗng" — **đã đóng, không merge** (23/10); chọn hướng
+  bật sẵn cờ.
+- PR #46 (`feat/bat-features`, commit `892b2d1`):
+  - `me/bootstrap.service.ts`: tạo tổ chức xong ghi đủ `Feature.options` (`orders`, `links`) vào
+    `organization_features`; muốn tắt cho tổ chức nào thì xoá dòng của họ.
+  - Migration `20261023000000_bat_features`: ghi `orders`, `links` cho mọi tổ chức chưa xoá (`on conflict do
+    nothing`) — chạy lại vô hại.
+  - `tests/db/api.db.test.ts`: vựa và nông dân bootstrap xong `features` = `['links', 'orders']`.
+  - `packages/contracts/CHANGELOG.md`: mục "Chưa phát hành".
+- `npm run verify` ở máy xanh (50 test); `test:db` không chạy ở máy (xoá sạch DB dev) — để job `db` của CI chạy.
+- Còn lại: migrate staging qua Supabase MCP **trước** khi merge như 0.20 (23/10 staging chưa có migration này —
+  `_prisma_migrations` 15 dòng); quyết có gắn tag `0.20.1` không (không đổi hợp đồng).
 
 ---
 
@@ -1467,11 +1499,15 @@ BE3 300 (`contracts/src/sync-records.ts`). Xem mục "Bỏ chỉ số 300 dòng 
 
 | Việc | Cần gì | Chặn bước |
 |---|---|---|
-| Tên miền `api.thumua365.vn`, `api-staging.thumua365.vn` | Quyền DNS của `thumua365.vn` | Không chặn — tạm dùng `*.onrender.com` |
+| Tên miền cho API | Domain của nhóm là **`thumua365.id.vn`** (app ở `www.thumua365.id.vn`); `thumua365.vn` **không** phải của nhóm — bỏ kế hoạch `api.thumua365.vn`. Muốn có `api.thumua365.id.vn` thì trỏ DNS sang Render | Không chặn — API vẫn ở `*.onrender.com` |
 | ~~Docker Desktop trên máy dev~~ | ✅ đã cài 22/09/2026 (Docker 29.8, WSL2) | — |
 | Nhà cung cấp SMS cho OTP | Chọn + đăng ký (Twilio/Vonage hoặc eSMS/SpeedSMS qua Send SMS Hook) | Không chặn — OTP tạm ẩn tới khi > 100 tổ chức trả phí |
-| Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh | BE6 |
-| Thư xác nhận email / quên mật khẩu | Tài khoản Brevo + xác minh sender; Render env `BREVO_API_KEY`, `MAIL_FROM`; Supabase Auth → Minimum password length = 8 | Không chặn deploy — chưa có khoá thì API trả 503 `EMAIL_UNAVAILABLE` |
+| Số tài khoản nhận tiền, người chịu trách nhiệm pháp lý | Nguyên, Linh — app vẫn để chỗ điền `BANK_ACCOUNT_NUMBER = '0000000000'`, `LEGAL_OPERATOR` null (23/10) | Thu tiền thật (BE6) |
+| ~~Thư xác nhận email / quên mật khẩu~~ | ✅ Brevo chạy trên staging — đã có email khôi phục được xác nhận qua link (17/10). Chưa kiểm lại "Minimum password length = 8" ở Supabase Auth | — |
+| ~~Mật khẩu role `api_privileged`~~ | ✅ Tài đặt 18/10 (`rolcanlogin = true`); webhook, quản trị, xoá tài khoản chạy được trên staging | — |
+| Bucket `attachments` ở Supabase Storage | Tài tạo: riêng tư, 3MB, JPEG/PNG/WebP, không policy cho `anon`/`authenticated` (`ops/PRODUCTION.md` mục 2). 23/10 project **chưa có bucket nào** | Ảnh chứng từ không lên được (app giữ ảnh trong máy, thử lại) |
+| Backup ra kho ngoài Supabase | Chọn R2 / B2; đặt mật khẩu `backup_reader` (đang `NOLOGIN`); GitHub secrets `BACKUP_*`. 23/10 chưa có secret nào — workflow **Backup** chạy hằng ngày nhưng bỏ qua | `ops/PRODUCTION.md` mục 4 — **đang có người dùng thật mà chưa có backup ngoài** |
+| Production riêng (Render `thumua365-api`, Supabase `thumua365-prod`) | Quyết của nhóm + gói trả phí | Không chặn chạy — người dùng thật đang ở project "staging" |
 
 ---
 

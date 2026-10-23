@@ -1,8 +1,9 @@
 # THÔNG TIN DỰ ÁN — Mambo365 / THUMUA365
 
 > **Đọc file này đầu tiên.** Nó tổng hợp mọi thứ đã chốt và chưa chốt tính đến
-> **03/10/2026** (BE4 đã đóng): sản phẩm là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ
-> tự nào, và nhóm còn phải quyết gì. Chi tiết kỹ thuật nằm ở các file được dẫn tới.
+> **23/10/2026** (BE0 → BE10 xong phần code, phát hành tới `v0.20.0`, app web đang có người dùng thật): sản phẩm
+> là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ tự nào, và nhóm còn phải quyết gì. Chi tiết kỹ
+> thuật nằm ở các file được dẫn tới.
 
 ---
 
@@ -16,14 +17,14 @@
 | Hướng mới (09/2026) | **Nền tảng ba vai trò** trên một chuỗi, backend **NestJS** theo sơ đồ kiến trúc |
 | Nông sản trọng tâm | Cao su · điều · cà phê · tiêu |
 | Nền tảng | Web (React + TS, PWA offline) · Android (lên CH Play) |
-| Tình trạng một câu | Nghiệp vụ tính tiền **đã có và có test** (`@mambo/core`). Backend xong **BE0–BE4** (`v0.5.0`): API staging trên Render, database ba vai trò có RLS, đăng ký thật cả ba loại tổ chức, **đồng bộ sổ qua API** đã nghiệm thu hai máy trên staging, **kết nối bằng mã kết nối** (vựa trao tận tay, OTP tạm ẩn) đã nghiệm thu trên staging 03/10. Tiếp theo: BE5 (đơn, đặt lịch, thông báo). Chỉ có tài khoản thử, **chưa có dữ liệu thật**. **Backend làm trước, frontend làm sau** (chốt 28/09) — frontend dựng lại app từ đầu theo hợp đồng ([FRONTEND.md](FRONTEND.md)). Nhật ký: [MEMORY.md](../MEMORY.md) |
+| Tình trạng một câu (23/10/2026) | Backend xong phần code **BE0 → BE10**, phát hành tới **`v0.20.0`** (20/10): tài khoản, ba loại tổ chức, đồng bộ sổ offline, kết nối bằng **mã kết nối** (OTP tạm ẩn), đơn + đặt lịch + thông báo, nhân viên / chi nhánh / báo cáo, gói + webhook ngân hàng, ảnh chứng từ, đo lường, **bản đồ thu mua** (0.14), **email khôi phục + quên mật khẩu qua Brevo** (0.16). App web dựng lại theo hợp đồng, chạy ở **www.thumua365.id.vn** và gọi API **staging** — chưa có production riêng, nên project staging đang chứa **người dùng thật** (17 tổ chức lúc 23/10, mọi gói còn dùng thử, chưa thu tiền). Còn thiếu: **backup ra kho ngoài**, **bucket ảnh**, số tài khoản nhận tiền, TWA lên CH Play — xem [`ops/PRODUCTION.md`](../ops/PRODUCTION.md). Nhật ký: [MEMORY.md](../MEMORY.md) |
 
 ### Phân công
 
 | Người | Việc |
 |---|---|
-| **Tài** | Backend (NestJS, database, hạ tầng, hợp đồng API) — repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE) |
-| *(thành viên frontend)* | Frontend (ba "vỏ" giao diện, lớp `src/data/` nối API) |
+| **Tài** | Backend (NestJS, database, hạ tầng, hợp đồng API) — repo [Thumua365_BE](https://github.com/remembered-fragrance/Thumua365_BE); giữ Render, Supabase |
+| **Khôi**, **Bảo** | Frontend (ba "vỏ" giao diện, lớp `src/data/` nối API) — repo [mambo365_deploymentphase](https://github.com/remembered-fragrance/mambo365_deploymentphase). Từ 13/10 Khôi làm cả các bản sửa ở repo BE |
 | **Nguyên** | Kinh doanh, người chịu trách nhiệm trên trang pháp lý, phỏng vấn người dùng |
 | **Linh** | Tài chính — mọi thay đổi giá phải qua |
 | **Tuyến** | Thiết kế — bộ ký hiệu nông sản |
@@ -40,9 +41,9 @@
 
 | Vai trò | Làm gì (theo sơ đồ) | Trạng thái |
 |---|---|---|
-| **Nông dân** | Đăng ký/đăng nhập · bán nông sản · theo dõi đơn hàng, công nợ | ❌ Mới — hiện chỉ là dòng danh bạ trong sổ của vựa |
-| **Thương lái / Chủ vựa / Đại lý** | Mua & bán · quản lý kho, công nợ · đặt lịch, giao dịch | ✅ Là toàn bộ app hiện tại (trừ đặt lịch) |
-| **Doanh nghiệp** | Mua & bán · quản lý nhân viên, chi nhánh · báo cáo, phân tích | 🟡 Mua/bán, báo cáo có; nhân viên, chi nhánh chưa |
+| **Nông dân** | Đăng ký/đăng nhập · bán nông sản · theo dõi đơn hàng, công nợ | ✅ Vỏ Nông dân: tạo đơn bán, nhập mã kết nối, xem phiếu + công nợ vựa ghi về mình, bản đồ. Miễn phí, không có sổ offline |
+| **Thương lái / Chủ vựa / Đại lý** | Mua & bán · quản lý kho, công nợ · đặt lịch, giao dịch | ✅ Sổ offline đồng bộ qua API, đơn + hẹn lịch, mời kết nối, người cân (staff), đặt điểm trên bản đồ. Không có chi nhánh (0.20) |
+| **Doanh nghiệp** | Mua & bán · quản lý nhân viên, chi nhánh · báo cáo, phân tích | ✅ Như vựa, thêm quản lý / nhân viên theo chi nhánh, báo cáo tổng, việc của từng người. Gói kích hoạt tay |
 
 **Mô hình dữ liệu:** hai trục riêng, không gộp —
 `organizations.type` = `farmer | trader | enterprise` (bên này là ai trong chuỗi) và
@@ -69,11 +70,11 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 
 | Ô sơ đồ | Quyết định | Hiện trạng | Bước |
 |---|---|---|---|
-| React + TypeScript (Web) | Giữ app hiện tại. **Một app, ba vỏ** chọn theo `organization.type` | ✅ vỏ Thương lái | FE song song |
+| React + TypeScript (Web) | Giữ app hiện tại. **Một app, ba vỏ** chọn theo `organization.type` | ✅ đủ ba vỏ (www.thumua365.id.vn) | FE song song |
 | PWA (offline, cache) | Giữ nguyên | ✅ | — |
-| Android (Capacitor — deferred) | Bản đầu lên CH Play bằng **TWA** (bọc PWA); Capacitor khi cần API native | ❌ | sau BE9 |
+| Android (Capacitor — deferred) | Bản đầu lên CH Play bằng **TWA** (bọc PWA); Capacitor khi cần API native | ❌ chưa có (23/10) | sau BE9 |
 | Giao diện responsive | Giữ; 375px / 320px không cuộn ngang | ✅ | — |
-| HTTPS / REST API (JWT) | `https://api.<domain>/v1`, `Bearer` = token Supabase. Tạm: `thumua365-api-staging.onrender.com` | ✅ staging | BE1 |
+| HTTPS / REST API (JWT) | `https://api.<domain>/v1`, `Bearer` = token Supabase. Hiện: `thumua365-api-staging.onrender.com` — cả app thật cũng gọi đây | ✅ staging | BE1 |
 
 ### 3.2 NestJS Backend — API Layer
 
@@ -90,13 +91,13 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 | Module | Nội dung | Hiện trạng | Bước |
 |---|---|---|---|
 | Auth & User | Đăng ký/đăng nhập (Supabase Auth), phiên + refresh token (supabase-js tự làm), hồ sơ, vai trò, tổ chức, xác thực SĐT bằng OTP (**tạm ẩn**) | ✅ · OTP ẩn | BE2 · sau BE10 (OTP) |
-| Organization | Tổ chức, chi nhánh, nhân viên, membership, phân quyền | ❌ | BE2 (schema) · BE7 (màn) |
-| Transaction | Phiếu mua/bán, phiếu cân ✅ · **đơn mua/đơn bán, đặt lịch, trạng thái** ❌ · giao hàng ❌ | 🟡 | BE3 · BE5 · sau BE10 |
+| Organization | Tổ chức, chi nhánh (chỉ doanh nghiệp), nhân viên, membership, phân quyền, đổi tên tổ chức | ✅ | BE2 (schema) · BE7 · 0.12 → 0.20 |
+| Transaction | Phiếu mua/bán, phiếu cân ✅ · **đơn mua/đơn bán, đặt lịch, trạng thái** ✅ · giao hàng ❌ | 🟡 | BE3 · BE5 · sau BE10 |
 | Inventory | Tồn kho (suy từ phiếu) ✅ · nhập/xuất kho tường minh, lô hàng ❌ | 🟡 | sau BE10 |
 | Debt & Finance | Công nợ phải thu/phải trả, thanh toán, báo cáo công nợ | ✅ | BE3 |
 | Partner | Nhà cung cấp / người mua, danh bạ không đăng nhập, **liên kết với tài khoản thật** bằng mã kết nối | ✅ | BE4 |
-| Report | Báo cáo tổng hợp, Excel/PDF ✅ · tổng hợp nhiều chi nhánh phía server ❌ | 🟡 | BE7 |
-| Notification | Thông báo trong app → email → SMS/Zalo; **sự kiện hệ thống** qua event bus nội bộ | ❌ | BE5 |
+| Report | Báo cáo tổng hợp, Excel/PDF ✅ · tổng hợp nhiều chi nhánh phía server ✅ (`/reports/summary`) · việc của từng người ✅ (0.13) | ✅ | BE7 |
+| Notification | Thông báo trong app ✅ (hỏi 60 giây) → email (mới có thư xác nhận email / quên mật khẩu qua Brevo, 0.16; thư báo đơn chưa có) → SMS/Zalo ❌; **sự kiện hệ thống** qua event bus nội bộ ✅ | 🟡 | BE5 · 0.16 |
 
 ### 3.4 Dữ liệu
 
@@ -104,9 +105,9 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 |---|---|---|---|
 | Data Access: Repository, Prisma/TypeORM, Query Builder, Transaction Mgmt | **Prisma 7**; mọi truy vấn qua `Database.scoped({ userId, orgId })` — một transaction có ngữ cảnh RLS; mỗi thao tác sync một transaction DB | ✅ khung | BE2 |
 | PostgreSQL | Supabase Postgres **17**; Prisma Migrate sở hữu schema (baseline từ 10 migration cũ); máy dev và CI chạy cùng bản trong Docker | ✅ máy dev, CI, staging | BE2 |
-| PostGIS (Geospatial) | Bật extension từ đầu; dùng khi làm tìm vựa gần / vùng trồng (`$queryRaw`) | ❌ | sau BE10 |
+| PostGIS (Geospatial) | Bật extension từ đầu; dùng cho bản đồ thu mua — điểm cân / kho / nhà máy, hỏi theo khung nhìn (`$queryRaw`) | ✅ | `v0.14.0` (16/10) |
 | Supabase Auth | Giữ — NestJS chỉ kiểm JWT bằng JWKS (ES256), không dùng JWT secret | ✅ kiểm JWT · OTP tạm ẩn | BE1 · OTP khi > 100 tổ chức trả phí |
-| Supabase Storage | Ảnh chứng từ qua signed URL, file không chảy qua NestJS | 🟡 | BE8 |
+| Supabase Storage | Ảnh chứng từ qua signed URL, file không chảy qua NestJS | 🟡 code xong; staging **chưa có bucket** `attachments` (23/10) | BE8 |
 | Supabase Realtime | Đẩy **trạng thái đơn và thông báo** tới máy (thay cho hỏi lại 60 giây/lần). Sổ offline vẫn kéo theo cursor | ❌ | BE5 (hỏi định kỳ) → nâng lên Realtime sau |
 | RLS | Lớp bảo vệ **thứ hai** theo `organization_id` (RLS theo phiên, role `api_service` không bypass); lớp chính là Guard | ✅ có test | BE2 |
 
@@ -116,7 +117,7 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 |---|---|---|
 | IndexedDB (offline cache) | Giữ; khoá cache theo `organizationId` | ✅ |
 | Queue (sync) | Giữ nguyên hàng đợi (seq, thử lại giãn cách, gộp lần sửa) | ✅ |
-| Đồng bộ | `POST /v1/sync/push` + `GET /v1/sync/pull` qua NestJS (đã chốt, §8 mục 2) | ✅ API `v0.4.0`, nghiệm thu hai máy trên staging; app đang dựng lại |
+| Đồng bộ | `POST /v1/sync/push` + `GET /v1/sync/pull` qua NestJS (đã chốt, §8 mục 2) | ✅ API `v0.4.0` (nghiệm thu hai máy), giới hạn lô theo byte (0.19); app web đã dùng |
 | Hỗ trợ PWA và Mobile | Cùng một code chạy trong PWA và TWA | ✅ |
 
 ### 3.6 Dịch vụ bên ngoài
@@ -124,9 +125,9 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 | Ô sơ đồ | Quyết định | Bước |
 |---|---|---|
 | Supabase (API/SDK, Webhook) | Auth, Storage, DB. Webhook từ Supabase (ví dụ Auth hook khi có người đăng ký) chỉ dùng nếu cần. Data API (PostgREST) **tắt** | ✅ BE1 (Auth) |
-| Ngân hàng — webhook thanh toán | Casso / SePay → `POST /v1/webhooks/bank` (chống trùng, khớp số tiền, bí mật so sánh không đo thời gian) | BE6 |
-| Map / Location | Tìm kiếm địa lý, toạ độ vùng trồng — cùng lúc với PostGIS | sau BE10 |
-| Email / SMS | OTP xác thực SĐT — **tạm ẩn**, kết nối bằng mã kết nối (01/10/2026) · thông báo hệ thống | > 100 tổ chức trả phí · BE5 |
+| Ngân hàng — webhook thanh toán | Casso / SePay → `POST /v1/webhooks/bank` (chống trùng, khớp số tiền, bí mật so sánh không đo thời gian) | BE6 ✅ code · chưa nối Casso/SePay, chưa có số tài khoản thật |
+| Map / Location | Bản đồ thu mua (Leaflet + OSM tile, mang từ prototype LiveMap); vựa / DN tự đặt điểm, mọi người xem | ✅ `v0.14.0` |
+| Email / SMS | OTP xác thực SĐT — **tạm ẩn**, kết nối bằng mã kết nối (01/10/2026) · email qua **Brevo**: xác nhận email khôi phục, quên mật khẩu (0.16) | > 100 tổ chức trả phí · ✅ 0.16 |
 | Export Excel/PDF | Giữ, chạy trên máy người dùng | ✅ |
 
 ### 3.7 Hạ tầng & vận hành
@@ -135,11 +136,11 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 |---|---|---|
 | Docker | Dockerfile nhiều tầng cho API ✅; `docker-compose` cho dev và CI (Postgres 17 + PostGIS, cùng bản Supabase) ✅ | BE1 · BE2 |
 | CI/CD (GitHub Actions) | Lint · typecheck · test · build image + chạy thử container; Render deploy staging khi CI trên `master` xanh; prod bấm tay | ✅ BE0–BE1 |
-| Monitoring (Prometheus + Grafana) | `/metrics`; một dashboard 4 biểu đồ | BE9 |
+| Monitoring (Prometheus + Grafana) | `/metrics` (cần `METRICS_TOKEN`); dashboard ở `ops/grafana/` | BE9 ✅ code · chưa nối Grafana |
 | Log (Winston / ELK) | **Winston**, log JSON có `requestId`, `orgId`. ELK chưa cần; log đọc ở Render | ✅ BE1 |
-| Backup (PostgreSQL + Supabase) | Prod đang ở gói **Free** (không có backup tự động) ⇒ `pg_dump` hằng ngày ra kho riêng là lớp **bắt buộc** trước người dùng thật; thêm backup của Supabase Pro khi nâng gói, PITR sau khi có doanh thu. **Thử phục hồi một lần** trước khi mở | BE10 |
+| Backup (PostgreSQL + Supabase) | Prod đang ở gói **Free** (không có backup tự động) ⇒ `pg_dump` hằng ngày ra kho riêng là lớp **bắt buộc** trước người dùng thật; thêm backup của Supabase Pro khi nâng gói, PITR sau khi có doanh thu. **Thử phục hồi một lần** trước khi mở | BE10 ✅ code · ⚠️ **chưa cấu hình** (23/10) dù đã có người dùng thật |
 | Security: HTTPS/SSL, RLS, Audit log | HTTPS, CORS chỉ domain app, rate limit theo IP thật (`cf-connecting-ip` sau Cloudflare), `helmet` ✅. Audit log mở rộng từ `admin_access_log` sang mọi thao tác nhạy cảm: xoá phiếu, huỷ lần trả, đổi quyền, kết nối/huỷ kết nối | BE2 · BE10 |
-| Sentry | Theo dõi lỗi runtime (không có trên sơ đồ, đã có trong kế hoạch H) | BE9 |
+| Sentry | Theo dõi lỗi runtime (không có trên sơ đồ, đã có trong kế hoạch H) | BE9 — API có `SENTRY_DSN`; app web chưa cài |
 
 ---
 
@@ -159,6 +160,11 @@ Chi tiết: [BE-backend-nestjs.md §1](BE-backend-nestjs.md).
 
 Điểm quan trọng: `features/` và `components/` **không gọi Supabase trực tiếp**, chỉ qua
 `useStore()`. Vì vậy đổi backend chỉ đụng `src/data/`.
+
+**Kết quả (23/10/2026):** đã làm xong các dòng 🔄 ở trên — repo frontend không còn `src/core/` (cài
+`@mambo/core` từ release), `src/data/` gọi API qua `@mambo/sdk`, webhook thanh toán và quản trị nằm ở NestJS.
+`src/features/` nay có 27 thư mục (thêm `farmer`, `orders`, `org`, `map`, `notifications`, `recovery`…). Thư mục
+`supabase/` của repo frontend chỉ còn là lịch sử.
 
 ---
 
@@ -196,12 +202,12 @@ safety khớp với R5, `assetlinks.json` cho TWA.
 | BE2 ✅ | Prisma + schema ba vai trò, tổ chức, chi nhánh, `/me/bootstrap` (OTP dời sang BE4) | Bước "Bạn là ai?" khi đăng ký | 3 |
 | BE3 ✅ | Đồng bộ sổ qua API, giới hạn theo chi nhánh | Sổ offline, hàng đợi, đẩy/kéo, cache theo tổ chức (FRONTEND.md §7) | 3–4 |
 | BE4 ✅ | Kết nối tổ chức bằng **mã kết nối** + phần xem của nông dân (OTP tạm ẩn) | Vỏ Nông dân (phần xem), "Mời kết nối" hiện mã, ô "Nhập mã kết nối" | 2–3 |
-| BE5 | Đơn hàng, đặt lịch, thông báo trong app | Đơn bán, danh sách đơn, hẹn lịch, ô "Theo đơn" | 3 |
-| BE6 | Tài khoản, gói, webhook ngân hàng, quản trị | `billing.ts`, `account.ts` | 2–3 |
-| BE7 | Nhân viên, chi nhánh, báo cáo tổng | Vỏ Doanh nghiệp | 2–3 |
-| BE8 | Ảnh chứng từ (signed URL) | `attachments.ts` | 1 |
-| BE9 | Đo lường, Prometheus, Sentry | Gắn `track()`, sửa trang Quyền riêng tư; TWA + CH Play thử nghiệm kín | 2 |
-| BE10 | Production, backup hai lớp đã thử phục hồi | Bật `features` cho nhóm pilot | 1–2 |
+| BE5 ✅ | Đơn hàng, đặt lịch, thông báo trong app (nghiệm thu R2 04/10) | Đơn bán, danh sách đơn, hẹn lịch, ô "Theo đơn" | 3 |
+| BE6 🟡 | Tài khoản, gói, webhook ngân hàng, quản trị — code xong, chưa chuyển khoản thật | `billing.ts`, `account.ts` | 2–3 |
+| BE7 🟡 | Nhân viên, chi nhánh, báo cáo tổng — code xong, chưa nghiệm thu | Vỏ Doanh nghiệp | 2–3 |
+| BE8 🟡 | Ảnh chứng từ (signed URL) — code xong, chưa có bucket | `attachments.ts` | 1 |
+| BE9 🟡 | Đo lường, Prometheus, Sentry — code xong, app đã gửi sự kiện | Gắn `track()`, sửa trang Quyền riêng tư; TWA + CH Play thử nghiệm kín (chưa) | 2 |
+| BE10 🟡 | Production, backup hai lớp đã thử phục hồi — code xong; chưa có production riêng, backup chưa cấu hình | Bật `features` cho nhóm pilot | 1–2 |
 
 **Tổng: khoảng 23–30 buổi**, cộng 2–4 tuần pilot để đạt 10 tổ chức trả phí.
 
@@ -211,8 +217,23 @@ và `features` bật theo tổ chức. Bảo vệ dữ liệu hai lớp: Guard c
 làm song song → e2e → cờ tính năng → staging → pilot → production.**
 
 **Sau BE10** (mỗi mục có điều kiện bật, không làm trước): thông báo đẩy/SMS/Zalo ·
-giao hàng nhiều chặng · nhập/xuất kho tường minh và lô hàng · Map/PostGIS và chợ mở ·
+giao hàng nhiều chặng · nhập/xuất kho tường minh và lô hàng · ~~Map/PostGIS~~ (đã làm ở `v0.14.0`) và chợ mở ·
 Realtime · báo cáo nặng phía server · Capacitor.
+
+**Đã làm sau BE10** (13/10 → 20/10/2026, chi tiết ở [CHANGELOG](../packages/contracts/CHANGELOG.md)):
+
+| Bản | Nội dung |
+|---|---|
+| `v0.12.0` · `v0.13.0` | Đổi tên tổ chức; người làm không tự rời (chủ gỡ ra); việc của từng người |
+| `v0.14.0` | Bản đồ thu mua (PostGIS), mang từ prototype LiveMap |
+| `v0.15.0` | Nháp giữ khoản cộng/trừ |
+| `v0.16.0` | Xác nhận email khôi phục, quên mật khẩu qua Brevo; một luật mật khẩu 8–72 |
+| `v0.17.0` | Xoá tài khoản không làm sổ bên kia mất đơn / kết nối (dữ liệu thuộc về vựa) |
+| `v0.18.0` · `v0.19.0` | Rà soát đồng bộ, đơn, gói; giới hạn ô nhập phiếu; hàng đợi không kẹt cả lượt |
+| `v0.20.0` | Trùng tên người bán, giới hạn ô nhập, lỗi tải ảnh, chi nhánh chỉ cho DN, email chưa xác nhận không giữ chỗ |
+| PR #44 (không tag) | Pentest: `resolve-identifier` không dò được tài khoản qua độ trễ |
+| PR #46 (mở 23/10, chưa merge) | Bật sẵn cờ `features` cho mọi tổ chức; có migration, phải áp lên staging trước khi merge |
+| Chờ duyệt | C2 giới hạn chi nhánh khi kích hoạt gói DN, C3 đăng nhập qua API — [DE_XUAT_C2_C3.md](DE_XUAT_C2_C3.md) |
 
 ---
 
@@ -271,9 +292,9 @@ Chốt theo hướng đề xuất. Sơ đồ và bảng lý do: [so-do-kien-truc
 | 1 | Ai trả tiền? | Nông dân **miễn phí** · vựa 149.000đ/tháng (1.490.000đ/năm) · doanh nghiệp theo số chi nhánh, bán trực tiếp. "10 người trả phí" đếm theo **tổ chức** vựa/DN | R3, `subscriptions.organization_id` |
 | 2 | Đồng bộ qua NestJS hay thẳng Supabase? | **Qua NestJS** — `/sync/push`, `/sync/pull`, cursor do server cấp | BE3 |
 | 3 | Kết nối nông dân ↔ vựa | ~~OTP SMS + bấm đồng ý~~ → **mã kết nối** vựa trao tận tay, nhập mã là đồng ý (01/10/2026); chỉ thấy trường in trên biên nhận; huỷ có hiệu lực ngay | BE4 |
-| 4 | Nông dân gửi đơn cho ai | Bản đầu chỉ vựa **đã kết nối**; chợ mở cùng Map/PostGIS ở giai đoạn 2 | BE5 |
-| 5 | Nơi chạy container API | **Render**, vùng Singapore (staging gói free; production thêm ở BE10) | BE1 ✅ |
-| 6 | Tên miền API, tên gói npm | `api.thumua365.vn` (chờ quyền DNS; tạm `*.onrender.com`) · `@mambo/*` | BE0, BE1 |
+| 4 | Nông dân gửi đơn cho ai | Bản đầu chỉ vựa **đã kết nối**; chợ mở ở giai đoạn 2 (bản đồ đã có từ `v0.14.0`, chưa gửi đơn từ bản đồ) | BE5 |
+| 5 | Nơi chạy container API | **Render**, vùng Singapore (staging gói free — đang phục vụ cả app thật; production riêng chưa dựng) | BE1 ✅ |
+| 6 | Tên miền API, tên gói npm | ~~`api.thumua365.vn`~~ — `thumua365.vn` không phải của nhóm; domain của nhóm là **`thumua365.id.vn`** (app ở `www.`), API vẫn `*.onrender.com` · `@mambo/*` | BE0, BE1 |
 | 7 | Đo lường | **First-party** trong Postgres | BE9, trang pháp lý |
 | 8 | Android | **TWA** lên CH Play trước; Capacitor khi cần API native | sau BE9 |
 | 9 | Validation | **zod** trong `packages/contracts` | BE1 |
@@ -283,7 +304,7 @@ Chốt theo hướng đề xuất. Sơ đồ và bảng lý do: [so-do-kien-truc
 | 13 | Có cần OTP SMS trước khi kết nối? (01/10/2026) | **Chưa.** Dùng mã kết nối (sau này QR chứa mã). OTP giữ trong code, ẩn đi; **mở lại khi > 100 tổ chức trả phí** — lúc đó chọn nhà cung cấp SMS, sửa trang Quyền riêng tư | BE4 đóng không cần SMS; frontend không làm màn OTP |
 
 **Còn mở** (cần người, không phải cần code): số tài khoản nhận tiền và người chịu trách
-nhiệm pháp lý trên trang chính sách — Nguyên, Linh. Ảnh hưởng R3, R4. Quyền DNS `thumua365.vn`.
+nhiệm pháp lý trên trang chính sách — Nguyên, Linh. Ảnh hưởng R3, R4. Kho backup (R2 / B2). Dựng production riêng hay giữ project hiện tại.
 Nhà cung cấp SMS — chỉ cần khi mở lại OTP (> 100 tổ chức trả phí).
 
 ⚠️ **Cổng chặn 2 vẫn chưa vượt:** chưa có bằng chứng ≥3/10 chủ vựa nói "sẽ trả". Với ba vai
@@ -314,11 +335,13 @@ trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, d
 | [BE-backend-nestjs.md](BE-backend-nestjs.md) | Kế hoạch backend chi tiết: schema, ma trận quyền, hợp đồng sync, từng bước |
 | [FRONTEND.md](FRONTEND.md) | **Cho người làm frontend:** cài gì, gọi gì, luật nào, từng bước BE frontend làm gì |
 | [MEMORY.md](../MEMORY.md) của repo này | Nhật ký backend BE0 →: đã làm gì, quyết gì, vì sao, còn treo gì |
-| [deploy_plan/I-huong-moi.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/deploy_plan/I-huong-moi.md) | Đối chiếu sơ đồ với repo, năm yêu cầu phát hành, CH Play |
-| [MEMORY.md của repo frontend](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/MEMORY.md) | Nhật ký giai đoạn A→G: đã làm gì, vì sao, lỗi thật đã bắt |
+| [`ops/PRODUCTION.md`](../ops/PRODUCTION.md) | Bảng kiểm vận hành: việc đã xong / còn thiếu trước khi gọi là production |
+| [DE_XUAT_C2_C3.md](DE_XUAT_C2_C3.md) | Hai đề xuất chờ chủ dự án duyệt |
+| ~~`deploy_plan/I-huong-moi.md`~~ | Đã gỡ khỏi repo frontend (commit `c73c6ca`) — nội dung đã gộp vào file này và `BE-backend-nestjs.md`; bản cũ xem trong lịch sử git |
+| [MEMORY.md của repo frontend](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/MEMORY.md) | Nhật ký frontend: giai đoạn A→G, rồi app dựng lại theo hợp đồng (10/2026) |
 | [deploy_plan/README.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/deploy_plan/README.md) | Luật chung của repo (ranh giới tầng, kích thước file, luật cấm) |
 | [deploy_plan/NOTES.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/deploy_plan/NOTES.md) | Việc thấy nhưng chưa tới lượt, nợ kỹ thuật |
-| [supabase/VAN_HANH.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/supabase/VAN_HANH.md) | Bảng kiểm vận hành: Auth, kịch bản đồng bộ, luồng tiền |
+| [supabase/VAN_HANH.md](https://github.com/remembered-fragrance/mambo365_deploymentphase/blob/master/supabase/VAN_HANH.md) | Bảng kiểm vận hành thời Supabase trực tiếp — kịch bản luồng tiền §7.3 vẫn dùng để nghiệm thu BE6 |
 | `KE_HOACH_*.md` ở gốc | Kế hoạch gốc (sản phẩm, frontend, deploy) — một phần đã lỗi thời theo hướng mới |
 
 ---
@@ -334,4 +357,4 @@ trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, d
 | Kết nối | Liên kết giữa một dòng danh bạ trong sổ và một tổ chức có tài khoản thật |
 | Vỏ | Bộ màn hình + điều hướng theo loại tổ chức (nông dân / vựa / doanh nghiệp) |
 | Contract | Schema zod trong `packages/contracts` — thoả thuận giữa backend và frontend |
-| `features` | Danh sách tính năng bật cho từng tổ chức, trả trong `/v1/me` — cách mở dần tính năng mới cho nhóm pilot |
+| `features` | Danh sách tính năng bật cho từng tổ chức, trả trong `/v1/me` — cách mở dần tính năng mới cho nhóm pilot. API ≤ 0.20 chưa ghi cờ nào (luôn `[]`); PR #46 (chưa merge) bật sẵn `orders`, `links`. App hiện không ẩn gì theo cờ |

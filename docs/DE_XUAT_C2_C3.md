@@ -2,6 +2,11 @@
 
 Hai lỗi này đụng tới cách bán gói và cách đăng nhập, nên chưa sửa. Mỗi mục có hiện trạng, các phương án, phương án đề xuất và việc phải làm nếu duyệt. Ghi ngày 19/10/2026, đợt 2 (v0.20.0).
 
+> **Trạng thái 23/10/2026:** cả C2 và C3 **vẫn chờ duyệt**, chưa sửa gì. Lưu ý: PR #44 (20/10) tên "pentest C2" là
+> mục C2 của **báo cáo pentest**, không phải C2 ở file này. PR đó chỉ làm `resolve-identifier` có tài khoản hay
+> không cũng tốn cùng một lượt gọi Auth Admin (không dò được qua độ trễ). Hai chỗ rò rỉ nêu ở C3 dưới đây vẫn còn
+> nguyên.
+
 ---
 
 ## C2. Gói doanh nghiệp không ép giới hạn chi nhánh cho chi nhánh đã có

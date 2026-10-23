@@ -4,11 +4,14 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **16/10/2026** · Hợp đồng **`v0.14.0`** (BE0–BE10 + đổi tên tổ chức, việc của từng người; người làm không tự rời; bản đồ thu mua: tài khoản, tổ chức,
-> đồng bộ sổ, kết nối bằng **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân
-> viên, chi nhánh, báo cáo; gói, chuyển khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. OTP tạm
-> ẩn) · Đã nghiệm thu trên staging: tới BE5. BE6–BE9 chạy trên staging nhưng chưa nghiệm thu — một số
-> phần cần cấu hình staging trước (mục 5.10–5.12).
+> Cập nhật **23/10/2026** · Hợp đồng **`v0.20.0`** (BE0–BE10: tài khoản, tổ chức, đồng bộ sổ, kết nối bằng
+> **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân viên, chi nhánh, báo cáo; gói, chuyển
+> khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. Sau đó: đổi tên tổ chức, việc của từng người, người làm
+> không tự rời (0.12–0.13); bản đồ thu mua (0.14); nháp giữ khoản cộng/trừ (0.15); xác nhận email, quên mật khẩu,
+> một luật mật khẩu (0.16, mục 5.14); đơn còn khi bên kia xoá tài khoản (0.17); giới hạn ô nhập, cắt lô theo byte
+> (0.18–0.19); trùng tên, chi nhánh chỉ cho DN, email chưa xác nhận (0.20). OTP tạm ẩn) · Đã nghiệm thu trên
+> staging: tới BE5. App web thật (www.thumua365.id.vn) đã dùng mọi phần, trên chính API staging; staging còn
+> **thiếu bucket ảnh** (mục 5.11). Từng bản đổi gì: [CHANGELOG](../packages/contracts/CHANGELOG.md).
 > **Backend làm trước, frontend làm sau** (chốt 28/09/2026): file này cùng `openapi.json` và các
 > trang thử trong `tools/login-test` là bản mô tả đầy đủ để dựng app khi tới lượt frontend.
 > File này được sửa **cùng PR** với mọi thay đổi hợp đồng. Nếu thấy lệch với code thì code
@@ -83,9 +86,9 @@ khi backend đổi thì chỉ phải sửa một thư mục:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.14.0/mambo-core-0.14.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.14.0/mambo-contracts-0.14.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.14.0/mambo-sdk-0.14.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.0/mambo-core-0.20.0.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.0/mambo-contracts-0.20.0.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.0/mambo-sdk-0.20.0.tgz",
     "@supabase/supabase-js": "^2.116.0",
     "zod": "^4.1.0"
   }
@@ -110,10 +113,15 @@ khi backend đổi thì chỉ phải sửa một thư mục:
 | `VITE_SUPABASE_URL` | `https://bldlrkmszjmhifubxjvl.supabase.co` | Project `thumua365-staging` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | xin Tài | Khoá publishable, để công khai được. **Không bao giờ** đặt secret key hay `service_role` vào frontend |
 
-Giá trị production sẽ điền ở BE10 (`api.thumua365.vn` khi có quyền DNS).
+**Chưa có production riêng (23/10/2026):** app thật ở `https://www.thumua365.id.vn` (Vercel) dùng **đúng ba giá
+trị staging ở trên** — dữ liệu trên staging là dữ liệu thật, đừng tạo tài khoản thử ở đó. Khi dựng production
+(`ops/PRODUCTION.md` mục 6) thì đổi biến của Vercel. `thumua365.vn` không phải domain của nhóm. Repo frontend còn
+có `VITE_API_WARMUP` (đánh thức API khi mở app) và `VITE_TILE_URL` / `VITE_TILE_ATTRIBUTION` (lớp nền bản đồ) —
+xem `.env.example` bên đó.
 
-**CORS.** Staging chỉ cho phép `http://localhost:5173` và `http://localhost:5174`. Nếu chạy dev
-ở cổng khác, hoặc có domain preview (Vercel…), báo Tài thêm vào `CORS_ORIGINS`. Header được
+**CORS.** Staging cho phép `http://localhost:5173`, `http://localhost:5174` và domain của app thật (đặt ở biến
+`CORS_ORIGINS` trên Render). Nếu chạy dev ở cổng khác, hoặc có domain preview (Vercel…), báo Tài thêm vào
+`CORS_ORIGINS`. Header được
 phép gửi: `authorization`, `content-type`, `x-organization-id`, `x-request-id`. Mọi header
 khác đều bị trình duyệt chặn ngay ở bước preflight.
 
@@ -146,7 +154,7 @@ export const api = createClient({
 });
 ```
 
-Các hàm SDK đã có ở `v0.14.0`:
+Các hàm SDK đã có ở `v0.20.0`:
 
 | Hàm | Endpoint | Cần | Trả về |
 |---|---|---|---|
@@ -168,6 +176,8 @@ Các hàm SDK đã có ở `v0.14.0`:
 | `api.places.inView({ bbox, kinds }, signal)` · `.get(id)` | `GET /v1/places…` (`v0.14.0`) | đăng nhập — mọi vai trò | mục 5.13 |
 | `api.places.mine()` · `.create(input)` · `.update(id, patch)` · `.remove(id)` | `/v1/org/places…` (`v0.14.0`) | tổ chức + `place:manage` | mục 5.13 |
 | `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |
+| `api.account.verifyRecoveryEmail()` | `POST /v1/me/recovery-email/verify` (`v0.16.0`) | đăng nhập | mục 5.14 |
+| `api.confirmRecoveryEmail({ token })` · `api.requestPasswordReset({ identifier })` | `POST /v1/auth/recovery-email/confirm`, `POST /v1/auth/password-reset` (`v0.16.0`) | — (công khai) | mục 5.14 |
 | `api.billing.subscription()` · `.intents()` · `.createIntent({ months })` | `/v1/me/subscription`, `/v1/billing/intents` (BE6) | tổ chức + `billing:manage` | mục 5.10 |
 | `api.attachments.upload(id, blob)` · `.uploadUrl(input)` · `.url(id)` | `/v1/attachments/…` (BE8) | tổ chức | mục 5.11 |
 | `api.events.track({ events })` | `POST /v1/events` (BE9) | — (gửi token nếu có) | mục 5.12 |
@@ -223,9 +233,10 @@ mã của hợp đồng, còn hai trường hợp nữa:
 | `PARENT_MISSING` | 409 | Thử lại theo lịch giãn cách |
 | `ORDER_STATE_CHANGED` | 409 | Tải lại đơn |
 | `NOT_FOUND` | 404 | Không thử lại |
-| `PAYLOAD_TOO_LARGE` | 413 | Thân > 1MB: chia nhỏ lô sync, không gửi lại nguyên lô |
-| `RATE_LIMITED` | 429 | Thử lại sau `Retry-After` giây |
+| `PAYLOAD_TOO_LARGE` | 413 | Thân > `API_BODY_LIMIT_BYTES` (1MB): chia nhỏ lô sync, không gửi lại nguyên lô. Storage từ chối ảnh vì quá lớn cũng ra mã này (SDK, `v0.20.0`) |
+| `RATE_LIMITED` | 429 | Thử lại sau `Retry-After` giây. Từ `v0.18.0` cũng gặp khi nhiều máy cùng đẩy sổ một tổ chức |
 | `INTERNAL` | 5xx | Thử lại theo lịch giãn cách; không có chi tiết (chi tiết nằm trong log) |
+| `EMAIL_UNAVAILABLE` | 503 | (`v0.16.0`) Máy chủ chưa cấu hình / không gửi được thư — báo "Chưa gửi được thư lúc này", không thử lại tự động |
 | `CONTRACT_MISMATCH` | — | Chỉ SDK sinh ra. Báo backend kèm `requestId` |
 | lỗi mạng (`TypeError`) | — | Coi như 5xx: thử lại theo lịch giãn cách |
 
@@ -233,6 +244,10 @@ mã của hợp đồng, còn hai trường hợp nữa:
   `INTERNAL` (và lỗi mạng) được thử lại.
 - Thiếu hoặc sai header tổ chức sẽ trả `VALIDATION_FAILED` kèm `details.header: 'X-Organization-Id'`.
   Đây là lỗi của app, không phải lỗi người dùng.
+- Một số `VALIDATION_FAILED` / `FORBIDDEN` mang `details.reason` để app nói đúng câu: `STILL_MEMBER`,
+  `ORG_HAS_MEMBERS` (xoá tài khoản, mục 5.10), `PLACE_LIMIT` (mục 5.13), `BRANCH_SCOPE` (op sync đụng chi nhánh
+  khác, mục 7.3), `EMAIL_TAKEN` (email khôi phục người khác đã xác nhận, mục 5.14), `ACCOUNT_EXISTS` /
+  `ALREADY_MEMBER` (tạo nhân viên, mục 5.9). Gặp `reason` lạ thì xử lý như mã gốc.
 - Hiện `requestId` ở màn báo lỗi hoặc nút "Gửi cho hỗ trợ", vì backend tra log bằng nó.
 - Câu chữ trong `message` có thể đổi bất cứ lúc nào — đừng so sánh chuỗi.
 
@@ -255,6 +270,8 @@ const { data, error } = await supabase.auth.signUp({
   password,
   options: { data: { name, phone, ...(realEmail ? { recoveryEmail: realEmail.toLowerCase() } : {}) } },
 });
+// password: PASSWORD_MIN_LENGTH – PASSWORD_MAX_LENGTH (8–72) của @mambo/contracts — một luật cho đăng ký, đổi mật
+// khẩu, đặt lại qua email, chủ tạo tài khoản nhân viên (v0.16.0; trước đó app cho 6). Supabase Auth cũng đặt tối thiểu 8.
 // data.user.identities rỗng = số đã có tài khoản (Supabase không báo lỗi để khỏi lộ) → "Số này đã có tài khoản".
 // data.session phải có ngay (staging đã tắt "Confirm email"). Không có session = lỗi cấu hình, báo backend.
 const me = await api.me();                     // memberships: [] → sang bước "Bạn là ai?"
@@ -276,9 +293,10 @@ const me = await api.meBootstrap({
   nghiệp). Nông dân không có gói.
 - **Gọi lại an toàn:** người đã có tổ chức gọi lại thì nhận về `Me` hiện tại, không tạo tổ chức thứ hai.
 - Tài khoản đăng ký bằng số điện thoại: server lấy số từ chính tài khoản, bỏ qua trường `phone`.
-- `user_metadata.recoveryEmail` → `profiles.recovery_email`, nên đăng nhập bằng email đó qua
-  `resolve-identifier` ra đúng tài khoản SĐT. Email đã là định danh của tài khoản khác thì bỏ qua
-  (không chặn bước này); đặt lại sau ở `PATCH /v1/me/profile`.
+- `user_metadata.recoveryEmail` → `profiles.recovery_email`, và server gửi một thư xác nhận (`v0.16.0`). Chỉ
+  khi người dùng bấm link trong thư, email đó mới đăng nhập được qua `resolve-identifier` và nhận thư đặt lại
+  mật khẩu (`v0.20.0`, mục 5.14). Từ `v0.20.0` bước này luôn lưu email khai (trước đây lặng lẽ bỏ nếu trùng);
+  email người khác đã xác nhận thì lưu nhưng không gửi thư. Sửa sau ở `PATCH /v1/me/profile`.
 - Tài khoản cũ đăng ký bằng email thật mà không gửi `phone`: server lấy số trong `user_metadata.phone`.
 - Tên đăng nhập hoặc số đã có người dùng → `VALIDATION_FAILED`, `details.fields.username` /
   `details.fields.phone`.
@@ -297,8 +315,12 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
 - API **luôn** trả về một email, kể cả khi không có tài khoản nào, để không ai dùng endpoint
   này dò xem ai có tài khoản. Vì vậy **đừng** thêm câu kiểu "không tìm thấy tài khoản".
 - Quá 10 lần/phút/IP thì bị `RATE_LIMITED`.
+- Email khôi phục chỉ tra ra tài khoản khi **đã xác nhận** (`v0.20.0`); chưa xác nhận thì như email không có.
+  Từ PR #44 (20/10, không đổi hợp đồng) có hay không có tài khoản đều tốn cùng một lượt gọi — không đo độ trễ
+  để dò được.
 - ⚠️ **Có thể đổi:** nhóm đang cân nhắc thay bằng `POST /v1/auth/login` (API đăng nhập hộ),
-  vì gõ đúng tên tài khoản thì lộ ra email đăng nhập. Hãy gói hai dòng trên vào **một** hàm
+  vì gõ đúng tên tài khoản thì lộ ra email đăng nhập (chứa SĐT) — đề xuất C3 trong
+  [DE_XUAT_C2_C3.md](DE_XUAT_C2_C3.md), chờ duyệt. Hãy gói hai dòng trên vào **một** hàm
   `signIn(identifier, password)` trong `data/` để nếu đổi thì chỉ sửa một chỗ.
 
 ### 5.3 Sau khi đăng nhập — `/v1/me` quyết định mọi thứ
@@ -336,8 +358,12 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
 
   Hết gói thì **vẫn đọc và xuất file được** — chỉ chặn ghi sổ.
 - **Cờ tính năng** = `membership.features` (`orders`, `links`). Chức năng mới chỉ hiện khi tổ
-  chức có cờ tương ứng — đây là cách mở dần cho nhóm pilot.
-- `user.email` là `null` với tài khoản chỉ có số điện thoại (email nội bộ bị giấu).
+  chức có cờ tương ứng — đây là cách mở dần cho nhóm pilot. **Thực tế (23/10/2026):** API ≤ 0.20 chưa ghi cờ
+  cho tổ chức nào nên `features` luôn `[]`, và app **không** ẩn đơn / kết nối theo cờ (chỉ theo `permissions`).
+  PR #46 của repo BE (`feat/bat-features`, chưa merge) ghi sẵn `orders`, `links` khi tạo tổ chức và cho mọi tổ
+  chức đang có — ví dụ ở trên là hình dạng sau khi bản đó lên.
+- `user.email` là email khôi phục trong hồ sơ (`v0.20.0`; trước đây lấy từ lúc đăng ký nên sửa hồ sơ không đổi
+  theo), `null` khi chưa có — email nội bộ `84…@id.thumua365.vn` luôn bị giấu.
   `user.phone` có dạng `+84…`; hiển thị bằng `formatPhoneVn` của `@mambo/core/identifier`.
 - `pendingLinks` là số lời mời kết nối đang chờ (hiện chấm đỏ).
 - Gọi `/v1/me` khi: mở app lúc có mạng, sau khi đăng nhập, sau bootstrap, sau OTP, sau
@@ -474,7 +500,13 @@ const detail = await api.orders.get(o.id); // detail.events: [{ toStatus, by: 'm
   phiếu **vẫn được ghi**, server gỡ `orderId`, op có `warning: 'ORDER_NOT_OPEN'` — báo nhẹ "Đơn
   không còn mở; phiếu vẫn lưu", không coi là lỗi. Phiếu không bao giờ bị `rejected` vì đơn. Nháp
   cũng vậy.
-- Người gắn chi nhánh (DN) chỉ thấy đơn của chi nhánh mình; đơn tạo ra mang chi nhánh đó.
+- Người gắn chi nhánh (DN) thấy đơn chi nhánh mình tạo **và mọi đơn bên kia gửi tới** (`v0.18.0`; trước đó đơn
+  bên kia gửi tới bị ẩn); đơn tạo ra mang chi nhánh đó.
+- **Bên kia đã xoá tài khoản** (`v0.17.0`, thay đổi phá vỡ có chủ đích): `counterpart` là `OrgRef | null`. `null` =
+  bên kia không còn; đơn và lịch sử vẫn ở trong sổ mình, đơn còn mở đã tự huỷ (mốc `cancelled`, `by:
+  'counterpart'`), mình nhận `order.cancelled`. Luôn đọc `counterpart?.`; hiện tên bằng `partnerName` (tên dòng
+  danh bạ như mình ghi trong sổ, cả dòng đã xoá mềm — nông dân không có sổ nên luôn `null`). Kết nối với bên đó
+  thành `revoked`, `counterpart: null`; vựa mời lại được.
 
 **Thông báo** (mọi vai trò): gọi `api.notifications.list()` khi mở app và mỗi 60 giây; huy hiệu
 lấy `unread`. Mở thông báo → `api.notifications.read({ ids: [id] })`; "Đánh dấu tất cả" →
@@ -510,6 +542,11 @@ const { members } = await api.reports.members({ from, to });   // v0.13.0 — ch
   tài khoản (và mật khẩu) cũ — báo chủ "đã thêm lại, dùng mật khẩu cũ".
 - Vai trò chọn được: vựa — chỉ `staff` (người cân); doanh nghiệp — `manager`, `staff`. Không có nút
   sửa / gỡ trên dòng của chủ và của chính mình (server cũng chặn).
+- **Chi nhánh chỉ dành cho doanh nghiệp** (`v0.20.0`): vựa tạo / mở lại chi nhánh hay gắn người vào chi nhánh →
+  `FORBIDDEN`. Ma trận quyền không đổi (vựa owner vẫn có `branch:manage`) — app ẩn màn Chi nhánh theo
+  `organization.type`. Chi nhánh cũ của vựa (nếu có) vẫn lưu trữ, đổi tên, gỡ người ra được.
+- Gói DN kích hoạt khi đang dùng nhiều chi nhánh hơn `limit`: hiện vẫn dùng tiếp, chỉ chặn tạo / mở lại — cách
+  xử lý đang chờ duyệt (C2 trong [DE_XUAT_C2_C3.md](DE_XUAT_C2_C3.md)). `branches.list()` trả sẵn `limit`, `used`.
 - Đổi tên tổ chức (`v0.12.0`): không phải quyền trong `permissions` — app quyết bằng `role` (`owner`
   thấy ô sửa tên).
 - **Người làm không tự rời** (`v0.13.0`): không có nút "Rời khỏi vựa / doanh nghiệp"; chỉ chủ gỡ ra ở màn
@@ -523,7 +560,7 @@ const { members } = await api.reports.members({ from, to });   // v0.13.0 — ch
   `{ count, netWeight, amount, paid, debt }`. Người gắn chi nhánh chỉ thấy chi nhánh mình. Nông dân
   cũng gọi được: số là phiếu các vựa ghi về mình, nhìn từ phía mình (`sale` = mình bán).
 
-### 5.10 Gói, chuyển khoản, hồ sơ, xoá tài khoản — BE6 (`v0.11.0`, chưa nghiệm thu — staging chưa đặt bí mật webhook / role đặc quyền)
+### 5.10 Gói, chuyển khoản, hồ sơ, xoá tài khoản — BE6 (`v0.11.0`, chưa nghiệm thu — role đặc quyền có trên staging từ 18/10; chưa nối Casso / SePay, chưa có số tài khoản thật)
 
 **Màn Gói** — chỉ hiện với người có `billing:manage`; nông dân không có màn này:
 
@@ -544,11 +581,14 @@ const { intents } = await api.billing.intents();     // lịch sử: pending →
 - Doanh nghiệp: `selfServe: false`, `prices` rỗng → hiện "Liên hệ để kích hoạt" (Zalo hỗ trợ).
   `createIntent` của doanh nghiệp / nông dân → `FORBIDDEN`.
 - Chuyển thiếu hoặc gõ sai nội dung: gói **không** tự mở; người dùng liên hệ, quản trị viên mở tay.
+- Mua giữa kỳ dùng thử: ngày dùng thử còn lại được **cộng dồn** (`v0.18.0`); cộng tháng không tràn
+  (31/01 + 1 tháng = 28/02, giờ Việt Nam).
 
 **Hồ sơ**: `api.account.profile()`, `api.account.updateProfile({ name, username, recoveryEmail })`. Tên đăng nhập
 giống số điện thoại (`0912345678`) → 422 ngay ở hợp đồng; tên đã có người dùng → `fields.username`; email khôi
-phục tài khoản khác đang dùng → `fields.recoveryEmail` — mỗi định danh đăng nhập chỉ trỏ đúng một người.
-Số điện thoại là khoá đăng nhập, không đổi ở đây. Mã giới thiệu của mình: `profile.referralCode`;
+phục tài khoản khác **đã xác nhận** → `fields.recoveryEmail` — mỗi định danh đăng nhập chỉ trỏ đúng một người.
+`profile.recoveryEmailVerified` (`v0.16.0`) cho biết email đã bấm link xác nhận chưa; đổi email thì server tự gửi thư
+xác nhận (mục 5.14). Số điện thoại là khoá đăng nhập, không đổi ở đây. Mã giới thiệu của mình: `profile.referralCode`;
 nhập mã của người mời (một lần): `api.account.claimReferral({ code })` → `{ claimed }` — `false`
 thì báo chung "Mã không dùng được", không nói vì sao.
 
@@ -557,7 +597,7 @@ chủ duy nhất, hồ sơ, rồi tài khoản đăng nhập. Hỏi xác nhận 
 phiếu). `ORG_HAS_MEMBERS` → "Gỡ nhân viên trước". Xong thì xoá sổ, hàng đợi, ảnh trong IndexedDB
 và đăng xuất — máy có thể là máy mượn. Người còn làm thuê ở đâu → 422 `STILL_MEMBER`: chủ gỡ ra trước (`v0.13.0`).
 
-### 5.11 Ảnh chứng từ — BE8 (`v0.11.0`, chưa nghiệm thu — staging chưa có bucket `attachments`)
+### 5.11 Ảnh chứng từ — BE8 (`v0.11.0`, chưa nghiệm thu — staging vẫn chưa có bucket `attachments`, 23/10)
 
 Ảnh đi thẳng giữa app và Supabase Storage; API chỉ ký URL. App không cầm khoá Storage nào.
 
@@ -573,10 +613,14 @@ const { url, expiresAt } = await api.attachments.url(id);  // hết hạn sau 10
   lên máy chủ; ảnh chưa lên → `NOT_FOUND` "Ảnh chưa lên máy chủ" — hiện ảnh trong máy nếu có, không
   thì ô xám "Ảnh ở máy khác, chưa có mạng".
 - Sai loại (chỉ JPEG / PNG / WebP) hay quá 3MB → `VALIDATION_FAILED` ngay, chưa tốn mạng.
+- `upload` đọc mã lỗi thật trong thân phản hồi của Storage (`v0.20.0` — Storage trả HTTP 400 cho mọi lỗi):
+  409 ⇒ đã có, coi là xong; 413 ⇒ `PAYLOAD_TOO_LARGE`, 415 / 400 có lý do ⇒ `VALIDATION_FAILED` — ảnh hỏng thật,
+  bỏ khỏi hàng đợi và báo; 401 / 403 / 429 ⇒ `UNAUTHENTICATED` / `FORBIDDEN` / `RATE_LIMITED`; còn lại ⇒
+  `INTERNAL` — lỗi tạm, **giữ ảnh** thử lại sau. Thiếu bucket rơi vào nhánh lỗi tạm: ảnh nằm chờ trong máy.
 - Người cân chi nhánh A không xem được ảnh phiếu chi nhánh B — cùng phạm vi như sổ.
 - Xoá tài khoản xoá cả thư mục ảnh của tổ chức (mục 5.10).
 
-### 5.12 Đo lường — BE9 (`v0.11.0`, chưa nghiệm thu trên staging)
+### 5.12 Đo lường — BE9 (`v0.11.0`, chưa nghiệm thu; app thật đã gửi sự kiện)
 
 `track(name, props)` ghi vào hàng đợi riêng trong IndexedDB (giống hàng đợi op, nhưng mất thì thôi),
 xả lô ≤ 50 qua `api.events.track({ events })` khi có mạng — kể cả lúc chưa đăng nhập.
@@ -594,7 +638,7 @@ track('receipt_created', { kind: 'purchase', lines: 2, offline: !navigator.onLin
   `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bạn là ai?").
 - `dropped > 0` là lỗi của app (sai danh mục) — xoá khỏi hàng đợi, ghi Sentry, không gửi lại.
 
-### 5.13 Bản đồ thu mua (`v0.14.0`, chưa nghiệm thu trên staging)
+### 5.13 Bản đồ thu mua (`v0.14.0`, chưa nghiệm thu; app thật đã dùng)
 
 Vựa / thương lái và doanh nghiệp tự đặt địa điểm của mình (điểm cân, kho, nhà máy); **mọi** người đã
 đăng nhập — cả nông dân, cả người cân — xem được trên bản đồ. Mang sang từ dự án LiveMap.
@@ -620,10 +664,39 @@ await api.places.remove(id);                  // gỡ khỏi bản đồ (xoá m
   điểm là số tổ chức **tự** điền cho điểm đó.
 - Vị trí của người dùng ("Vị trí của tôi") chỉ dùng trong trình duyệt, **không** gửi lên server.
 
+### 5.14 Email khôi phục, quên mật khẩu (`v0.16.0` → `v0.20.0`; thư gửi được trên staging từ 17/10)
+
+API gửi thư qua Brevo; app không gọi nhà cung cấp thư nào. Hai trang mở từ link trong thư là route **công khai**
+của app (người quên mật khẩu chưa đăng nhập được): `/xac-nhan-email` và `/dat-lai-mat-khau` — API dựng link bằng
+`APP_URL` + đúng hai đường dẫn này, đổi đường dẫn thì phải sửa cả hai bên.
+
+```ts
+// Màn Tài khoản, email chưa xác nhận → "Gửi lại thư xác nhận"
+const { status } = await api.account.verifyRecoveryEmail(); // 'sent' | 'already_verified' | 'no_email' | 'too_soon'
+// /xac-nhan-email?token=…
+const { email } = await api.confirmRecoveryEmail({ token }); // null = link sai / đã dùng / hết hạn (24 giờ)
+// Màn đăng nhập → "Quên mật khẩu?"
+await api.requestPasswordReset({ identifier });              // luôn { ok: true }
+// /dat-lai-mat-khau?token_hash=…&type=recovery
+await supabase.auth.verifyOtp({ token_hash, type: 'recovery' });
+await supabase.auth.updateUser({ password });                 // PASSWORD_MIN_LENGTH – PASSWORD_MAX_LENGTH
+```
+
+- Chỉ email **đã xác nhận** nhận thư đặt lại mật khẩu và đăng nhập được ở ô đăng nhập. Không có tài khoản, chưa
+  có email đã xác nhận, hay vừa gửi trong 60 giây đều trả `{ ok: true }` như nhau — app báo **một câu chung**, không
+  nói tài khoản có hay không.
+- `too_soon`: mỗi tài khoản tối đa một thư mỗi 60 giây.
+- Email chưa xác nhận **không giữ chỗ** (`v0.20.0`): hai tài khoản cùng khai một email thì ai bấm link trước giữ;
+  người sau bấm link nhận `VALIDATION_FAILED` + `details.reason: 'EMAIL_TAKEN'` — mời đổi email khác.
+- `EMAIL_UNAVAILABLE` (503): máy chủ chưa cấu hình hoặc không gửi được thư. Khi đó chỉ còn đường liên hệ hỗ trợ;
+  quản trị viên đặt lại mật khẩu tay được khi người đó **chưa** có email khôi phục đã xác nhận
+  (`HAS_RECOVERY_EMAIL`).
+
 ### 5.7 Đăng xuất
 
-- Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu và mọi form
-  đang điền.
+- Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu, mọi form
+  đang điền, hàng đợi đo lường và bản nhớ gói của mọi tổ chức (máy có thể là máy mượn — app làm vậy từ
+  bản sửa pentest, 20/10).
 - Hàng đợi còn thao tác chưa gửi thì cảnh báo trước khi đăng xuất. **Không** lặng lẽ xoá hàng đợi.
 - Nếu phiên hết hạn (vẫn `UNAUTHENTICATED` sau khi đã thử làm mới token) thì về màn đăng
   nhập và **giữ** hàng đợi.
@@ -693,9 +766,20 @@ Luật của `data` (schema ở `sync-records.ts`):
 - Thời gian là ISO 8601 có múi giờ (`toISOString()`); `'2026-09-28'` bị từ chối.
 - **Id luôn là UUID.** Bốn mặt hàng mặc định của core (`prod-rubber`, `prod-cashew`…) **không**
   đồng bộ được. Server đã tạo sẵn bốn mặt hàng này cho mọi vựa và doanh nghiệp, id là UUID; lần
-  kéo đầu tiên sẽ có chúng. Gộp theo **tên** như `normalize()` vẫn làm, rồi dùng id của server.
-  Đừng đưa op có id `prod-…` vào hàng đợi: server trả `VALIDATION_FAILED` ở `recordId` và hàng
-  đợi dừng ở đó.
+  kéo đầu tiên sẽ có chúng. Đừng đưa op có id `prod-…` vào hàng đợi: server trả `VALIDATION_FAILED`
+  ở `recordId` và hàng đợi dừng ở đó. Từ `v0.18.0` core lo việc này: `emptyData()` không còn bốn mặt hàng
+  `prod-…` (sổ có máy chủ chờ kéo về), `starterData()` cho sổ chỉ nằm trên máy, `normalize()` bỏ bản `prod-…`
+  trùng tên với mặt hàng id thật; `isLegacyProductId()`, `withoutLegacyProducts()` để lọc.
+- **Giới hạn ô nhập** (`v0.18.0`, `v0.20.0`): đặt `maxLength` / chặn ở ô bằng đúng `RECEIPT_LIMITS` (100 dòng, 20
+  khoản cộng/trừ, 10 ảnh, % 0–100, số cân / đơn giá ≤ 1 tỷ, nhãn khoản 120, ghi chú 2000), `PARTY_LIMITS`,
+  `PRODUCT_LIMITS`, `NOTE_LIMITS`. Để lọt một giá trị quá giới hạn là op bị `VALIDATION_FAILED` và **chặn cả hàng
+  đợi**.
+- **Nháp** mang được `adjustments` (khoản cộng/trừ, tối đa 20; `null` = gỡ hết) từ `v0.15.0`; `completeDraft`
+  chuyển sang phiếu.
+- **Trùng tên người bán / người mua** (`v0.20.0`): `partiesNamed(parties, name)` liệt kê người cùng tên;
+  `addSupplier`, `addBuyer`, `resolve*`, `addTransaction`, `importSuppliers`, `importReceipts` nhận `PartyMatch
+  { asNew?, keepApart? }` — `asNew` ép tạo người mới, `keepApart` không gộp vào hồ sơ đã kết nối. Không truyền gì
+  thì như cũ (trùng tên ⇒ dùng lại người cũ).
 - Sửa mặt hàng: chỉ gửi trường thực sự đổi. Lập phiếu kéo theo đổi giá gần nhất thì gửi riêng
   patch `{ lastPricePerUnit }` — người cân làm được. Gửi cả bản ghi thì cần `pricing:manage`, và
   người cân bị từ chối.
@@ -720,8 +804,9 @@ Dùng nó cùng `membership.permissions` để ẩn nút.
 
 ### 7.3 Đẩy lên: `sdk.sync.push({ deviceId, ops })`
 
-- Tối đa `SYNC_PUSH_MAX_OPS` (200) op một lô, `seq` tăng dần, `opId` không trùng. Thân tối đa
-  1MB: gặp `PAYLOAD_TOO_LARGE` thì chia nhỏ lô.
+- Tối đa `SYNC_PUSH_MAX_OPS` (200) op **và** `SYNC_PUSH_MAX_BYTES` (700KB, đo thân đã mã hoá UTF-8) một lô
+  (`v0.19.0`), `seq` tăng dần, `opId` không trùng. Thân API tối đa `API_BODY_LIMIT_BYTES` (1MB): 200 op nháp tự
+  lưu, mỗi op mang trọn các dòng hàng, đã vượt — gặp `PAYLOAD_TOO_LARGE` thì chia nhỏ lô.
 - `deviceId`: UUID sinh một lần cho mỗi máy, lưu cục bộ.
 - `results` theo đúng thứ tự op, **dừng ở op `rejected` đầu tiên**. Op sau nó không có trong
   `results` và chưa được xử lý — giữ nguyên trong hàng đợi.
@@ -737,6 +822,11 @@ Dùng nó cùng `membership.permissions` để ẩn nút.
 | Lỗi mạng | Thử lại theo lịch giãn cách |
 
 - `warning: 'ORDER_NOT_OPEN'` (từ BE5): đơn đã huỷ, không còn hay sai chiều; phiếu / nháp vẫn được ghi nhưng bị gỡ khỏi đơn.
+- `FORBIDDEN` kèm `details.reason: 'BRANCH_SCOPE'` (`v0.18.0`): người gắn chi nhánh đụng phiếu của chi nhánh khác —
+  gặp khi chủ vừa đổi chi nhánh của người đó mà máy còn thao tác chưa gửi. Op đó không bao giờ gửi được nữa: báo
+  rõ, cho người dùng bỏ op.
+- Cả lượt bị từ chối vì lý do không phải mạng (`NOT_A_MEMBER`, vỏ request sai…): core trả `SyncStatus.refused`
+  (`v0.19.0`) — giữ nguyên hàng đợi, không gắn cờ kẹt op nào, **không** báo "mất mạng".
 - Nông dân gọi sync sẽ bị `403 FORBIDDEN` — đừng gọi.
 
 ### 7.4 Kéo về: `sdk.sync.pull({ cursor, limit })`
