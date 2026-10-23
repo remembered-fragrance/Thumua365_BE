@@ -1476,7 +1476,7 @@ Commit `b949471` thiếu dòng trống sau tiêu đề nên `git log --oneline` 
     nothing`) — chạy lại vô hại.
   - `tests/db/api.db.test.ts`: vựa và nông dân bootstrap xong `features` = `['links', 'orders']`.
   - `packages/contracts/CHANGELOG.md`: mục "Chưa phát hành".
-- `npm run verify` ở máy xanh (50 test); `test:db` không chạy ở máy (xoá sạch DB dev) — để job `db` của CI chạy.
+- `npm run verify` ở máy xanh (50 test); `test:db` không chạy ở máy (xoá sạch DB dev); CI của PR xanh cả ba job (`verify`, `db`, `docker`).
 - Còn lại: migrate staging qua Supabase MCP **trước** khi merge như 0.20 (23/10 staging chưa có migration này —
   `_prisma_migrations` 15 dòng); quyết có gắn tag `0.20.1` không (không đổi hợp đồng).
 
