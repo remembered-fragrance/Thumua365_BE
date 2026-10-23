@@ -132,6 +132,8 @@ export const debtsBySupplier = (data: AppData): SupplierDebt[] => {
 /** Chi mua ngày theo ngày, dùng cho biểu đồ dashboard — chỉ tính purchase. */
 export interface DailyPoint {
   readonly label: string;
+  /** Đầu ngày theo giờ máy, dạng ISO — để giao diện tự ghi ngày/tháng. */
+  readonly date: string;
   readonly spent: number;
 }
 
@@ -147,7 +149,7 @@ export const dailySpend = (data: AppData, days = 7): DailyPoint[] => {
       })
       .reduce((s, t) => s + transactionTotals(t).total, 0);
     const label = new Date(start).toLocaleDateString('vi-VN', { weekday: 'short' });
-    points.push({ label, spent });
+    points.push({ label, date: new Date(start).toISOString(), spent });
   }
   return points;
 };

@@ -132,4 +132,38 @@ describe('dailySpend', () => {
     const points = dailySpend(data(), 3);
     expect(points.map((p) => p.spent)).toEqual([0, 0, 0]);
   });
+
+  // Giờ máy, không phải UTC: 00:00–06:59 ở VN vẫn là "hôm qua" theo UTC.
+  const at = (daysAgo: number, hours: number, minutes = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(hours, minutes, 0, 0);
+    return d.toISOString();
+  };
+
+  it('phiếu sát nửa đêm rơi đúng cột theo giờ máy', () => {
+    const points = dailySpend(
+      data({
+        transactions: [
+          purchase({ id: 'a', date: at(0, 0, 0) }),
+          purchase({ id: 'b', date: at(1, 23, 59) }),
+          purchase({ id: 'c', date: at(6, 0, 0) }),
+          purchase({ id: 'd', date: at(7, 23, 59) }),
+        ],
+      }),
+      7,
+    );
+    expect(points.map((p) => p.spent)).toEqual([1_000_000, 0, 0, 0, 0, 1_000_000, 1_000_000]);
+  });
+
+  it('không cộng phiếu bán', () => {
+    const points = dailySpend(data({ transactions: [sale()] }), 7);
+    expect(points.every((p) => p.spent === 0)).toBe(true);
+  });
+
+  it('mỗi điểm mang ngày của nó, cột cuối là hôm nay', () => {
+    const points = dailySpend(data(), 7);
+    expect(points.at(-1)?.date).toBe(at(0, 0, 0));
+    expect(points[0]?.date).toBe(at(6, 0, 0));
+  });
 });

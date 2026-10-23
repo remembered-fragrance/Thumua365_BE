@@ -3,6 +3,13 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.20.2 — 23/10/2026 (biểu đồ 7 ngày có ngày/tháng)
+
+Không đổi route, không có migration. App 0.20.0 chạy được với API 0.20.2.
+
+- `@mambo/core`: `DailyPoint` (kết quả `dailySpend`) có thêm `date` — đầu ngày theo giờ máy, dạng ISO — để app ghi
+  ngày/tháng dưới nhãn thứ. `label` và `spent` giữ nguyên.
+
 ## 0.20.1 — 23/10/2026 (cờ tính năng bật sẵn)
 
 Không đổi hình dạng route nào. Có **migration** `20261023000000_bat_features` — chạy trên staging trước khi merge.
