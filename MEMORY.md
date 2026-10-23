@@ -19,7 +19,7 @@ frontend cũ) nằm ở `MEMORY.md` của repo frontend.
 | Repo | [github](https://github.com/remembered-fragrance/Thumua365_BE), nhánh `master` (máy hiện tại: `D:\EXE201\Thumua365_BE`; trước 10/2026: `C:\Users\nino\Desktop\Thumua365_BE`) |
 | Repo frontend | `mambo365_deploymentphase`, nhánh `master` (máy hiện tại: `D:\EXE201\mambo365_deploymentphase`) |
 | Người làm | Tài (`YuNgTaiwasherebb` — backend, giữ Render / Supabase) · Khôi (`k20elite` — frontend, các bản sửa từ 13/10 ở cả hai repo) · Bảo (`bbao2114` — frontend) · ghép cặp với AI |
-| Trạng thái sản phẩm (23/10/2026) | BE0 → BE10 xong phần code; bản phát hành mới nhất **`v0.20.0`** (20/10) + bản sửa pentest C2 (PR #44, không gắn tag); đang mở PR #46 (bật sẵn cờ `features`, có migration). App web chạy ở **www.thumua365.id.vn** (Vercel) và gọi **API staging** `thumua365-api-staging.onrender.com` (Render free, `APP_ENV=staging`) → Supabase `thumua365-staging` — **chưa có production riêng**, nên "staging" đang chứa **người dùng thật** (17 tổ chức lúc 23/10). Kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10). Còn thiếu để vận hành đủ: bucket `attachments`, backup ra kho ngoài (xem "Việc còn treo") |
+| Trạng thái sản phẩm (23/10/2026) | BE0 → BE10 xong phần code; bản phát hành mới nhất **`v0.20.1`** (23/10: bật sẵn cờ `features`, gồm cả bản sửa pentest C2 PR #44). App web chạy ở **www.thumua365.id.vn** (Vercel) và gọi **API staging** `thumua365-api-staging.onrender.com` (Render free, `APP_ENV=staging`) → Supabase `thumua365-staging` — **chưa có production riêng**, nên "staging" đang chứa **người dùng thật** (17 tổ chức lúc 23/10). Kết nối bằng **mã kết nối**, OTP tạm ẩn (01/10). Còn thiếu để vận hành đủ: bucket `attachments`, backup ra kho ngoài (xem "Việc còn treo") |
 
 ---
 
@@ -123,7 +123,7 @@ từ GitHub Release.
 
 - [x] Chốt quy ước §3 (camelCase, tiền số nguyên, header `X-Organization-Id`).
 - [x] Cài `@mambo/core`, `@mambo/contracts` từ release `v0.1.0`; thay `@/core/` →
-      `@mambo/core/`; xoá `src/core/`, `tests/core/`; 43 test còn lại phải xanh. (Nay cài cả ba gói ở `v0.20.0`.)
+      `@mambo/core/`; xoá `src/core/`, `tests/core/`; 43 test còn lại phải xanh. (Nay app cài cả ba gói ở `v0.20.0`.)
 - [x] Sửa `ci.yml` của repo frontend sang nhánh `master` (đang ghi `main`).
 - [x] Các file tài liệu mới (`THONG_TIN_DU_AN.md`, `BE-backend-nestjs.md`…) không commit ở repo frontend mà nằm ở
       `docs/` của repo này; `I-huong-moi.md` đã gỡ.
@@ -1455,14 +1455,14 @@ Commit `b949471` thiếu dòng trống sau tiêu đề nên `git log --oneline` 
   có thì trả email mồi ngay — đo độ trễ vài lần là đoán được SĐT / tên đăng nhập nào đã có tài khoản. Nay không
   tìm thấy vẫn hỏi Auth Admin bằng id ngẫu nhiên (404): hai nhánh cùng một lượt gọi. Test thêm ở
   `tests/db/api.db.test.ts`.
-- Không đổi hợp đồng, không migration, **không gắn tag** — gói vẫn `0.20.0`.
+- Không đổi hợp đồng, không migration, lúc merge **không gắn tag** — gói vẫn `0.20.0`; đi theo tag `v0.20.1` (23/10).
 - Hai chỗ rò rỉ còn lại của `resolve-identifier` (gõ tên đăng nhập / email khôi phục của người khác ra email nội bộ
   chứa SĐT; email không có thật trả nguyên văn) vẫn còn — đó là đề xuất C3, chờ duyệt.
 - Merge `2662a47` (commit `87990a8`, tác giả `k20elite`); `/v1/health` báo `0.20.0` `2662a47`.
 - Cùng đợt, phía app: mambo365_deploymentphase#56 (`68b49b0`) — chặn mật khẩu phổ biến, CSP + HSTS, đăng xuất xoá
   hàng đợi đo lường và khoá gói đã nhớ.
 
-## Cờ `features` trong `/v1/me` · PR #46 · 23/10/2026 · mở, chưa merge
+## Cờ `features` trong `/v1/me` · `v0.20.1` · 23/10/2026 · đã phát hành
 
 - Phát hiện: không chỗ nào ghi `organization_features` (bootstrap, migration, seed) ⇒ `features` luôn `[]` cho mọi
   tổ chức; staging 0 dòng. Tài liệu lại ghi ví dụ `["orders", "links"]`. App không ẩn gì theo `features` — đơn và
@@ -1475,10 +1475,16 @@ Commit `b949471` thiếu dòng trống sau tiêu đề nên `git log --oneline` 
   - Migration `20261023000000_bat_features`: ghi `orders`, `links` cho mọi tổ chức chưa xoá (`on conflict do
     nothing`) — chạy lại vô hại.
   - `tests/db/api.db.test.ts`: vựa và nông dân bootstrap xong `features` = `['links', 'orders']`.
-  - `packages/contracts/CHANGELOG.md`: mục "Chưa phát hành".
+  - `packages/contracts/CHANGELOG.md` mục `0.20.1`; nâng version năm `package.json` + lock + `openapi.json` (`bfcca86`)
+    để `/v1/health` báo đúng bản mới.
 - `npm run verify` ở máy xanh (50 test); `test:db` không chạy ở máy (xoá sạch DB dev); CI của PR xanh cả ba job (`verify`, `db`, `docker`).
-- Còn lại: migrate staging qua Supabase MCP **trước** khi merge như 0.20 (23/10 staging chưa có migration này —
-  `_prisma_migrations` 15 dòng); quyết có gắn tag `0.20.1` không (không đổi hợp đồng).
+
+| Bước | Kết quả |
+|---|---|
+| Migration staging (TRƯỚC khi merge) | ✅ Qua Supabase MCP, `begin … commit`, ghi `_prisma_migrations` (checksum sha256 nội dung git `5af302…64ec`). Đủ 16/16; 32 dòng `organization_features` = 2 cờ × 16 tổ chức chưa xoá. Lần thử đầu bị auto mode chặn ("Production Deploy") trước khi chạy; người dùng bảo chạy lại thì qua |
+| Merge | PR #46 merge commit `acdf75f` lúc 07:06Z (CI verify / db / docker xanh); `/v1/health` báo `0.20.1` `acdf75f` lúc 07:11Z |
+| Tag (SAU khi merge) | `v0.20.1` gắn trên `acdf75f`; workflow Release dựng đủ 3 tgz |
+| App | Không nâng — hợp đồng không đổi, app `v0.20.0` chạy với API `0.20.1`; app không ẩn gì theo cờ |
 
 ---
 

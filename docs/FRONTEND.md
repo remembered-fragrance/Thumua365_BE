@@ -4,7 +4,7 @@
 > cài gì, gọi gì, theo luật nào, và mỗi bước backend sắp ra thì frontend phải làm gì. Chi
 > tiết sâu hơn: [BE-backend-nestjs.md](BE-backend-nestjs.md).
 >
-> Cập nhật **23/10/2026** · Hợp đồng **`v0.20.0`** (BE0–BE10: tài khoản, tổ chức, đồng bộ sổ, kết nối bằng
+> Cập nhật **23/10/2026** · Hợp đồng **`v0.20.1`** (BE0–BE10: tài khoản, tổ chức, đồng bộ sổ, kết nối bằng
 > **mã kết nối** + phần xem của nông dân; đơn, đặt lịch, thông báo; nhân viên, chi nhánh, báo cáo; gói, chuyển
 > khoản, hồ sơ, xoá tài khoản; ảnh chứng từ; đo lường. Sau đó: đổi tên tổ chức, việc của từng người, người làm
 > không tự rời (0.12–0.13); bản đồ thu mua (0.14); nháp giữ khoản cộng/trừ (0.15); xác nhận email, quên mật khẩu,
@@ -86,9 +86,9 @@ khi backend đổi thì chỉ phải sửa một thư mục:
 ```json
 {
   "dependencies": {
-    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.0/mambo-core-0.20.0.tgz",
-    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.0/mambo-contracts-0.20.0.tgz",
-    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.0/mambo-sdk-0.20.0.tgz",
+    "@mambo/core": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.1/mambo-core-0.20.1.tgz",
+    "@mambo/contracts": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.1/mambo-contracts-0.20.1.tgz",
+    "@mambo/sdk": "https://github.com/remembered-fragrance/Thumua365_BE/releases/download/v0.20.1/mambo-sdk-0.20.1.tgz",
     "@supabase/supabase-js": "^2.116.0",
     "zod": "^4.1.0"
   }
@@ -154,7 +154,7 @@ export const api = createClient({
 });
 ```
 
-Các hàm SDK đã có ở `v0.20.0`:
+Các hàm SDK đã có ở `v0.20.1` (giống `v0.20.0`):
 
 | Hàm | Endpoint | Cần | Trả về |
 |---|---|---|---|
@@ -358,10 +358,10 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
 
   Hết gói thì **vẫn đọc và xuất file được** — chỉ chặn ghi sổ.
 - **Cờ tính năng** = `membership.features` (`orders`, `links`). Chức năng mới chỉ hiện khi tổ
-  chức có cờ tương ứng — đây là cách mở dần cho nhóm pilot. **Thực tế (23/10/2026):** API ≤ 0.20 chưa ghi cờ
-  cho tổ chức nào nên `features` luôn `[]`, và app **không** ẩn đơn / kết nối theo cờ (chỉ theo `permissions`).
-  PR #46 của repo BE (`feat/bat-features`, chưa merge) ghi sẵn `orders`, `links` khi tạo tổ chức và cho mọi tổ
-  chức đang có — ví dụ ở trên là hình dạng sau khi bản đó lên.
+  chức có cờ tương ứng — đây là cách mở dần cho nhóm pilot. Từ `v0.20.1` (23/10/2026) mọi tổ chức có đủ `orders`,
+  `links` — tổ chức mới được ghi lúc "Bạn là ai?", tổ chức cũ được migration bù; API ≤ 0.20.0 luôn trả `[]`. App
+  hiện **không** ẩn đơn / kết nối theo cờ (chỉ theo `permissions`); muốn dùng cờ thì nhớ tổ chức có thể bị xoá cờ
+  để tắt tính năng.
 - `user.email` là email khôi phục trong hồ sơ (`v0.20.0`; trước đây lấy từ lúc đăng ký nên sửa hồ sơ không đổi
   theo), `null` khi chưa có — email nội bộ `84…@id.thumua365.vn` luôn bị giấu.
   `user.phone` có dạng `+84…`; hiển thị bằng `formatPhoneVn` của `@mambo/core/identifier`.

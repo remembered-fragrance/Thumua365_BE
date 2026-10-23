@@ -36,10 +36,10 @@ release của repo này.
 
 ## 2. Staging (Render + Supabase `thumua365-staging`)
 
-- [x] `prisma migrate deploy` lên staging — đủ 15/15 migration tới `20261020000000_email_chua_xac_nhan` (0.20.0,
-      20/10). Từ 0.14 áp qua Supabase MCP (`DIRECT_URL` trống), ghi `_prisma_migrations` kèm checksum. Chạy TRƯỚC
-      khi merge/deploy code mới (migration chỉ thêm, image cũ vẫn chạy). `20261023000000_bat_features` (PR #46,
-      chưa merge) **chưa áp** — áp trước khi merge PR đó.
+- [x] `prisma migrate deploy` lên staging — đủ 16/16 migration tới `20261023000000_bat_features` (0.20.1,
+      23/10). Từ 0.14 áp qua Supabase MCP (`DIRECT_URL` trống), ghi `_prisma_migrations` kèm checksum. Chạy TRƯỚC
+      khi merge/deploy code mới (migration chỉ thêm, image cũ vẫn chạy). Lần gần nhất: áp
+      `bat_features` rồi mới merge PR #46.
 - [x] Đặt mật khẩu role `api_privileged`: `npm run db:role-password -w @mambo/api -- --role api_privileged`
       → `PRIVILEGED_DATABASE_URL` (user `api_privileged.<ref>`, cổng 6543) trong `apps/api/.env`, chép sang Render.
       Tài làm 18/10.
@@ -127,4 +127,4 @@ ai?" + chọn tổ chức → ô "Nhập mã kết nối" → vỏ Nông dân (k
 Gói + chuyển khoản → vỏ Doanh nghiệp → ảnh → đo lường + trang Quyền riêng tư → TWA lên CH Play.
 
 **23/10/2026:** app web đã có đủ các bước trên, trừ **TWA lên CH Play** (chưa có) và Sentry cho web. Bản đang
-chạy cài gói `v0.20.0`; nhật ký ở `MEMORY.md` của repo frontend.
+chạy cài gói `v0.20.0` (chạy được với API `0.20.1`, hợp đồng không đổi); nhật ký ở `MEMORY.md` của repo frontend.

@@ -8,11 +8,11 @@ Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **B
 nối, nghiệm thu trên staging 03/10) · **BE5 ✅ · BE7 🟡 · BE6 🟡 · BE8 🟡 · BE9 🟡 · BE10 🟡 (phần code)** — phát hành chung **`v0.11.0`** (07/10;
 gom từ nhánh `be/nestjs-be10` của repo frontend). BE5 đã nghiệm thu trên staging (04/10); các bước sau còn
 nghiệm thu — nhật ký ở [MEMORY.md](../MEMORY.md)
-Sau BE10 (cập nhật 23/10/2026): `v0.12.0` → **`v0.20.0`** (13/10 → 20/10) — đổi tên tổ chức, việc của từng người,
+Sau BE10 (cập nhật 23/10/2026): `v0.12.0` → **`v0.20.1`** (13/10 → 23/10) — đổi tên tổ chức, việc của từng người,
 **bản đồ thu mua / PostGIS** (0.14), nháp giữ khoản cộng/trừ, **email qua Brevo** (xác nhận email, quên mật khẩu —
 0.16), xoá tài khoản không làm sổ bên kia mất đơn, rà soát đồng bộ / đơn / gói, chi nhánh chỉ cho doanh nghiệp
-(0.20) — chi tiết ở [`CHANGELOG`](../packages/contracts/CHANGELOG.md). App web thật (www.thumua365.id.vn) đang chạy
-trên API **staging**; chưa có production riêng, backup và bucket ảnh chưa cấu hình — xem
+(0.20), cờ `features` bật sẵn (0.20.1) — chi tiết ở [`CHANGELOG`](../packages/contracts/CHANGELOG.md). App web thật
+(www.thumua365.id.vn) đang chạy trên API **staging**; chưa có production riêng, backup và bucket ảnh chưa cấu hình — xem
 [`ops/PRODUCTION.md`](../ops/PRODUCTION.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
@@ -328,9 +328,9 @@ mambo365_deploymentphase (repo frontend hiện tại)                     [Front
 }
 ```
 
-`features` (23/10/2026): API ≤ 0.20 không ghi `organization_features` ở đâu cả ⇒ thực tế luôn `[]`. PR #46
-(`feat/bat-features`, chưa merge) cho bootstrap ghi sẵn `orders`, `links` và kèm migration
-`20261023000000_bat_features` bật cho mọi tổ chức đang có. App hiện không ẩn gì theo `features`.
+`features`: từ `v0.20.1` (23/10/2026) bootstrap ghi sẵn `orders`, `links` cho tổ chức mới, migration
+`20261023000000_bat_features` bật cho mọi tổ chức đang có. API ≤ 0.20.0 không ghi cờ nào (luôn `[]`). App hiện
+không ẩn gì theo `features`.
 
 ### 3.3 Triển khai dần mà không cần đường cũ
 

@@ -1,7 +1,7 @@
 # THÔNG TIN DỰ ÁN — Mambo365 / THUMUA365
 
 > **Đọc file này đầu tiên.** Nó tổng hợp mọi thứ đã chốt và chưa chốt tính đến
-> **23/10/2026** (BE0 → BE10 xong phần code, phát hành tới `v0.20.0`, app web đang có người dùng thật): sản phẩm
+> **23/10/2026** (BE0 → BE10 xong phần code, phát hành tới `v0.20.1`, app web đang có người dùng thật): sản phẩm
 > là gì, ai dùng, kiến trúc đích, repo đang có gì, làm theo thứ tự nào, và nhóm còn phải quyết gì. Chi tiết kỹ
 > thuật nằm ở các file được dẫn tới.
 
@@ -17,7 +17,7 @@
 | Hướng mới (09/2026) | **Nền tảng ba vai trò** trên một chuỗi, backend **NestJS** theo sơ đồ kiến trúc |
 | Nông sản trọng tâm | Cao su · điều · cà phê · tiêu |
 | Nền tảng | Web (React + TS, PWA offline) · Android (lên CH Play) |
-| Tình trạng một câu (23/10/2026) | Backend xong phần code **BE0 → BE10**, phát hành tới **`v0.20.0`** (20/10): tài khoản, ba loại tổ chức, đồng bộ sổ offline, kết nối bằng **mã kết nối** (OTP tạm ẩn), đơn + đặt lịch + thông báo, nhân viên / chi nhánh / báo cáo, gói + webhook ngân hàng, ảnh chứng từ, đo lường, **bản đồ thu mua** (0.14), **email khôi phục + quên mật khẩu qua Brevo** (0.16). App web dựng lại theo hợp đồng, chạy ở **www.thumua365.id.vn** và gọi API **staging** — chưa có production riêng, nên project staging đang chứa **người dùng thật** (17 tổ chức lúc 23/10, mọi gói còn dùng thử, chưa thu tiền). Còn thiếu: **backup ra kho ngoài**, **bucket ảnh**, số tài khoản nhận tiền, TWA lên CH Play — xem [`ops/PRODUCTION.md`](../ops/PRODUCTION.md). Nhật ký: [MEMORY.md](../MEMORY.md) |
+| Tình trạng một câu (23/10/2026) | Backend xong phần code **BE0 → BE10**, phát hành tới **`v0.20.1`** (23/10): tài khoản, ba loại tổ chức, đồng bộ sổ offline, kết nối bằng **mã kết nối** (OTP tạm ẩn), đơn + đặt lịch + thông báo, nhân viên / chi nhánh / báo cáo, gói + webhook ngân hàng, ảnh chứng từ, đo lường, **bản đồ thu mua** (0.14), **email khôi phục + quên mật khẩu qua Brevo** (0.16). App web dựng lại theo hợp đồng, chạy ở **www.thumua365.id.vn** và gọi API **staging** — chưa có production riêng, nên project staging đang chứa **người dùng thật** (17 tổ chức lúc 23/10, mọi gói còn dùng thử, chưa thu tiền). Còn thiếu: **backup ra kho ngoài**, **bucket ảnh**, số tài khoản nhận tiền, TWA lên CH Play — xem [`ops/PRODUCTION.md`](../ops/PRODUCTION.md). Nhật ký: [MEMORY.md](../MEMORY.md) |
 
 ### Phân công
 
@@ -231,8 +231,7 @@ Realtime · báo cáo nặng phía server · Capacitor.
 | `v0.17.0` | Xoá tài khoản không làm sổ bên kia mất đơn / kết nối (dữ liệu thuộc về vựa) |
 | `v0.18.0` · `v0.19.0` | Rà soát đồng bộ, đơn, gói; giới hạn ô nhập phiếu; hàng đợi không kẹt cả lượt |
 | `v0.20.0` | Trùng tên người bán, giới hạn ô nhập, lỗi tải ảnh, chi nhánh chỉ cho DN, email chưa xác nhận không giữ chỗ |
-| PR #44 (không tag) | Pentest: `resolve-identifier` không dò được tài khoản qua độ trễ |
-| PR #46 (mở 23/10, chưa merge) | Bật sẵn cờ `features` cho mọi tổ chức; có migration, phải áp lên staging trước khi merge |
+| `v0.20.1` | Bật sẵn cờ `features` (`orders`, `links`) cho mọi tổ chức; gồm cả PR #44 (pentest: `resolve-identifier` không dò được tài khoản qua độ trễ) |
 | Chờ duyệt | C2 giới hạn chi nhánh khi kích hoạt gói DN, C3 đăng nhập qua API — [DE_XUAT_C2_C3.md](DE_XUAT_C2_C3.md) |
 
 ---
@@ -357,4 +356,4 @@ trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, d
 | Kết nối | Liên kết giữa một dòng danh bạ trong sổ và một tổ chức có tài khoản thật |
 | Vỏ | Bộ màn hình + điều hướng theo loại tổ chức (nông dân / vựa / doanh nghiệp) |
 | Contract | Schema zod trong `packages/contracts` — thoả thuận giữa backend và frontend |
-| `features` | Danh sách tính năng bật cho từng tổ chức, trả trong `/v1/me` — cách mở dần tính năng mới cho nhóm pilot. API ≤ 0.20 chưa ghi cờ nào (luôn `[]`); PR #46 (chưa merge) bật sẵn `orders`, `links`. App hiện không ẩn gì theo cờ |
+| `features` | Danh sách tính năng bật cho từng tổ chức, trả trong `/v1/me` — cách mở dần tính năng mới cho nhóm pilot. Từ `v0.20.1` mọi tổ chức có `orders`, `links` (API ≤ 0.20.0 luôn `[]`). App hiện không ẩn gì theo cờ |
