@@ -3,6 +3,17 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.20.1 — 23/10/2026 (cờ tính năng bật sẵn)
+
+Không đổi hình dạng route nào. Có **migration** `20261023000000_bat_features` — chạy trên staging trước khi merge.
+
+- `/v1/me` — `membership.features` có giá trị thật: tổ chức mới tạo qua `meBootstrap` được ghi sẵn mọi cờ
+  (`orders`, `links`); migration ghi hai cờ đó cho mọi tổ chức đang có. Trước đây không chỗ nào ghi
+  `organization_features` nên `features` luôn `[]`. App hiện không ẩn gì theo cờ ⇒ không phải nâng app.
+
+Ngoài hợp đồng, cũng có trong bản này (merge sau tag 0.20.0): PR #44 — `resolve-identifier` có hay không có tài khoản đều
+tốn cùng một lượt gọi Auth Admin (pentest, không dò được qua độ trễ).
+
 ## 0.20.0 — 19/10/2026 (Đợt 2: trùng tên, giới hạn ô nhập, ảnh, chi nhánh, email chưa xác nhận)
 
 Không đổi hình dạng route nào. Có **migration** `20261020000000_email_chua_xac_nhan` — chạy trên staging trước khi merge.

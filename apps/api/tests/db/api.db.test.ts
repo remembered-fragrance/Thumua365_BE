@@ -89,16 +89,18 @@ describe('POST /v1/me/bootstrap', () => {
     expect(m?.role).toBe('owner');
     expect(m?.permissions).toContain('receipt:delete');
     expect(m?.plan).toMatchObject({ tier: 'trial', status: 'trialing', branchLimit: null });
+    expect(m?.features).toEqual(['links', 'orders']);
     const days = (new Date(m?.plan?.periodEnd ?? 0).getTime() - Date.now()) / 86_400_000;
     expect(days).toBeGreaterThan(29.9);
     expect(days).toBeLessThanOrEqual(30);
   });
 
-  it('nông dân: không có gói, quyền của nông dân', async () => {
+  it('nông dân: không có gói, quyền của nông dân, đủ cờ tính năng', async () => {
     const res = await bootstrap({ orgType: 'farmer', orgName: 'Hộ cô Mai', name: 'Mai' }).expect(200);
     const [m] = Me.parse(res.body).memberships;
     expect(m?.plan).toBeNull();
     expect(m?.permissions).not.toContain('book:sync');
+    expect(m?.features).toEqual(['links', 'orders']);
     const { rows } = await admin.query('select id from subscriptions');
     expect(rows).toEqual([]);
     const products = await admin.query('select id from products');

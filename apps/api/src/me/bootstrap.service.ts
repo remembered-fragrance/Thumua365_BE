@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_PRODUCTS } from '@mambo/core/catalog';
 import { normalizePhone } from '@mambo/core/identifier';
-import { type MeBootstrapInput, hasBook } from '@mambo/contracts';
+import { Feature, type MeBootstrapInput, hasBook } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 import { recordAudit } from '../audit/audit';
@@ -77,8 +77,8 @@ const uniqueViolation = (err: unknown): ApiException | null => {
 };
 
 /**
- * Bước "Bạn là ai?" — hồ sơ + tổ chức + chủ + (vựa, DN) gói dùng thử và mặt hàng mặc định,
- * MỘT transaction.
+ * Bước "Bạn là ai?" — hồ sơ + tổ chức + chủ + cờ tính năng + (vựa, DN) gói dùng thử và mặt hàng
+ * mặc định, MỘT transaction.
  *
  * Idempotent: người đã thuộc một tổ chức gọi lại thì không tạo gì thêm. Khoá
  * advisory theo user chặn hai lần bấm cùng lúc tạo ra hai tổ chức.
@@ -130,6 +130,10 @@ export class BootstrapService {
         await tx.membership.create({
           data: { userId: user.id, organizationId, role: 'owner', status: 'active' },
           select: { id: true },
+        });
+        // Mọi tổ chức mới bật sẵn mọi cờ (`features` trong /v1/me); muốn tắt cho ai thì xoá dòng của họ.
+        await tx.organizationFeature.createMany({
+          data: Feature.options.map((feature) => ({ organizationId, feature })),
         });
         if (hasBook(input.orgType)) {
           await tx.subscription.create({
