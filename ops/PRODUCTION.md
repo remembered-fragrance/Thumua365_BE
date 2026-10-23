@@ -4,50 +4,69 @@ Code của BE0–BE9 đã xong và có test trên Postgres thật (BE5–BE10 go
 frontend, soát và sửa khi gom về repo BE). Còn lại là việc **cần tài khoản / quyết định của nhóm** — làm đúng thứ tự dưới đây; mỗi dòng xong thì đánh dấu và ghi ngày vào `MEMORY.md`.
 Không mở cho người dùng thật trước khi xong **mục 4 (backup đã thử phục hồi)**.
 
+> **Thực tế ngày 23/10/2026 — điều kiện trên đã bị vượt qua.** App web `www.thumua365.id.vn` (Vercel) gọi
+> thẳng API **staging** (`thumua365-api-staging.onrender.com`, Render free, `APP_ENV=staging`) → Supabase
+> `thumua365-staging`. Chưa có service / project production riêng (mục 6). Project "staging" đang có người dùng
+> thật: 17 tổ chức (7 vựa, 7 nông dân, 3 doanh nghiệp), 8 phiếu, 2 đơn, 1 địa điểm trên bản đồ, 10 gói dùng thử,
+> 0 giao dịch ngân hàng. Mà **backup chưa chạy** (mục 4) và **chưa có bucket ảnh** (mục 2) — hai việc gấp nhất.
+
 ## 0. Quyết định còn chờ nhóm
 
 | Việc | Ai | Chặn |
 |---|---|---|
-| Số tài khoản nhận tiền + người chịu trách nhiệm pháp lý | Nguyên, Linh | Thu tiền (mục 5) |
+| Số tài khoản nhận tiền + người chịu trách nhiệm pháp lý | Nguyên, Linh | Thu tiền (mục 5) — app vẫn để `BANK_ACCOUNT_NUMBER = '0000000000'`, `LEGAL_OPERATOR` null |
 | Nhà cung cấp SMS cho OTP (Twilio/Vonage, hoặc eSMS/SpeedSMS qua Send SMS Hook) | nhóm | Không chặn — kết nối bằng mã; OTP mở lại khi > 100 tổ chức trả phí |
-| Nhà cung cấp email (Resend / SES / SMTP) | nhóm | Thông báo email (BE5) — không chặn pilot |
+| ~~Nhà cung cấp email (Resend / SES / SMTP)~~ | ✅ **Brevo** (0.16.0, 16/10) | — |
 | Kho backup khác Supabase: Cloudflare R2 hay Backblaze B2 | nhóm | Mục 4 |
-| Vựa có được nhiều chi nhánh với giá 149.000đ? Mua lúc dùng thử có cộng dồn ngày còn lại? | nhóm | Không chặn — đang theo mặc định |
-| `resolve-identifier` lộ email đăng nhập khi gõ đúng tên tài khoản → `POST /v1/auth/login`? | nhóm | Không chặn |
-| Quyền DNS `thumua365.vn` (`api.`, `app.`) | nhóm | Không chặn — tạm `*.onrender.com` |
+| ~~Vựa có được nhiều chi nhánh với giá 149.000đ? Mua lúc dùng thử có cộng dồn ngày còn lại?~~ | ✅ Chi nhánh chỉ cho doanh nghiệp (C1, 0.20.0); trả tiền giữa kỳ dùng thử giữ ngày còn lại (0.18.0) | — |
+| Gói DN kích hoạt khi đang dùng nhiều chi nhánh hơn gói (C2) | chủ dự án — [`docs/DE_XUAT_C2_C3.md`](../docs/DE_XUAT_C2_C3.md) | Không chặn |
+| `resolve-identifier` lộ email đăng nhập (chứa SĐT) khi gõ đúng tên tài khoản / email khôi phục → `POST /v1/auth/login`? (C3) | chủ dự án — [`docs/DE_XUAT_C2_C3.md`](../docs/DE_XUAT_C2_C3.md). Phần dò qua độ trễ đã sửa (PR #44, 20/10) | Không chặn |
+| ~~Quyền DNS `thumua365.vn` (`api.`, `app.`)~~ | Domain của nhóm là **`thumua365.id.vn`** (app ở `www.`); `thumua365.vn` không phải của nhóm | Không chặn — API vẫn ở `*.onrender.com` |
+| Dựng production riêng (mục 6) hay nâng project hiện tại thành production | nhóm | Không chặn chạy; chặn việc tách dữ liệu thử khỏi dữ liệu thật |
 
 ## 1. Repo và CI
 
 Repo chính là `Thumua365_BE`, **chỉ backend** (quyết định 03/10/2026); frontend ở repo riêng, cài gói từ
 release của repo này.
 
-- [ ] Ba job CI `verify`, `db`, `docker` xanh trên `master` sau khi gom BE5 → BE10.
-- [ ] Mỗi bước BE5 → BE10 lên staging và nghiệm thu theo "Xong khi" trước khi sang bước sau.
+- [x] Ba job CI `verify`, `db`, `docker` xanh trên `master` sau khi gom BE5 → BE10 (04/10; vẫn xanh tới PR #44,
+      20/10).
+- [ ] Mỗi bước BE5 → BE10 lên staging và nghiệm thu theo "Xong khi" trước khi sang bước sau. BE5 ✅ (`smoke:orders`,
+      04/10). BE6 → BE9 đã lên staging và đang được người dùng thật dùng, nhưng **chưa nghiệm thu** theo "Xong khi".
 
 ## 2. Staging (Render + Supabase `thumua365-staging`)
 
-- [ ] `prisma migrate deploy` lên staging — migration của từng bước (BE5, BE7, BE6), bước nào lên bước đó. Chạy TRƯỚC khi
-      merge/deploy code mới (migration chỉ thêm, image cũ vẫn chạy).
-- [ ] Đặt mật khẩu role `api_privileged`: `npm run db:role-password -w @mambo/api -- --role api_privileged`
+- [x] `prisma migrate deploy` lên staging — đủ 16/16 migration tới `20261023000000_bat_features` (0.20.1,
+      23/10). Từ 0.14 áp qua Supabase MCP (`DIRECT_URL` trống), ghi `_prisma_migrations` kèm checksum. Chạy TRƯỚC
+      khi merge/deploy code mới (migration chỉ thêm, image cũ vẫn chạy). Lần gần nhất: áp
+      `bat_features` rồi mới merge PR #46.
+- [x] Đặt mật khẩu role `api_privileged`: `npm run db:role-password -w @mambo/api -- --role api_privileged`
       → `PRIVILEGED_DATABASE_URL` (user `api_privileged.<ref>`, cổng 6543) trong `apps/api/.env`, chép sang Render.
+      Tài làm 18/10.
 - [ ] Render env: `BANK_WEBHOOK_SECRET` (≥ 24 ký tự ngẫu nhiên), `ADMIN_USER_IDS` (id tài khoản của
-      người quản trị), `METRICS_TOKEN`, `CORS_ORIGINS` thêm domain preview của app web.
-- [ ] 0.16.0 — gửi thư: tài khoản Brevo, xác minh sender (hoặc domain), Render env `BREVO_API_KEY`, `MAIL_FROM`
-      (`MAIL_FROM_NAME`, `APP_URL` có sẵn trong `render.yaml`). Supabase Auth → **Minimum password length = 8**
-      (`PASSWORD_MIN_LENGTH` của contracts — đăng ký / đổi mật khẩu đi thẳng tới Supabase).
+      người quản trị), `METRICS_TOKEN`, `CORS_ORIGINS` thêm domain preview của app web. `CORS_ORIGINS` đã có domain
+      app thật (app đang gọi được); ba biến còn lại chưa kiểm.
+- [x] 0.16.0 — gửi thư: tài khoản Brevo, xác minh sender (hoặc domain), Render env `BREVO_API_KEY`, `MAIL_FROM`
+      (`MAIL_FROM_NAME`, `APP_URL` có sẵn trong `render.yaml`). Thư chạy: đã có email khôi phục được xác nhận qua
+      link (17/10). Còn kiểm: Supabase Auth → **Minimum password length = 8** (`PASSWORD_MIN_LENGTH` của contracts
+      — đăng ký / đổi mật khẩu đi thẳng tới Supabase).
 - [ ] Supabase Storage: bucket `attachments` **riêng tư**, giới hạn 3MB, chỉ
-      `image/jpeg,image/png,image/webp`, **không** policy nào cho `anon` / `authenticated`.
+      `image/jpeg,image/png,image/webp`, **không** policy nào cho `anon` / `authenticated`. **23/10: project chưa có
+      bucket nào** ⇒ ảnh chứng từ không lên được (app giữ ảnh trong máy, thử lại sau).
 - [ ] Nghiệm thu bằng `npm run login-test`: đăng ký 3 loại tổ chức, đồng bộ hai máy, đơn → phiếu theo
-      đơn → hoàn thành, nhân viên / chi nhánh, ảnh, chuyển khoản thử (mục 5 trên staging).
+      đơn → hoàn thành, nhân viên / chi nhánh, ảnh, chuyển khoản thử (mục 5 trên staging). Thử ở máy local
+      (Auth vẫn là staging) — đừng để lại tài khoản thử trong project đang có người dùng thật.
 
 ## 3. Kết nối bằng mã (BE4)
 
 OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT ở cả staging lẫn production.
 
 - [ ] Thử trên production: vựa mời → đưa mã → nông dân nhập mã → thấy đúng phiếu và công nợ; mã đã dùng
-      / hết hạn → không nhập được; huỷ → mất quyền ngay.
+      / hết hạn → không nhập được; huỷ → mất quyền ngay. (Đã nghiệm thu trên staging 03/10 bằng `smoke:links`.)
 
 ## 4. Backup — điều kiện bắt buộc trước người dùng thật
+
+**23/10/2026: chưa làm mục nào.** Workflow **Backup** chạy mỗi đêm, báo xanh nhưng bỏ qua vì chưa có secret.
 
 - [ ] Tạo bucket ở R2 / B2 (nhà cung cấp KHÁC Supabase), khoá truy cập chỉ ghi / đọc bucket đó.
 - [ ] **Role riêng chỉ đọc cho sao lưu**, đừng dùng `postgres`: chuỗi kết nối nằm trong GitHub secrets, mà
@@ -56,10 +75,12 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
       `auth.identities` nếu Supabase cho grant). Đặt mật khẩu: `npm run db:role-password -w @mambo/api -- --role
       backup_reader` → `BACKUP_DATABASE_URL` (Session pooler 5432). Xem log `prisma migrate deploy`: có notice
       "không grant được SELECT trên auth.users" thì phần dump `auth` cần role khác — ghi MEMORY.
-      Đã thử trên Postgres máy dev (13/10): dump `public` được; `insert` / `truncate` bị từ chối.
+      Đã thử trên Postgres máy dev (13/10): dump `public` được; `insert` / `truncate` bị từ chối. Staging: role đã
+      có, còn `NOLOGIN` (23/10).
 - [ ] GitHub secrets: `BACKUP_DATABASE_URL` (role ở mục trên, của **production**, Session pooler 5432),
       `BACKUP_PASSPHRASE` (≥ 32 ký tự — **cất thêm một bản ngoài GitHub**), `BACKUP_S3_BUCKET`,
-      `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`.
+      `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`. Chưa có production riêng thì
+      trỏ vào project đang có người dùng thật.
 - [ ] Chạy tay workflow **Backup** với "thử phục hồi" → job `restore-check` xanh (phục hồi vào Postgres
       trống, số dòng khớp lúc dump). Ghi ngày + người thử vào MEMORY.
 - [ ] Phục hồi vào một Postgres **mới hoàn toàn** (cluster khác) phải xanh — lần thử 03/10/2026 ở máy dev
@@ -68,8 +89,11 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 
 ## 5. Thu tiền (BE6)
 
+Chưa thu tiền thật: 23/10 có 0 giao dịch ngân hàng; mọi gói đang là dùng thử.
+
 - [ ] Điền số tài khoản thật vào config của app web (`BANK_BIN`, `BANK_ACCOUNT_NUMBER`,
-      `BANK_ACCOUNT_NAME`, `BANK_NAME`); tự quét thử mã QR bằng app ngân hàng.
+      `BANK_ACCOUNT_NAME`, `BANK_NAME`); tự quét thử mã QR bằng app ngân hàng. Hiện `BANK_ACCOUNT_NUMBER` vẫn là
+      `'0000000000'`.
 - [ ] Casso / SePay: webhook `https://<api>/v1/webhooks/bank`, bí mật = `BANK_WEBHOOK_SECRET`
       (Casso: header `secure-token`; SePay: `Authorization: Apikey …`).
 - [ ] VAN_HANH §7.3 trên production: một lần chuyển khoản thật mở gói; gọi lại webhook → không cộng
@@ -77,6 +101,8 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 - [ ] Sau đó: gỡ Edge Function `payment-webhook` cũ khỏi project Supabase cũ (nếu còn).
 
 ## 6. Production (Render `thumua365-api`, Supabase `thumua365-prod`)
+
+Chưa dựng (23/10) — xem dòng cuối mục 0.
 
 - [ ] Supabase prod: **tắt "Confirm email"** (người đăng ký bằng số dùng email nội bộ, không nhận thư),
       Phone provider để tắt, bucket `attachments` như staging, Data API vẫn tắt.
@@ -87,7 +113,7 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
       `CORS_ORIGINS` có `localhost` / `http://` — đó là cố ý.
 - [ ] Deploy đúng commit đã chạy trên staging. `/v1/health` trả `env: production`, đúng `commit`.
 - [ ] `npm run security:check` xanh (CI làm sẵn); `service_role` / khoá secret chỉ có trong env Render.
-- [ ] Sentry: `SENTRY_DSN` cho API (và web).
+- [ ] Sentry: `SENTRY_DSN` cho API (và web — app web chưa cài Sentry).
 - [ ] Gửi thư như staging (`BREVO_API_KEY`, `MAIL_FROM`, `APP_URL` https domain thật) và Supabase prod
       **Minimum password length = 8**. Thiếu khoá Brevo API vẫn lên, nhưng "Quên mật khẩu?" báo không gửi được thư.
 - [ ] Grafana Cloud: scrape `/metrics` bằng `METRICS_TOKEN`, import `ops/grafana/thumua365-api.json`.
@@ -96,6 +122,9 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 
 ## 7. Frontend (repo riêng) — chạy song song từ mục 2
 
-Hợp đồng đủ cho mọi màn ở `docs/FRONTEND.md` §5–§7 (mục 5.8–5.12 là BE5–BE9). Thứ tự gợi ý: "Bạn là
+Hợp đồng đủ cho mọi màn ở `docs/FRONTEND.md` §5–§7 (mục 5.8–5.13 là BE5–BE9 và bản đồ). Thứ tự gợi ý: "Bạn là
 ai?" + chọn tổ chức → ô "Nhập mã kết nối" → vỏ Nông dân (kết nối, phiếu, công nợ, đơn) → đơn + thông báo cho vựa →
 Gói + chuyển khoản → vỏ Doanh nghiệp → ảnh → đo lường + trang Quyền riêng tư → TWA lên CH Play.
+
+**23/10/2026:** app web đã có đủ các bước trên, trừ **TWA lên CH Play** (chưa có) và Sentry cho web. Bản đang
+chạy cài gói `v0.20.0` (chạy được với API `0.20.1`, hợp đồng không đổi); nhật ký ở `MEMORY.md` của repo frontend.

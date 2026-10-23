@@ -7,7 +7,13 @@ Sửa lần 5: 01/10/2026 — kết nối bằng **mã kết nối** thay OTP; O
 Tiến độ: **BE0 ✅ · BE1 ✅ · BE2 ✅** · **BE3 ✅** (`v0.4.0`) · **BE4 ✅** (`v0.5.0`, kết nối bằng mã kết
 nối, nghiệm thu trên staging 03/10) · **BE5 ✅ · BE7 🟡 · BE6 🟡 · BE8 🟡 · BE9 🟡 · BE10 🟡 (phần code)** — phát hành chung **`v0.11.0`** (07/10;
 gom từ nhánh `be/nestjs-be10` của repo frontend). BE5 đã nghiệm thu trên staging (04/10); các bước sau còn
-nghiệm thu, BE5 còn email — nhật ký ở [MEMORY.md](../MEMORY.md)
+nghiệm thu — nhật ký ở [MEMORY.md](../MEMORY.md)
+Sau BE10 (cập nhật 23/10/2026): `v0.12.0` → **`v0.20.1`** (13/10 → 23/10) — đổi tên tổ chức, việc của từng người,
+**bản đồ thu mua / PostGIS** (0.14), nháp giữ khoản cộng/trừ, **email qua Brevo** (xác nhận email, quên mật khẩu —
+0.16), xoá tài khoản không làm sổ bên kia mất đơn, rà soát đồng bộ / đơn / gói, chi nhánh chỉ cho doanh nghiệp
+(0.20), cờ `features` bật sẵn (0.20.1) — chi tiết ở [`CHANGELOG`](../packages/contracts/CHANGELOG.md). App web thật
+(www.thumua365.id.vn) đang chạy trên API **staging**; chưa có production riêng, backup và bucket ảnh chưa cấu hình — xem
+[`ops/PRODUCTION.md`](../ops/PRODUCTION.md)
 Hướng làm (28/09/2026): **backend làm trước, frontend làm sau** — frontend dựng lại app từ đầu theo
 hợp đồng khi backend xong các bước; mục "Frontend" của từng bước là việc để dành
 Người làm backend: **Tài** · Frontend: người khác trong nhóm
@@ -316,11 +322,15 @@ mambo365_deploymentphase (repo frontend hiện tại)                     [Front
     "role": "owner", "branch": null,
     "permissions": ["order:create", "order:respond", "linked:read", "report:view"],
     "plan": null,                 // vựa/DN: { tier, status, periodEnd, branchLimit }
-    "features": ["orders", "links"]
+    "features": ["orders", "links"]   // xem ghi chú dưới
   }],
   "pendingLinks": 2
 }
 ```
+
+`features`: từ `v0.20.1` (23/10/2026) bootstrap ghi sẵn `orders`, `links` cho tổ chức mới, migration
+`20261023000000_bat_features` bật cho mọi tổ chức đang có. API ≤ 0.20.0 không ghi cờ nào (luôn `[]`). App hiện
+không ẩn gì theo `features`.
 
 ### 3.3 Triển khai dần mà không cần đường cũ
 
@@ -587,7 +597,7 @@ chưa đạt.
   huỷ → `LINK_REQUIRED` ngay; database: kết nối `pending → active → revoked`, mã đã xoá, đủ ba dòng
   audit. `test:db` 103/103 trong CI.
 
-### BE5 — Đơn, đặt lịch, thông báo (3–4 buổi) · luồng giá trị chính · 🟡 03/10 — hợp đồng + API + test xong
+### BE5 — Đơn, đặt lịch, thông báo (3–4 buổi) · luồng giá trị chính · ✅ nghiệm thu R2 trên staging 04/10 (`smoke:orders`) — kênh email cho thông báo chưa làm
 
 **Chốt khi làm BE5 (03/10/2026):** accept/reject = bên NHẬN đơn; schedule = bên MUA (hẹn lại được);
 cancel = bên nào cũng được; `fulfilled` chỉ qua phiếu theo đơn, từ MỌI trạng thái còn mở (phiếu là
@@ -606,7 +616,7 @@ việc đã cân thật). Đơn đã xong nhận thêm phiếu (chỉ gắn). Lu
   → vựa cân, lập phiếu theo đơn, trả một phần **lúc mất mạng** → có mạng → đơn tự
   `fulfilled` → nông dân thấy phiếu và số còn nợ. Một test Playwright chạy luồng này trong CI.
 
-### BE6 — Tài khoản, gói, thanh toán (2–3 buổi) · 🟡 03/10 — hợp đồng + API + test xong
+### BE6 — Tài khoản, gói, thanh toán (2–3 buổi) · 🟡 code xong 03/10, `api_privileged` có trên staging 18/10 — chưa chuyển khoản thật
 
 **Chốt khi làm BE6 (03/10/2026):** `PrivilegedDatabase` (role `api_privileged`, biến
 `PRIVILEGED_DATABASE_URL`) chỉ inject vào webhook, quản trị, xoá tài khoản. Quản trị viên = id trong
@@ -632,7 +642,7 @@ cũng đã xoá ⇒ đơn xoá theo. Trigger `orders_guard` / `partner_links_gua
 - **Xong khi:** 10 mục VAN_HANH §7.3 chạy trên API; một lần chuyển khoản thật. **Đạt
   phần luồng của R3.**
 
-### BE7 — Doanh nghiệp: nhân viên, chi nhánh, báo cáo (2–3 buổi) · 🟡 03/10 — hợp đồng + API + test xong
+### BE7 — Doanh nghiệp: nhân viên, chi nhánh, báo cáo (2–3 buổi) · 🟡 code xong 03/10 — chưa nghiệm thu trên staging
 
 **Chốt khi làm BE7 (03/10/2026):** chủ TẠO tài khoản cho nhân viên (tên, SĐT, mật khẩu ban đầu —
 Auth Admin API) thay vì mời: người cân không phải tự đăng ký, không cần OTP. Số đã có tài khoản nơi
@@ -648,7 +658,7 @@ phiếu vựa ghi về mình (lật chiều).
 - **Xong khi:** DN hai chi nhánh, mỗi nơi một nhân viên cân — mỗi người chỉ thấy phiếu chi
   nhánh mình; owner thấy tổng khớp hai chi nhánh cộng lại; tạo chi nhánh thứ N+1 → `BRANCH_LIMIT`.
 
-### BE8 — Ảnh chứng từ (1 buổi) · 🟡 03/10 — hợp đồng + API + test xong
+### BE8 — Ảnh chứng từ (1 buổi) · 🟡 code xong 03/10 — staging chưa có bucket `attachments` (23/10)
 
 **Chốt khi làm BE8 (03/10/2026):** đường dẫn `attachments/<orgId>/<attachmentId>`, API chỉ ký URL
 (tải lên: hạn 2 giờ, không ghi đè; xem: 10 phút). Xem chỉ khi phiếu / nháp mình được thấy (RLS + chi
@@ -661,7 +671,7 @@ nhánh) nhắc tới id. Giới hạn 3MB, JPEG/PNG/WebP — kiểm ở API, buc
 - **Xong khi:** ảnh chụp lúc mất mạng lên được khi có mạng; máy thứ hai xem được; URL hết
   hạn thì không mở được.
 
-### BE9 — Đo lường + giám sát (2 buổi) · R5 · 🟡 03/10 — hợp đồng + API + test xong
+### BE9 — Đo lường + giám sát (2 buổi) · R5 · 🟡 code xong 03/10 — app đã gửi sự kiện; Grafana chưa nối
 
 **Chốt khi làm BE9 (03/10/2026):** `POST /v1/events` công khai, token tuỳ chọn (`optionalAuth`) —
 có thì server gắn tổ chức + `orgType` thật. Danh mục `discriminatedUnion` với thuộc tính strict; sai
@@ -679,7 +689,7 @@ Chưa có pg-boss nên chưa có số đo job lỗi — thêm cùng kênh email.
 - **Xong khi:** một vòng luồng R2 trên staging → phễu đủ sự kiện đúng thứ tự, tách được
   theo `orgType`. **Đạt R5.**
 
-### BE10 — Lên production (1–2 buổi) · 🟡 03/10 — phần code xong, bảng kiểm vận hành ở `ops/PRODUCTION.md`
+### BE10 — Lên production (1–2 buổi) · 🟡 03/10 — phần code xong; backup chưa cấu hình, chưa có production riêng (23/10) — bảng kiểm ở `ops/PRODUCTION.md`
 
 **Làm 03/10/2026:** `ops/backup/` (pg_dump mã hoá → kho S3-compatible, giữ 30 ngày; thử phục hồi
 so số dòng) + workflow `backup.yml` (hằng ngày; thử phục hồi Chủ nhật). Khi gom về repo BE: phục hồi tự
@@ -744,7 +754,7 @@ ngay service trả phí khi chưa có bí mật).
 | Thông báo đẩy / SMS / Zalo | Có người bỏ lỡ lịch hẹn |
 | Giao hàng nhiều chặng (vựa → DN) | Có DN trả tiền yêu cầu |
 | Phiếu nhập/xuất kho tường minh, lô hàng | DN cần truy xuất nguồn gốc |
-| Map / PostGIS, chợ mở | Nông dân muốn gửi đơn cho vựa chưa kết nối — bàn riêng |
+| ~~Map / PostGIS~~ ✅ bản đồ thu mua `v0.14.0` (16/10) · chợ mở | Chợ mở: nông dân muốn gửi đơn cho vựa chưa kết nối — bàn riêng |
 | Báo cáo nặng phía server cho vựa | Sổ > ~2.000 phiếu |
 | Capacitor | Cần API native mà TWA không có |
 | **Mở lại OTP** — nông dân tự dò các sổ có số của mình (`/links/discover`, đã có code) | > 100 tổ chức trả phí. Việc: chọn nhà cung cấp SMS, bật Phone provider + rate limit OTP, màn OTP ở app, sửa trang Quyền riêng tư (nhà cung cấp SMS) |

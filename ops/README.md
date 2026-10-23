@@ -24,7 +24,7 @@ production (gói trả phí), không bật cho staging.
 
 ## Gói free ↔ gói trả phí
 
-App web đang chạy trên API staging gói **free**. Hai việc bù cho chuyện API ngủ, mỗi việc có một công
+App web (www.thumua365.id.vn) đang chạy trên API staging gói **free**. Hai việc bù cho chuyện API ngủ, mỗi việc có một công
 tắc — nâng cấp chỉ là gạt công tắc, không sửa code:
 
 | Ở đâu | Việc | Công tắc |
@@ -73,6 +73,11 @@ song với workflow cũng được).
 tự xảy ra lần đầu. Dữ liệu ở bảng `analytics_events` (Postgres), chỉ `api_privileged` đọc được.
 
 ## Backup (BE10)
+
+> **Trạng thái 23/10/2026: chưa chạy thật.** Chưa đặt GitHub secrets `BACKUP_*` nên workflow **Backup**
+> vẫn chạy mỗi đêm, báo xanh, nhưng chỉ in cảnh báo "Chưa đặt secrets sao lưu — bỏ qua". Role
+> `backup_reader` còn `NOLOGIN`, chưa chọn kho R2 / B2. Project "staging" đang chứa người dùng thật ⇒ việc
+> này là ưu tiên — các bước ở [`PRODUCTION.md`](PRODUCTION.md) mục 4.
 
 `ops/backup/backup.sh` — `pg_dump` schema `public` (+ dữ liệu `auth.users`, `auth.identities` trên
 Supabase), mã hoá AES-256 trước khi rời máy, lên kho S3-compatible khác Supabase, giữ 30 ngày.
