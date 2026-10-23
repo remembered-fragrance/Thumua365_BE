@@ -312,7 +312,7 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
     "branch": null,                       // DN: { id, name } với nhân viên chi nhánh
     "permissions": ["order:create", "order:respond", "linked:read", "report:view", "billing:manage", "account:delete"],
     "plan": null,                         // vựa/DN: { tier, status, periodEnd, branchLimit }
-    "features": ["orders", "links"]
+    "features": []                        // hiện luôn rỗng — xem "Cờ tính năng" bên dưới
   }],
   "pendingLinks": 2
 }
@@ -335,8 +335,10 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
   - các trường khác: `status`, `periodEnd`, `branchLimit`
 
   Hết gói thì **vẫn đọc và xuất file được** — chỉ chặn ghi sổ.
-- **Cờ tính năng** = `membership.features` (`orders`, `links`). Chức năng mới chỉ hiện khi tổ
-  chức có cờ tương ứng — đây là cách mở dần cho nhóm pilot.
+- **Cờ tính năng** = `membership.features` (giá trị hợp lệ: `orders`, `links`). Hiện **luôn là
+  `[]`** với mọi loại tổ chức: API không tự ghi bảng `organization_features` (tạo tổ chức, migration,
+  seed đều không), muốn có cờ phải `insert` tay bằng SQL. Đơn hàng và kết nối **không** bật theo cờ
+  này — chỉ theo `permissions` — nên đừng ẩn chức năng khi `features` rỗng.
 - `user.email` là `null` với tài khoản chỉ có số điện thoại (email nội bộ bị giấu).
   `user.phone` có dạng `+84…`; hiển thị bằng `formatPhoneVn` của `@mambo/core/identifier`.
 - `pendingLinks` là số lời mời kết nối đang chờ (hiện chấm đỏ).

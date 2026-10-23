@@ -99,6 +99,8 @@ describe('POST /v1/me/bootstrap', () => {
     const [m] = Me.parse(res.body).memberships;
     expect(m?.plan).toBeNull();
     expect(m?.permissions).not.toContain('book:sync');
+    // Không ai ghi organization_features: cờ chỉ có khi bật tay bằng SQL (docs/FRONTEND.md §5.3).
+    expect(m?.features).toEqual([]);
     const { rows } = await admin.query('select id from subscriptions');
     expect(rows).toEqual([]);
     const products = await admin.query('select id from products');

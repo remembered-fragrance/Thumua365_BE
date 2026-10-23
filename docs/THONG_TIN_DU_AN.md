@@ -334,4 +334,4 @@ trò, nên hỏi thêm: nông dân có muốn xem công nợ trên app không, d
 | Kết nối | Liên kết giữa một dòng danh bạ trong sổ và một tổ chức có tài khoản thật |
 | Vỏ | Bộ màn hình + điều hướng theo loại tổ chức (nông dân / vựa / doanh nghiệp) |
 | Contract | Schema zod trong `packages/contracts` — thoả thuận giữa backend và frontend |
-| `features` | Danh sách tính năng bật cho từng tổ chức, trả trong `/v1/me` — cách mở dần tính năng mới cho nhóm pilot |
+| `features` | Danh sách tính năng bật cho từng tổ chức, trả trong `/v1/me` — cách mở dần tính năng mới cho nhóm pilot. Hiện luôn rỗng: API không tự ghi, chưa chức năng nào bật theo cờ |

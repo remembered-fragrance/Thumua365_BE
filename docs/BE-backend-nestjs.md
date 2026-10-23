@@ -316,7 +316,7 @@ mambo365_deploymentphase (repo frontend hiện tại)                     [Front
     "role": "owner", "branch": null,
     "permissions": ["order:create", "order:respond", "linked:read", "report:view"],
     "plan": null,                 // vựa/DN: { tier, status, periodEnd, branchLimit }
-    "features": ["orders", "links"]
+    "features": []                // hiện luôn rỗng — xem 3.3
   }],
   "pendingLinks": 2
 }
@@ -328,7 +328,9 @@ mambo365_deploymentphase (repo frontend hiện tại)                     [Front
 - **Database:** migration kiểu *expand → contract* — thêm cột/bảng trước, đổi code, xoá cái
   cũ ở bản sau. Không migration nào vừa thêm vừa xoá.
 - **Tính năng mới:** bật theo tổ chức qua `features` trong `/v1/me` (bảng
-  `organization_features`), để pilot trên vài vựa trước khi bật cho tất cả.
+  `organization_features`), để pilot trên vài vựa trước khi bật cho tất cả. Hiện API chưa có
+  chỗ nào ghi bảng này nên `features` luôn là `[]`; đơn hàng và kết nối không bật theo cờ (chỉ
+  theo quyền). Cần cờ thì `insert` tay bằng SQL.
 - **Frontend:** dựng lại app từ đầu theo hợp đồng (chốt 28/09/2026); giữ chế độ "tài khoản của
   máy này" (chưa đăng nhập vẫn ghi cục bộ) và mang logic hàng đợi/hợp nhất của repo cũ sang.
   Có tài khoản thì đồng bộ qua API.
