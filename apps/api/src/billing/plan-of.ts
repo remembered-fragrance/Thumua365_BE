@@ -33,6 +33,10 @@ const REASON: Readonly<Record<Entitlement, string>> = {
   'debt:statement': 'Gói đã hết hạn — công nợ vẫn xem được, gia hạn để gửi sao kê cho khách',
   'tax:docs': 'Gói đã hết hạn — báo cáo thuế tổng vẫn xem được, gia hạn để xuất bảng kê thu mua',
   'pay:qr': 'Gói đã hết hạn — vẫn ghi trả tiền được, gia hạn để chép nội dung chuyển khoản',
+  // Hai mã dưới chỉ chặn ở app (tính từ sổ ở máy).
+  analytics: 'Gói đã hết hạn — báo cáo thuế tổng vẫn xem được, gia hạn để xem lời theo mặt hàng',
+  'rubber:reconcile': 'Gói đã hết hạn — sổ mủ vẫn đầy đủ, gia hạn để đối chiếu độ với nhà máy',
+  'map:prices': 'Gói đã hết hạn — điểm trên bản đồ vẫn hiện, gia hạn để khai và hiện giá thu mua',
 };
 
 export const assertEntitlement = async (tx: Tx, m: MembershipContext, entitlement: Entitlement): Promise<void> => {

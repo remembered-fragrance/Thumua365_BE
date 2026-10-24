@@ -187,6 +187,7 @@ const purgeOrganization = async (tx: Tx, orgId: string, actorUserId: string): Pr
   await tx.transaction.deleteMany({ where });
   await tx.draft.deleteMany({ where });
   await tx.note.deleteMany({ where });
+  await tx.seasonContract.deleteMany({ where });
   await tx.pricingRule.deleteMany({ where });
   await tx.product.deleteMany({ where });
   await tx.supplier.deleteMany({ where });

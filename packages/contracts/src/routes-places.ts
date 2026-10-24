@@ -39,6 +39,7 @@ export const placeRoutes = {
     permission: 'place:manage',
     body: PlaceInput,
     response: Place,
+    errors: ['PLAN_REQUIRED'],
     rateLimitPerMinute: 30,
   },
   orgPlaceUpdate: {
@@ -50,7 +51,7 @@ export const placeRoutes = {
     params: PlaceIdParams,
     body: PlacePatch,
     response: Place,
-    errors: ['NOT_FOUND'],
+    errors: ['NOT_FOUND', 'PLAN_REQUIRED'],
   },
   orgPlaceDelete: {
     method: 'DELETE',

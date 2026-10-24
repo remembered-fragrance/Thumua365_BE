@@ -141,6 +141,14 @@ describe('SyncOp — hình dạng đầy đủ khớp SYNC_OP_DATA', () => {
     draft: { status: 'draft', supplierName: '', lines: [], amountPaid: 0 },
     transaction,
     payment: { transactionId: id(), date: NOW, amount: 500_000 },
+    seasonContract: {
+      kind: 'purchase',
+      counterpartyName: 'Cô Mai',
+      productName: 'Cà phê nhân',
+      quantity: 10_000,
+      startDate: NOW,
+      endDate: NOW,
+    },
   };
 
   for (const entity of SYNC_ENTITIES) {

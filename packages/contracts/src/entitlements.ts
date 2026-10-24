@@ -43,6 +43,15 @@ export const ENTITLEMENTS = [
   'tax:docs',
   /** V13 — trả nông hộ bằng chuyển khoản: chép số tiền + nội dung `PM-…`. App chặn; ghi trả tiền vẫn Free. */
   'pay:qr',
+  /** V8 — phân tích lời theo mặt hàng, giá bình quân, so kỳ trước. App chặn (tính ở máy); báo cáo thuế tổng vẫn Free. */
+  'analytics',
+  /** V21 — đối chiếu độ mủ vựa đo với độ nhà máy đo, độ trung bình theo hộ. App chặn (tính ở máy). */
+  'rubber:reconcile',
+  /**
+   * V9 — giá thu mua trên điểm bản đồ. Máy chủ chặn khi khai giá (`/org/places`), và không trả giá của điểm có
+   * chủ hết gói.
+   */
+  'map:prices',
 ] as const;
 
 export const Entitlement = z.enum(ENTITLEMENTS);

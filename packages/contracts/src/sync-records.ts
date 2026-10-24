@@ -28,6 +28,8 @@ export const RECEIPT_LIMITS = {
   percent: 100,
   /** Số cân, đơn giá: 0 – 1 tỷ. */
   quantity: 1e9,
+  /** V24 — kg cà phê tươi ra 1 kg nhân: lớn hơn 1, tối đa 20. */
+  greenRatio: 20,
   adjustmentLabel: 120,
   partyName: 200,
   note: 2000,
@@ -47,6 +49,7 @@ const Money = z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE
 const NonNegativeMoney = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const Quantity = z.number().min(0).max(RECEIPT_LIMITS.quantity);
 const Percent = z.number().min(0).max(RECEIPT_LIMITS.percent);
+const GreenRatio = z.number().gt(1).max(RECEIPT_LIMITS.greenRatio);
 const text = (max: number) => z.string().trim().min(1).max(max);
 const nullableText = (max: number) => z.string().trim().max(max).nullable();
 const hasKeys = (patch: object): boolean => Object.keys(patch).length > 0;
@@ -87,6 +90,11 @@ const lineShape = {
   moisturePercent: Percent.optional(),
   impurityPercent: Percent.optional(),
   kor: Quantity.optional(),
+  /**
+   * V24 — dòng cà phê tươi tính ra nhân: bao nhiêu kg tươi ra 1 kg nhân. Chỉ để hiển thị và sửa lại: công thức vẫn là
+   * `lossPercent` với `lossPercent = (1 − 1/greenRatio) × 100`, nên app bản cũ đọc ra đúng tiền.
+   */
+  greenRatio: GreenRatio.optional(),
 };
 
 /** Dòng hàng của phiếu nháp — chưa chốt, có thể chưa có tổng. */
@@ -146,6 +154,8 @@ const productFields = {
   qualityGrades: z.array(text(PRODUCT_LIMITS.qualityGrade)).max(PRODUCT_LIMITS.qualityGrades),
   trackInventory: z.boolean().nullable(),
   rubberKind: RubberKind.nullable(),
+  /** V24 — mặt hàng cà phê tươi: kg tươi ra 1 kg nhân. Có thì `formulaType` là `lossPercent`. */
+  greenRatio: GreenRatio.nullable(),
 };
 /** Bỏ qua thì server điền: `unit` 'kg', `isSuggested` false, `isActive` true, `qualityGrades` []. */
 export const ProductInsert = z.strictObject(productFields).partial({
@@ -158,6 +168,7 @@ export const ProductInsert = z.strictObject(productFields).partial({
   qualityGrades: true,
   trackInventory: true,
   rubberKind: true,
+  greenRatio: true,
 });
 export const ProductPatch = z.strictObject(productFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const ProductRecord = z.object({
@@ -173,6 +184,7 @@ export const ProductRecord = z.object({
   qualityGrades: z.array(z.string()),
   trackInventory: z.boolean().nullable(),
   rubberKind: RubberKind.nullable(),
+  greenRatio: z.number().nullable(),
 });
 export type ProductRecord = z.infer<typeof ProductRecord>;
 
@@ -231,6 +243,60 @@ export const NoteInsert = z.strictObject(noteFields).partial({ pinned: true, don
 export const NotePatch = z.strictObject(noteFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const NoteRecord = z.object({ ...meta, body: z.string(), pinned: z.boolean(), done: z.boolean() });
 export type NoteRecord = z.infer<typeof NoteRecord>;
+
+// ─── Hợp đồng mùa vụ (V15) ───────────────────────────────────────────────────
+
+/**
+ * Hợp đồng giữ giá / số lượng với một người bán (`purchase`) hoặc người mua (`sale`). Không gắn vào phiếu: đã giao
+ * bao nhiêu app tự cộng từ phiếu cùng người, cùng mặt hàng, trong khoảng ngày của hợp đồng — phiếu không phải sửa.
+ */
+const seasonContractFields = {
+  kind: TransactionKind,
+  /** Id người bán / người mua trong sổ. `null` khi hợp đồng ghi theo tên. */
+  counterpartyId: z.string().min(1).max(64).nullable(),
+  counterpartyName: text(RECEIPT_LIMITS.partyName),
+  /** Như `productId` của dòng phiếu: không phải khoá, có thể là id kiểu cũ. */
+  productId: z.string().min(1).max(64).nullable(),
+  productName: text(PRODUCT_LIMITS.name),
+  unit: text(PRODUCT_LIMITS.unit),
+  /** Lượng cam kết, theo lượng tính tiền của dòng phiếu (cao su: kg quy khô). */
+  quantity: Quantity.refine((n) => n > 0, 'Nhập số lượng'),
+  /** Giá giữ, đồng / đơn vị. `null` = chỉ giữ số lượng, giá theo ngày giao. */
+  pricePerUnit: Quantity.nullable(),
+  startDate: Time,
+  endDate: Time,
+  note: nullableText(RECEIPT_LIMITS.note),
+  /** Chủ tự đóng (giao đủ, huỷ ngang) — không tính vào danh sách đang chạy. */
+  closed: z.boolean(),
+};
+const endsAfterStart = (c: { startDate?: string; endDate?: string }) =>
+  c.startDate === undefined || c.endDate === undefined || c.startDate <= c.endDate;
+const END_BEFORE_START = { message: 'Ngày kết thúc phải sau ngày bắt đầu', path: ['endDate'] };
+export const SeasonContractInsert = z
+  .strictObject(seasonContractFields)
+  .partial({ counterpartyId: true, productId: true, unit: true, pricePerUnit: true, note: true, closed: true })
+  .refine(endsAfterStart, END_BEFORE_START);
+export const SeasonContractPatch = z
+  .strictObject(seasonContractFields)
+  .partial()
+  .refine(hasKeys, EMPTY_PATCH)
+  .refine(endsAfterStart, END_BEFORE_START);
+export const SeasonContractRecord = z.object({
+  ...meta,
+  kind: TransactionKind,
+  counterpartyId: z.string().nullable(),
+  counterpartyName: z.string(),
+  productId: z.string().nullable(),
+  productName: z.string(),
+  unit: z.string(),
+  quantity: z.number(),
+  pricePerUnit: z.number().nullable(),
+  startDate: Time,
+  endDate: Time,
+  note: z.string().nullable(),
+  closed: z.boolean(),
+});
+export type SeasonContractRecord = z.infer<typeof SeasonContractRecord>;
 
 // ─── Phiếu nháp ──────────────────────────────────────────────────────────────
 

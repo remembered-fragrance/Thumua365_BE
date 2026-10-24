@@ -1,7 +1,7 @@
 /**
  * Cursor của /v1/sync/pull — với app là chuỗi mờ; ở đây là JSON base64url.
  *
- * Một LƯỢT kéo đi qua tám bảng theo thứ tự `SYNC_ENTITIES` (lần trả tiền cuối cùng), mỗi
+ * Một LƯỢT kéo đi qua các bảng theo thứ tự `SYNC_ENTITIES`, mỗi
  * bảng phân trang theo (updated_at, id), và mọi trang của lượt dùng CHUNG mốc `until` lấy
  * từ đồng hồ database lúc lượt bắt đầu. Xong lượt, cursor "nghỉ" chỉ còn `since` = `until`
  * lùi CHỒNG_LẤN: lượt sau lấy lại cả những bản ghi mà transaction ghi chúng bắt đầu trước

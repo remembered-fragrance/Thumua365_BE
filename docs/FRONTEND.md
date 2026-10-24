@@ -666,6 +666,10 @@ await api.places.remove(id);                  // gỡ khỏi bản đồ (xoá m
 - `organizationName` là tên tổ chức chủ — server chỉ lộ tên, không lộ SĐT / địa chỉ của tổ chức. SĐT trên
   điểm là số tổ chức **tự** điền cho điểm đó.
 - Vị trí của người dùng ("Vị trí của tôi") chỉ dùng trong trình duyệt, **không** gửi lên server.
+- **Giá thu mua** (`v0.24.0`, V9): `create` / `update` nhận `prices: [{ product, price, unit }]` (tối đa 10). Gửi danh
+  sách có giá cần gói `map:prices` — hết gói → 402 `PLAN_REQUIRED`; `prices: null` / `[]` là gỡ giá, gói nào cũng
+  được. Mỗi lần gửi `prices` là đặt lại `pricesUpdatedAt` — app ghi "Giá hôm nay" khi trùng ngày. Chủ điểm hết gói thì
+  server trả `prices: []` cho mọi người (kể cả chính chủ); gia hạn là hiện lại.
 
 ### 5.14 Email khôi phục, quên mật khẩu (`v0.16.0` → `v0.20.0`; thư gửi được trên staging từ 17/10)
 
@@ -845,8 +849,12 @@ thì lượt kéo hỏng `CONTRACT_MISMATCH`):
 ```jsonc
 { "cursor": "opaque", "hasMore": false, "resetRequired": false,
   "changes": { "suppliers": [], "buyers": [], "products": [], "pricingRules": [], "notes": [],
-               "drafts": [], "transactions": [], "payments": [] } }
+               "drafts": [], "transactions": [], "payments": [], "seasonContracts": [] } }
 ```
+
+- `seasonContracts` (`v0.24.0`, V15 hợp đồng mùa vụ) đi **sau** lần trả. Server bản cũ không có khoá này — schema mặc
+  định `[]`. Thêm / sửa / xoá hợp đồng cần `partner:manage` (người cân không có). Hợp đồng không gắn vào phiếu: đã giao
+  app tự cộng từ phiếu cùng người, cùng mặt hàng, trong `[startDate, endDate]`.
 
 - `cursor` do server cấp. Lưu **theo tổ chức**, gửi lại nguyên văn; lần đầu để trống. Không tự
   đọc, không dùng giờ máy làm mốc.

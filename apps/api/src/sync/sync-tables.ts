@@ -14,6 +14,7 @@ import type {
   PaymentRecord,
   PricingRuleRecord,
   ProductRecord,
+  SeasonContractRecord,
   SyncEntity,
   TransactionRecord,
 } from '@mambo/contracts';
@@ -26,6 +27,7 @@ import {
   Prisma,
   type PricingRule,
   type Product,
+  type SeasonContract,
   type Supplier,
   type Transaction,
 } from '../generated/prisma/client';
@@ -34,7 +36,7 @@ type Data = Record<string, unknown>;
 type Row = { readonly id: string; readonly updatedAt: Date } & Record<string, unknown>;
 
 /**
- * Phần delegate Prisma mà đồng bộ dùng — giống nhau ở cả tám bảng. `data` đã qua schema
+ * Phần delegate Prisma mà đồng bộ dùng — giống nhau ở mọi bảng. `data` đã qua schema
  * zod của hợp đồng và `toDb` trước khi tới đây.
  */
 export interface SyncDelegate {
@@ -121,6 +123,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       qualityGrades: list(row.qualityGrades),
       trackInventory: row.trackInventory,
       rubberKind: row.rubberKind as ProductRecord['rubberKind'],
+      greenRatio: row.greenRatio,
     }),
   },
 
@@ -203,6 +206,27 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       amount: Number(row.amount),
       note: row.note,
       method: row.method as PaymentRecord['method'],
+    }),
+  },
+
+  seasonContract: {
+    branch: 'none',
+    defaults: { counterpartyId: null, productId: null, unit: 'kg', pricePerUnit: null, note: null, closed: false },
+    toDb: convert({ startDate: asDate, endDate: asDate }),
+    toRecord: (row: SeasonContract): SeasonContractRecord => ({
+      ...meta(row),
+      kind: row.kind as SeasonContractRecord['kind'],
+      counterpartyId: row.counterpartyId,
+      counterpartyName: row.counterpartyName,
+      productId: row.productId,
+      productName: row.productName,
+      unit: row.unit,
+      quantity: row.quantity,
+      pricePerUnit: row.pricePerUnit,
+      startDate: iso(row.startDate),
+      endDate: iso(row.endDate),
+      note: row.note,
+      closed: row.closed,
     }),
   },
 };
