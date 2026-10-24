@@ -120,13 +120,14 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       group: row.group,
       qualityGrades: list(row.qualityGrades),
       trackInventory: row.trackInventory,
+      rubberKind: row.rubberKind as ProductRecord['rubberKind'],
     }),
   },
 
   pricingRule: {
     branch: 'none',
     defaults: {},
-    toDb: convert({ fixedAmount: toBigInt }),
+    toDb: convert({ fixedAmount: toBigInt, qualitySteps: nullableJson }),
     toRecord: (row: PricingRule): PricingRuleRecord => ({
       ...meta(row),
       name: row.name,
@@ -137,6 +138,8 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       minWeightKg: row.minWeightKg,
       appliesOnPickup: row.appliesOnPickup,
       active: row.active,
+      qualityMetric: row.qualityMetric as PricingRuleRecord['qualityMetric'],
+      qualitySteps: row.qualitySteps as PricingRuleRecord['qualitySteps'],
     }),
   },
 

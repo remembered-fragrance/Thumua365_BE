@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.21.0"
+    "version": "0.22.0"
   },
   "servers": [
     {
@@ -12432,6 +12432,20 @@
                                     "boolean",
                                     "null"
                                   ]
+                                },
+                                "rubberKind": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
@@ -12557,6 +12571,20 @@
                                   "type": [
                                     "boolean",
                                     "null"
+                                  ]
+                                },
+                                "rubberKind": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
                                   ]
                                 }
                               },
@@ -12707,6 +12735,54 @@
                                 },
                                 "active": {
                                   "type": "boolean"
+                                },
+                                "qualityMetric": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "bulkDensity",
+                                        "moisturePercent",
+                                        "impurityPercent",
+                                        "kor",
+                                        "qualityPercent"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "qualitySteps": {
+                                  "anyOf": [
+                                    {
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "from": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1000000000
+                                          },
+                                          "amountPerUnit": {
+                                            "type": "integer",
+                                            "minimum": -1000000000,
+                                            "maximum": 1000000000
+                                          }
+                                        },
+                                        "required": [
+                                          "from",
+                                          "amountPerUnit"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
@@ -12825,6 +12901,54 @@
                                 },
                                 "active": {
                                   "type": "boolean"
+                                },
+                                "qualityMetric": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "bulkDensity",
+                                        "moisturePercent",
+                                        "impurityPercent",
+                                        "kor",
+                                        "qualityPercent"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "qualitySteps": {
+                                  "anyOf": [
+                                    {
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "from": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1000000000
+                                          },
+                                          "amountPerUnit": {
+                                            "type": "integer",
+                                            "minimum": -1000000000,
+                                            "maximum": 1000000000
+                                          }
+                                        },
+                                        "required": [
+                                          "from",
+                                          "amountPerUnit"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "additionalProperties": false
@@ -13184,6 +13308,33 @@
                                       "qualityGrade": {
                                         "type": "string",
                                         "maxLength": 60
+                                      },
+                                      "rubberKind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "latex",
+                                          "cuplump"
+                                        ]
+                                      },
+                                      "bulkDensity": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "moisturePercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "impurityPercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "kor": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
                                       }
                                     },
                                     "required": [
@@ -13477,6 +13628,33 @@
                                       "qualityGrade": {
                                         "type": "string",
                                         "maxLength": 60
+                                      },
+                                      "rubberKind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "latex",
+                                          "cuplump"
+                                        ]
+                                      },
+                                      "bulkDensity": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "moisturePercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "impurityPercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "kor": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
                                       }
                                     },
                                     "required": [
@@ -13780,6 +13958,33 @@
                                       "qualityGrade": {
                                         "type": "string",
                                         "maxLength": 60
+                                      },
+                                      "rubberKind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "latex",
+                                          "cuplump"
+                                        ]
+                                      },
+                                      "bulkDensity": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "moisturePercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "impurityPercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "kor": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
                                       }
                                     },
                                     "required": [
@@ -14621,6 +14826,20 @@
                                   "boolean",
                                   "null"
                                 ]
+                              },
+                              "rubberKind": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "latex",
+                                      "cuplump"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -14638,7 +14857,8 @@
                               "lastPricePerUnit",
                               "group",
                               "qualityGrades",
-                              "trackInventory"
+                              "trackInventory",
+                              "rubberKind"
                             ],
                             "additionalProperties": false
                           }
@@ -14729,6 +14949,49 @@
                               },
                               "active": {
                                 "type": "boolean"
+                              },
+                              "qualityMetric": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "bulkDensity",
+                                      "moisturePercent",
+                                      "impurityPercent",
+                                      "kor",
+                                      "qualityPercent"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "qualitySteps": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "from": {
+                                          "type": "number"
+                                        },
+                                        "amountPerUnit": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "from",
+                                        "amountPerUnit"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -14744,7 +15007,9 @@
                               "percentOfTotal",
                               "minWeightKg",
                               "appliesOnPickup",
-                              "active"
+                              "active",
+                              "qualityMetric",
+                              "qualitySteps"
                             ],
                             "additionalProperties": false
                           }
@@ -14965,6 +15230,33 @@
                                     "qualityGrade": {
                                       "type": "string",
                                       "maxLength": 60
+                                    },
+                                    "rubberKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    "bulkDensity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    "moisturePercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "impurityPercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "kor": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
                                     }
                                   },
                                   "required": [
@@ -15226,6 +15518,33 @@
                                     "qualityGrade": {
                                       "type": "string",
                                       "maxLength": 60
+                                    },
+                                    "rubberKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    "bulkDensity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    "moisturePercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "impurityPercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "kor": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
                                     }
                                   },
                                   "required": [

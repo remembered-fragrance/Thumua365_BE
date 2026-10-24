@@ -256,3 +256,34 @@ describe('quyền của từng op', () => {
     expect(can('farmer', 'owner', 'book:sync')).toBe(false);
   });
 });
+
+describe('Gói Pro Đợt 1b — chỉ thêm trường, không thêm giá trị enum (app cũ không vỡ)', () => {
+  it('công thức và loại khoản cộng/trừ giữ nguyên: app cũ gặp giá trị lạ thì cả lượt kéo sổ hỏng', async () => {
+    const { FormulaType, PricingRuleKind } = await import('../src/index.js');
+    expect(FormulaType.options).toEqual(['standard', 'netAfterTare', 'rubberLatex', 'lossPercent']);
+    expect(PricingRuleKind.options).toEqual(['logistics', 'volumeDiscount', 'manual']);
+  });
+
+  it('phiếu mang loại mủ và chỉ tiêu chất lượng', () => {
+    const lines = [
+      { ...line, rubberKind: 'cuplump', qualityPercent: 55 },
+      { ...line, id: 'l2', formulaType: 'netAfterTare', qualityPercent: undefined, bulkDensity: 520, moisturePercent: 14, impurityPercent: 1, kor: 48 },
+    ];
+    expect(parseSyncOp(op('transaction', 'insert', { ...transaction, lines })).ok).toBe(true);
+    expect(parseSyncOp(op('transaction', 'insert', { ...transaction, lines: [{ ...line, moisturePercent: 101 }] })).ok).toBe(false);
+    expect(parseSyncOp(op('transaction', 'insert', { ...transaction, lines: [{ ...line, rubberKind: 'muDong' }] })).ok).toBe(false);
+  });
+
+  it('quy tắc theo chỉ tiêu: bảng mốc tối đa 20 dòng, tiền / đơn vị là số nguyên', () => {
+    const rule = { name: 'Dung trọng', kind: 'manual', active: true, qualityMetric: 'bulkDensity' };
+    const steps = (n: number) => Array.from({ length: n }, (_, i) => ({ from: 480 + i, amountPerUnit: -1_000 }));
+    expect(parseSyncOp(op('pricingRule', 'insert', { ...rule, qualitySteps: steps(20) })).ok).toBe(true);
+    expect(parseSyncOp(op('pricingRule', 'insert', { ...rule, qualitySteps: steps(21) })).ok).toBe(false);
+    expect(parseSyncOp(op('pricingRule', 'insert', { ...rule, qualitySteps: [{ from: 500, amountPerUnit: 1.5 }] })).ok).toBe(false);
+    expect(parseSyncOp(op('pricingRule', 'insert', { ...rule, qualityMetric: 'size' })).ok).toBe(false);
+  });
+
+  it('mặt hàng mủ tạp', () => {
+    expect(parseSyncOp(op('product', 'insert', { name: 'Mủ chén', formulaType: 'rubberLatex', rubberKind: 'cuplump' })).ok).toBe(true);
+  });
+});

@@ -804,6 +804,14 @@ Dùng nó cùng `membership.permissions` để ẩn nút.
 | Sửa, xoá người bán / người mua | `partner:manage` | ❌ |
 | Sửa (không chỉ giá), xoá mặt hàng; mọi thao tác với quy tắc giá | `pricing:manage` | ❌ |
 
+**Giá theo chất lượng, mủ tạp (`v0.22.0`).** Chỉ thêm trường tuỳ chọn, không thêm giá trị enum (app cũ gặp giá trị lạ
+thì lượt kéo hỏng `CONTRACT_MISMATCH`):
+- Dòng phiếu: `rubberKind` (`latex` | `cuplump` — nhãn "độ TSC" hay "DRC", cùng công thức `rubberLatex`),
+  `bulkDensity`, `moisturePercent`, `impurityPercent`, `kor`. Không đổi tổng dòng.
+- Quy tắc giá có `qualityMetric` + `qualitySteps` là quy tắc theo chỉ tiêu: app gọi `suggestAdjustments` với các quy
+  tắc này, mỗi khoản ra một `PriceAdjustment` ghi lên phiếu như khoản tay. Máy chủ không tính lại khoản.
+- Quyền lợi `quality:pricing`, `rubber:grades` chỉ chặn ở app (`entitlementsFor`).
+
 ### 7.3 Đẩy lên: `sdk.sync.push({ deviceId, ops })`
 
 - Tối đa `SYNC_PUSH_MAX_OPS` (200) op **và** `SYNC_PUSH_MAX_BYTES` (700KB, đo thân đã mã hoá UTF-8) một lô

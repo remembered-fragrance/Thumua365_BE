@@ -281,3 +281,58 @@ describe('nháp giữ khoản cộng/trừ', () => {
     await expect(set(JSON.stringify(Array.from({ length: 20 }, () => xe)))).resolves.toBeDefined();
   });
 });
+
+describe('Gói Pro Đợt 1b — giá theo chất lượng, mủ tạp', () => {
+  const steps = [
+    { from: 500, amountPerUnit: 0 },
+    { from: 520, amountPerUnit: 1_500 },
+  ];
+
+  it('quy tắc chỉ tiêu, mặt hàng mủ tạp, dòng phiếu có chỉ tiêu — kéo về đúng như đã gửi', async () => {
+    const op = opMaker();
+    const tieu = {
+      id: 'l-tieu',
+      productName: 'Tiêu',
+      unit: 'kg',
+      formulaType: 'netAfterTare',
+      grossWeight: 100,
+      tareWeight: 0,
+      pricePerUnit: 150_000,
+      rawTotal: 15_000_000,
+      roundedTotal: 15_000_000,
+      bulkDensity: 520,
+      moisturePercent: 14,
+    };
+    await push([
+      op('pricingRule', 'insert', newId(), { name: 'Dung trọng', kind: 'manual', active: true, qualityMetric: 'bulkDensity', qualitySteps: steps }),
+      op('pricingRule', 'insert', newId(), { name: 'Phí xe', kind: 'logistics', active: true, fixedAmount: -50_000 }),
+      op('product', 'insert', newId(), { name: 'Mủ chén', formulaType: 'rubberLatex', rubberKind: 'cuplump' }),
+      op('transaction', 'insert', newId(), txData({ lines: [tieu] })),
+    ]);
+
+    const { changes } = await page();
+    const byName = Object.fromEntries(changes.pricingRules.map((r) => [r.name, r]));
+    expect(byName['Dung trọng']).toMatchObject({ qualityMetric: 'bulkDensity', qualitySteps: steps, fixedAmount: null });
+    expect(byName['Phí xe']).toMatchObject({ qualityMetric: null, qualitySteps: null, fixedAmount: -50_000 });
+    expect(changes.products.find((p) => p.name === 'Mủ chén')?.rubberKind).toBe('cuplump');
+    expect(changes.transactions[0]?.lines[0]).toMatchObject({ bulkDensity: 520, moisturePercent: 14 });
+  });
+
+  it('gỡ bảng mốc (null) thì cột về NULL; DB chặn bảng không phải mảng hoặc quá 20 mốc, chỉ tiêu lạ', async () => {
+    const op = opMaker();
+    const id = newId();
+    const product = newId();
+    await push([
+      op('pricingRule', 'insert', id, { name: 'Ẩm', kind: 'manual', active: true, qualityMetric: 'moisturePercent', qualitySteps: steps }),
+      op('product', 'insert', product, { name: 'Mủ nước', formulaType: 'rubberLatex' }),
+    ]);
+    await push([op('pricingRule', 'update', id, { qualityMetric: null, qualitySteps: null })]);
+    expect((await page()).changes.pricingRules[0]).toMatchObject({ qualityMetric: null, qualitySteps: null });
+
+    const set = (sql: string, value: string) => admin.query(`update pricing_rules set ${sql} where id = $2`, [value, id]);
+    await expect(set('quality_steps = $1::jsonb', '{"from": 1}')).rejects.toThrow(/pricing_rules_quality_steps_check/);
+    await expect(set('quality_steps = $1::jsonb', JSON.stringify(Array.from({ length: 21 }, () => steps[0])))).rejects.toThrow(/pricing_rules_quality_steps_check/);
+    await expect(set('quality_metric = $1', 'size')).rejects.toThrow(/pricing_rules_quality_metric_check/);
+    await expect(admin.query(`update products set rubber_kind = 'muDong' where id = $1`, [product])).rejects.toThrow(/products_rubber_kind_check/);
+  });
+});

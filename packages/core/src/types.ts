@@ -3,6 +3,12 @@
 export type CropType = 'rubber' | 'cashew' | 'coffee' | 'pepper';
 export type WeightUnit = 'kg' | 'hg';
 export type ProductFormulaType = 'standard' | 'netAfterTare' | 'rubberLatex' | 'lossPercent';
+/**
+ * Loại mủ của công thức `rubberLatex` (V20): mủ nước tính theo độ TSC, mủ tạp (mủ chén, mủ đông) theo DRC.
+ * Cùng một phép tính (kg × độ % × giá); khác nhãn và bậc giá. Không thêm `ProductFormulaType` mới: app
+ * bản cũ đọc phải công thức lạ thì cả lượt kéo sổ hỏng (`CONTRACT_MISMATCH`), còn trường lạ thì bỏ qua.
+ */
+export type RubberKind = 'latex' | 'cuplump';
 export type DraftStatus = 'draft' | 'waiting';
 
 /**
@@ -73,6 +79,23 @@ export interface PricingRule {
   /** true = chỉ khi xe đến lấy · false = chỉ khi tự mang tới · null = cả hai. */
   readonly appliesOnPickup?: boolean | null;
   readonly active: boolean;
+  /**
+   * V19 — có thì đây là quy tắc theo chỉ tiêu chất lượng: bỏ qua `fixedAmount` / `percentOfTotal`,
+   * mỗi dòng có chỉ tiêu này được cộng/trừ theo bảng `qualitySteps`.
+   */
+  readonly qualityMetric?: QualityMetric;
+  /** Bảng mốc, tăng dần theo `from`. Xem `qualityStepOf`. */
+  readonly qualitySteps?: readonly QualityStep[];
+}
+
+/** Chỉ tiêu trên dòng phiếu mà quy tắc giá đọc được. `qualityPercent` = độ TSC / DRC của mủ. */
+export type QualityMetric = 'bulkDensity' | 'moisturePercent' | 'impurityPercent' | 'kor' | 'qualityPercent';
+
+/** Một mốc: chỉ tiêu TỪ `from` trở lên (tới mốc kế) thì cộng `amountPerUnit` đồng cho mỗi đơn vị tính tiền. */
+export interface QualityStep {
+  readonly from: number;
+  /** Đồng / kg (đơn vị tính tiền của dòng). Dương = cộng thêm, âm = trừ bớt. */
+  readonly amountPerUnit: number;
 }
 
 // ─── Attachment (Workstream J) ───────────────────────────────────────────────
@@ -106,6 +129,8 @@ export interface Product {
   readonly qualityGrades?: readonly string[];
   /** Bật theo dõi tồn kho (F) */
   readonly trackInventory?: boolean;
+  /** V20: mặt hàng mủ tính theo DRC (mủ tạp). Chọn mặt hàng thì dòng phiếu mang theo. */
+  readonly rubberKind?: RubberKind;
 }
 
 // ─── Supplier ────────────────────────────────────────────────────────────────
@@ -157,6 +182,18 @@ export interface TransactionLine {
   readonly roundedTotal?: number;
   /** Phân loại chất lượng (E2) — nhãn mô tả, không tham gia công thức */
   readonly qualityGrade?: string;
+  /** V20: `qualityPercent` là độ TSC (mủ nước) hay DRC (mủ tạp). Không có = mủ nước. Công thức như nhau. */
+  readonly rubberKind?: RubberKind;
+  // V19 — chỉ tiêu chất lượng đo lúc mua. Không tham gia công thức dòng: quy tắc giá theo chỉ tiêu
+  // (`PricingRule.qualityMetric`) đọc chúng để đề xuất khoản cộng/trừ.
+  /** Dung trọng, g/l (tiêu). */
+  readonly bulkDensity?: number;
+  /** Độ ẩm, % (tiêu, cà phê, điều). */
+  readonly moisturePercent?: number;
+  /** Tạp chất, % (tiêu, cà phê). */
+  readonly impurityPercent?: number;
+  /** Tỷ lệ thu hồi nhân KOR, lbs/bao 80 kg (điều). */
+  readonly kor?: number;
 }
 
 // ─── Transaction ─────────────────────────────────────────────────────────────

@@ -343,6 +343,8 @@ model Product {
   group            String?
   qualityGrades    String[]  @map("quality_grades")
   trackInventory   Boolean?  @map("track_inventory")
+  /// latex | cuplump — V20, NULL = mủ nước
+  rubberKind       String?   @map("rubber_kind")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -460,6 +462,10 @@ model PricingRule {
   minWeightKg     Float?    @map("min_weight_kg")
   appliesOnPickup Boolean?  @map("applies_on_pickup")
   active          Boolean   @default(true)
+  /// bulkDensity | moisturePercent | impurityPercent | kor | qualityPercent — V19
+  qualityMetric   String?   @map("quality_metric")
+  /// [{ from, amountPerUnit }]
+  qualitySteps    Json?     @map("quality_steps")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)

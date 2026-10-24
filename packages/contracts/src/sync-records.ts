@@ -56,6 +56,10 @@ export const FormulaType = z.enum(['standard', 'netAfterTare', 'rubberLatex', 'l
 export const TransactionKind = z.enum(['purchase', 'sale']);
 export const DraftStatus = z.enum(['draft', 'waiting']);
 export const PricingRuleKind = z.enum(['logistics', 'volumeDiscount', 'manual']);
+/** V20 — mủ nước (độ TSC) hay mủ tạp (DRC). Trường riêng, không thêm `FormulaType`: xem `RubberKind` ở core. */
+export const RubberKind = z.enum(['latex', 'cuplump']);
+/** V19 — chỉ tiêu trên dòng phiếu mà quy tắc giá theo chất lượng đọc. */
+export const QualityMetric = z.enum(['bulkDensity', 'moisturePercent', 'impurityPercent', 'kor', 'qualityPercent']);
 
 // ─── Thành phần của phiếu (JSONB, giữ nguyên hình dạng của @mambo/core) ─────
 
@@ -77,6 +81,12 @@ const lineShape = {
   rawTotal: z.number().optional(),
   roundedTotal: NonNegativeMoney.optional(),
   qualityGrade: z.string().max(60).optional(),
+  rubberKind: RubberKind.optional(),
+  /** V19 — chỉ tiêu chất lượng, không tham gia công thức dòng. Dung trọng g/l, KOR lbs/bao 80 kg. */
+  bulkDensity: Quantity.optional(),
+  moisturePercent: Percent.optional(),
+  impurityPercent: Percent.optional(),
+  kor: Quantity.optional(),
 };
 
 /** Dòng hàng của phiếu nháp — chưa chốt, có thể chưa có tổng. */
@@ -135,6 +145,7 @@ const productFields = {
   group: nullableText(PRODUCT_LIMITS.group),
   qualityGrades: z.array(text(PRODUCT_LIMITS.qualityGrade)).max(PRODUCT_LIMITS.qualityGrades),
   trackInventory: z.boolean().nullable(),
+  rubberKind: RubberKind.nullable(),
 };
 /** Bỏ qua thì server điền: `unit` 'kg', `isSuggested` false, `isActive` true, `qualityGrades` []. */
 export const ProductInsert = z.strictObject(productFields).partial({
@@ -146,6 +157,7 @@ export const ProductInsert = z.strictObject(productFields).partial({
   group: true,
   qualityGrades: true,
   trackInventory: true,
+  rubberKind: true,
 });
 export const ProductPatch = z.strictObject(productFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const ProductRecord = z.object({
@@ -160,10 +172,19 @@ export const ProductRecord = z.object({
   group: z.string().nullable(),
   qualityGrades: z.array(z.string()),
   trackInventory: z.boolean().nullable(),
+  rubberKind: RubberKind.nullable(),
 });
 export type ProductRecord = z.infer<typeof ProductRecord>;
 
 // ─── Quy tắc điều chỉnh giá ──────────────────────────────────────────────────
+
+/** Bảng mốc của một quy tắc chất lượng: tối đa 20 mốc. */
+export const PRICING_RULE_LIMITS = { qualitySteps: 20 } as const;
+const QualityStep = z.strictObject({
+  from: Quantity,
+  /** Đồng / đơn vị tính tiền (kg, kg quy khô). Dương = cộng, âm = trừ. */
+  amountPerUnit: z.number().int().min(-RECEIPT_LIMITS.quantity).max(RECEIPT_LIMITS.quantity),
+});
 
 const pricingRuleFields = {
   name: text(120),
@@ -174,6 +195,9 @@ const pricingRuleFields = {
   minWeightKg: Quantity.nullable(),
   appliesOnPickup: z.boolean().nullable(),
   active: z.boolean(),
+  /** V19 — có thì là quy tắc theo chỉ tiêu: tiền tính theo `qualitySteps`, bỏ qua `fixedAmount` / `percentOfTotal`. */
+  qualityMetric: QualityMetric.nullable(),
+  qualitySteps: z.array(QualityStep).max(PRICING_RULE_LIMITS.qualitySteps).nullable(),
 };
 export const PricingRuleInsert = z.strictObject(pricingRuleFields).partial({
   productId: true,
@@ -181,6 +205,8 @@ export const PricingRuleInsert = z.strictObject(pricingRuleFields).partial({
   percentOfTotal: true,
   minWeightKg: true,
   appliesOnPickup: true,
+  qualityMetric: true,
+  qualitySteps: true,
 });
 export const PricingRulePatch = z.strictObject(pricingRuleFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const PricingRuleRecord = z.object({
@@ -193,6 +219,8 @@ export const PricingRuleRecord = z.object({
   minWeightKg: z.number().nullable(),
   appliesOnPickup: z.boolean().nullable(),
   active: z.boolean(),
+  qualityMetric: QualityMetric.nullable(),
+  qualitySteps: z.array(z.object({ from: z.number(), amountPerUnit: z.number() })).nullable(),
 });
 export type PricingRuleRecord = z.infer<typeof PricingRuleRecord>;
 

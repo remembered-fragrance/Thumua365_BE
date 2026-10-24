@@ -10,7 +10,8 @@
  * - Công thức dòng (lineNetWeight, lineTotals) KHÔNG thay đổi.
  */
 
-import type { PriceAdjustment, PricingRule, TransactionLine } from './types.js';
+import { lineNetWeight } from './calc.js';
+import type { PriceAdjustment, PricingRule, QualityStep, TransactionLine } from './types.js';
 
 // ─── Context để suggestAdjustments tính toán ─────────────────────────────────
 
@@ -21,6 +22,32 @@ export interface PricingContext {
   /** F3: xe đến lấy = true, tự mang tới = false */
   readonly isPickup?: boolean;
 }
+
+// ─── Quy tắc theo chỉ tiêu chất lượng (V19) ─────────────────────────────────
+
+/** Mốc đang áp cho `value`: mốc có `from` lớn nhất mà ≤ `value`. Dưới mốc đầu tiên thì không có mốc nào. */
+export const qualityStepOf = (
+  steps: readonly QualityStep[],
+  value: number,
+): QualityStep | undefined =>
+  [...steps].sort((a, b) => a.from - b.from).findLast((step) => value >= step.from);
+
+/**
+ * Tiền một quy tắc chỉ tiêu cộng/trừ trên cả phiếu: mỗi dòng có chỉ tiêu đó lấy mốc của nó × lượng tính
+ * tiền của dòng (`lineNetWeight` — với mủ là kg quy khô). Dòng không nhập chỉ tiêu thì bỏ qua.
+ */
+const qualityAmount = (rule: PricingRule, lines: readonly TransactionLine[]): number => {
+  if (!rule.qualityMetric) return 0;
+  let amount = 0;
+  for (const line of lines) {
+    if (rule.productId && line.productId !== rule.productId) continue;
+    const value = line[rule.qualityMetric];
+    if (value === undefined) continue;
+    const step = qualityStepOf(rule.qualitySteps ?? [], value);
+    if (step) amount += step.amountPerUnit * lineNetWeight(line);
+  }
+  return Math.round(amount);
+};
 
 // ─── Suggest adjustments ─────────────────────────────────────────────────────
 
@@ -53,11 +80,15 @@ export const suggestAdjustments = (
 
     // Tính số tiền điều chỉnh
     let amount = 0;
-    if (rule.fixedAmount !== undefined) {
-      amount += rule.fixedAmount;
-    }
-    if (rule.percentOfTotal !== undefined) {
-      amount += Math.round((ctx.totalAmount * rule.percentOfTotal) / 100);
+    if (rule.qualityMetric) {
+      amount = qualityAmount(rule, ctx.lines);
+    } else {
+      if (rule.fixedAmount !== undefined) {
+        amount += rule.fixedAmount;
+      }
+      if (rule.percentOfTotal !== undefined) {
+        amount += Math.round((ctx.totalAmount * rule.percentOfTotal) / 100);
+      }
     }
 
     if (amount !== 0) {

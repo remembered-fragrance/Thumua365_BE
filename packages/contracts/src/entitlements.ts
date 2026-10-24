@@ -23,6 +23,13 @@ export const ENTITLEMENTS = [
   'attachments',
   /** D1 — tạo hoặc dùng lại chi nhánh. Đổi tên, lưu trữ vẫn được. */
   'branches:add',
+  /**
+   * V19 — quy tắc giá theo chỉ tiêu chất lượng (dung trọng, ẩm, tạp chất, KOR, bậc độ mủ) và tự áp lên
+   * phiếu. App chặn (quy tắc chỉ chạy ở máy); quy tắc đã khai vẫn giữ, chỉ thôi tự áp khi hết gói.
+   */
+  'quality:pricing',
+  /** V20 — mặt hàng mủ tạp tính theo DRC. App chặn khi tạo / đổi mặt hàng; mặt hàng đã có vẫn cân được. */
+  'rubber:grades',
 ] as const;
 
 export const Entitlement = z.enum(ENTITLEMENTS);

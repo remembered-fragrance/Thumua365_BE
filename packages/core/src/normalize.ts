@@ -18,7 +18,7 @@ import type {
   Supplier,
 } from './types.js';
 import { DEFAULT_PRODUCTS, isLegacyProductId, productNameFromCrop } from './catalog.js';
-import { cropFrom, formulaFrom } from './normalizeTransaction.js';
+import { cropFrom, formulaFrom, rubberKindFrom } from './normalizeTransaction.js';
 
 export const defaultSettings = (): AppSettings => ({
   defaultWeightUnit: 'kg',
@@ -77,6 +77,7 @@ export const normalizeProducts = (raw: unknown): Product[] => {
         ? (p.qualityGrades as unknown[]).map(String)
         : undefined,
       trackInventory: p.trackInventory === true ? true : undefined,
+      rubberKind: rubberKindFrom(p.rubberKind),
     };
   });
 

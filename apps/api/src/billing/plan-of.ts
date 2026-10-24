@@ -24,6 +24,9 @@ const REASON: Readonly<Record<Entitlement, string>> = {
   'members:add': 'Gói đã hết hạn — người đang có vẫn giữ nguyên, gia hạn để thêm người mới',
   attachments: 'Gói đã hết hạn — ảnh cũ vẫn xem được, gia hạn để gửi ảnh mới lên',
   'branches:add': 'Gói đã hết hạn — chi nhánh đang có vẫn giữ nguyên, gia hạn để thêm hoặc dùng lại chi nhánh',
+  // Hai mã dưới chỉ chặn ở app (quy tắc giá chạy ở máy); máy chủ không ném, câu để bảng đủ mã.
+  'quality:pricing': 'Gói đã hết hạn — quy tắc đã khai vẫn giữ, gia hạn để giá tự tính theo chất lượng',
+  'rubber:grades': 'Gói đã hết hạn — mặt hàng đang có vẫn cân được, gia hạn để thêm mặt hàng mủ tạp (DRC)',
 };
 
 export const assertEntitlement = async (tx: Tx, m: MembershipContext, entitlement: Entitlement): Promise<void> => {

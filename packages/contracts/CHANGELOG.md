@@ -3,6 +3,25 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.22.0 — 24/10/2026 (gói Pro Đợt 1b: giá theo chất lượng, mủ tạp theo DRC)
+
+Migration `20261024000000_gia_theo_chat_luong`: chỉ **thêm cột cho phép NULL** (`products.rubber_kind`,
+`pricing_rules.quality_metric`, `pricing_rules.quality_steps`) kèm CHECK. Chạy migration trước khi deploy API.
+
+**Không thêm giá trị enum nào** vào `FormulaType`, `PricingRuleKind`: SDK kiểm phản hồi bằng schema, app bản cũ gặp
+giá trị lạ thì cả lượt kéo sổ báo `CONTRACT_MISMATCH`. Chỉ thêm trường tuỳ chọn — app cũ bỏ qua khi đọc.
+
+- Dòng phiếu (`TransactionLine`, `FrozenTransactionLine`): thêm tuỳ chọn `rubberKind` (`latex` | `cuplump`) và chỉ tiêu
+  chất lượng `bulkDensity` (g/l), `moisturePercent`, `impurityPercent` (0–100), `kor`. Không tham gia công thức dòng:
+  `freezeLineTotals` tính như cũ, sổ cũ ra đúng số cũ.
+- Mặt hàng: thêm `rubberKind` (null = mủ nước như trước). Mủ tạp dùng cùng công thức `rubberLatex` (kg × DRC % × giá).
+- Quy tắc giá: thêm `qualityMetric` (`bulkDensity` | `moisturePercent` | `impurityPercent` | `kor` | `qualityPercent`) và
+  `qualitySteps` (`[{ from, amountPerUnit }]`, tối đa `PRICING_RULE_LIMITS.qualitySteps` = 20, tiền là số nguyên).
+  Có `qualityMetric` thì `suggestAdjustments` cộng mỗi dòng: mốc áp (`qualityStepOf`) × lượng tính tiền của dòng,
+  bỏ qua `fixedAmount` / `percentOfTotal`. Khoản sinh ra là `PriceAdjustment` như cũ (`kind` giữ của quy tắc).
+- Quyền lợi mới: `quality:pricing` (V19), `rubber:grades` (V20). Chỉ chặn ở app — quy tắc giá chạy ở máy, và hết gói
+  thì `/sync/push` đã chặn bằng `PLAN_EXPIRED`.
+
 ## 0.21.0 — 24/10/2026 (gói Pro Đợt 1: bức tường theo gói ở máy chủ)
 
 Không có migration. Quyền lợi suy từ bậc gói (`planFor`), không lưu thêm gì. **Bật ngay khi deploy**, không qua cờ

@@ -15,6 +15,7 @@ import type {
   Payment,
   PriceAdjustment,
   ProductFormulaType,
+  RubberKind,
   Transaction,
   TransactionKind,
   TransactionLine,
@@ -45,6 +46,9 @@ export const formulaFrom = (value: unknown): ProductFormulaType =>
     ? (value as ProductFormulaType)
     : 'netAfterTare';
 
+export const rubberKindFrom = (value: unknown): RubberKind | undefined =>
+  value === 'latex' || value === 'cuplump' ? value : undefined;
+
 /** Số đọc từ JSON — không phải input người dùng, nên Number() ở đây là đúng chỗ. */
 const num = (value: unknown): number => Number(value) || 0;
 
@@ -71,6 +75,11 @@ export const normalizeLine = (raw: Record<string, unknown>, freeze = true): Tran
     rawTotal: optionalNum(raw.rawTotal),
     roundedTotal: optionalNum(raw.roundedTotal),
     qualityGrade: raw.qualityGrade ? String(raw.qualityGrade) : undefined,
+    rubberKind: rubberKindFrom(raw.rubberKind),
+    bulkDensity: optionalNum(raw.bulkDensity),
+    moisturePercent: optionalNum(raw.moisturePercent),
+    impurityPercent: optionalNum(raw.impurityPercent),
+    kor: optionalNum(raw.kor),
   };
   return freeze ? freezeLineTotals(line) : line;
 };
