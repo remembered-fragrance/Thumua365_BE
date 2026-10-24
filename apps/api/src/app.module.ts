@@ -20,7 +20,7 @@ import { BillingController } from './billing/billing.controller';
 import { BillingService } from './billing/billing.service';
 import { type Jwks, JWKS } from './auth/auth-user';
 import { ClientIpThrottlerGuard } from './auth/client-ip-throttler.guard';
-import { JwtAuthGuard, OrgContextGuard, PermissionGuard } from './auth/guards';
+import { EntitlementGuard, JwtAuthGuard, OrgContextGuard, PermissionGuard } from './auth/guards';
 import { MEMBERSHIP_LOOKUP, type MembershipLookup } from './auth/membership';
 import { SUPABASE_ADMIN, type SupabaseAdmin } from './auth/supabase-admin';
 import { SUPABASE_USERS, type SupabaseUsers } from './auth/supabase-users';
@@ -133,6 +133,7 @@ export class AppModule {
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: OrgContextGuard },
         { provide: APP_GUARD, useClass: PermissionGuard },
+        { provide: APP_GUARD, useClass: EntitlementGuard },
         { provide: APP_INTERCEPTOR, useClass: ContractInterceptor },
       ],
     };

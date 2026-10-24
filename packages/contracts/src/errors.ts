@@ -26,6 +26,10 @@ export const ERROR_CODES = [
   'INTERNAL',
   /** 0.16.0 — API chưa cấu hình dịch vụ gửi thư, hoặc dịch vụ đang hỏng. Liên hệ kỹ thuật viên. */
   'EMAIL_UNAVAILABLE',
+  /** 0.21.0 — gói hiện tại không có quyền lợi này (`details.entitlement`). Hết gói / chưa có gói. */
+  'PLAN_REQUIRED',
+  /** 0.21.0 — đã đủ số người gói cho phép (`details.limit`). */
+  'MEMBER_LIMIT',
 ] as const;
 
 export const ErrorCode = z.enum(ERROR_CODES);
@@ -47,6 +51,8 @@ export const ERROR_STATUS: Readonly<Record<ErrorCode, number>> = {
   RATE_LIMITED: 429,
   INTERNAL: 500,
   EMAIL_UNAVAILABLE: 503,
+  PLAN_REQUIRED: 402,
+  MEMBER_LIMIT: 402,
 };
 
 export const ErrorBody = z.object({

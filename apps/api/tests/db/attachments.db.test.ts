@@ -114,6 +114,7 @@ describe('ai xem được ảnh nào', () => {
 
     const otherOwner = newId();
     const other = await createOrg('trader', otherOwner, 'Vựa khác');
+    await giveTrial(other); // hết gói thì upload-url → PLAN_REQUIRED (plan-walls.db.test)
     await (await as(otherOwner, other)).get(`/v1/attachments/${photoId}/url`).expect(404);
     // Ký URL tải lên của tổ chức khác chỉ ra thư mục của CHÍNH họ.
     const theirs = AttachmentUploadUrl.parse((await (await as(otherOwner, other)).post('/v1/attachments/upload-url', photo(photoId)).expect(200)).body);

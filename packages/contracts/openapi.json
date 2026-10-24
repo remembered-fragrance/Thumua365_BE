@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.20.2"
+    "version": "0.21.0"
   },
   "servers": [
     {
@@ -5874,7 +5874,7 @@
       },
       "post": {
         "operationId": "orgMembersCreate",
-        "summary": "Chủ tạo tài khoản cho người cân / quản lý (tên, số điện thoại, mật khẩu ban đầu) và gắn vào tổ chức",
+        "summary": "Chủ tạo tài khoản cho người cân / quản lý (tên, số điện thoại, mật khẩu ban đầu) và gắn vào tổ chức. Hết gói → PLAN_REQUIRED; đủ số người của gói → MEMBER_LIMIT",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -5940,8 +5940,11 @@
           }
         },
         "x-permission": "staff:manage",
+        "x-entitlement": "members:add",
         "x-error-codes": [
-          "NOT_FOUND"
+          "NOT_FOUND",
+          "PLAN_REQUIRED",
+          "MEMBER_LIMIT"
         ],
         "x-rate-limit-per-minute": 20,
         "responses": {
@@ -6041,6 +6044,16 @@
             }
           },
           "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
             "description": "Lỗi — xem `error.code`",
             "content": {
               "application/json": {
@@ -6659,7 +6672,7 @@
       },
       "post": {
         "operationId": "orgBranchesCreate",
-        "summary": "Tạo chi nhánh — vượt giới hạn của gói thì BRANCH_LIMIT",
+        "summary": "Tạo chi nhánh — vượt giới hạn của gói thì BRANCH_LIMIT, hết gói thì PLAN_REQUIRED",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -6705,7 +6718,8 @@
         },
         "x-permission": "branch:manage",
         "x-error-codes": [
-          "BRANCH_LIMIT"
+          "BRANCH_LIMIT",
+          "PLAN_REQUIRED"
         ],
         "responses": {
           "200": {
@@ -6822,7 +6836,7 @@
     "/v1/org/branches/{id}": {
       "patch": {
         "operationId": "orgBranchUpdate",
-        "summary": "Đổi tên, địa chỉ; lưu trữ (chưa ai gắn) hoặc dùng lại (trong giới hạn của gói)",
+        "summary": "Đổi tên, địa chỉ; lưu trữ (chưa ai gắn) hoặc dùng lại (trong giới hạn của gói; hết gói → PLAN_REQUIRED)",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -6879,7 +6893,8 @@
         "x-permission": "branch:manage",
         "x-error-codes": [
           "BRANCH_LIMIT",
-          "NOT_FOUND"
+          "NOT_FOUND",
+          "PLAN_REQUIRED"
         ],
         "responses": {
           "200": {
@@ -11020,6 +11035,8 @@
                                   "enum": [
                                     "sync",
                                     "branches",
+                                    "members",
+                                    "attachments",
                                     "other"
                                   ]
                                 }
@@ -11584,7 +11601,7 @@
     "/v1/attachments/upload-url": {
       "post": {
         "operationId": "attachmentsUploadUrl",
-        "summary": "URL có chữ ký để PUT một ảnh chứng từ thẳng lên Storage. Không ghi đè: PUT lại ảnh đã lên → 409, coi là xong",
+        "summary": "URL có chữ ký để PUT một ảnh chứng từ thẳng lên Storage. Không ghi đè: PUT lại ảnh đã lên → 409, coi là xong. Hết gói → PLAN_REQUIRED",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -11633,6 +11650,10 @@
           }
         },
         "x-permission": "receipt:create",
+        "x-entitlement": "attachments",
+        "x-error-codes": [
+          "PLAN_REQUIRED"
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -11682,6 +11703,16 @@
             }
           },
           "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
             "description": "Lỗi — xem `error.code`",
             "content": {
               "application/json": {
@@ -14182,7 +14213,9 @@
                                   "PAYLOAD_TOO_LARGE",
                                   "RATE_LIMITED",
                                   "INTERNAL",
-                                  "EMAIL_UNAVAILABLE"
+                                  "EMAIL_UNAVAILABLE",
+                                  "PLAN_REQUIRED",
+                                  "MEMBER_LIMIT"
                                 ]
                               },
                               "message": {
@@ -15512,7 +15545,9 @@
                   "PAYLOAD_TOO_LARGE",
                   "RATE_LIMITED",
                   "INTERNAL",
-                  "EMAIL_UNAVAILABLE"
+                  "EMAIL_UNAVAILABLE",
+                  "PLAN_REQUIRED",
+                  "MEMBER_LIMIT"
                 ]
               },
               "message": {

@@ -239,7 +239,8 @@ export const createClient = (options: ClientOptions) => {
       /**
        * Xin URL rồi PUT ảnh lên. Ảnh đã lên từ lần trước (mất phản hồi) → Storage trả 409 → coi là
        * xong. Lỗi khác ném `ApiError`: `VALIDATION_FAILED` / `PAYLOAD_TOO_LARGE` là ảnh hỏng thật, còn lại
-       * hàng đợi ảnh thử lại theo lịch giãn cách — xem `storageErrorCode`.
+       * hàng đợi ảnh thử lại theo lịch giãn cách — xem `storageErrorCode`. Hết gói → `PLAN_REQUIRED` (0.21.0):
+       * giữ ảnh, chờ gia hạn, không tính lần thử.
        */
       upload: async (attachmentId: string, image: Blob) => {
         const contentType = image.type as RouteBody<'attachmentsUploadUrl'>['contentType'];
@@ -285,6 +286,7 @@ export const createClient = (options: ClientOptions) => {
         /**
          * Chủ tạo tài khoản cho người cân / quản lý — người đó đăng nhập bằng số điện thoại và mật
          * khẩu này. Số đã có tài khoản ở nơi khác → `VALIDATION_FAILED`, `details.reason: 'ACCOUNT_EXISTS'`.
+         * Hết gói → `PLAN_REQUIRED`; đủ số người của gói → `MEMBER_LIMIT`, `details.limit` (0.21.0).
          */
         create: (input: RouteBody<'orgMembersCreate'>) => send('orgMembersCreate', input),
         update: (id: string, patch: RouteBody<'orgMemberUpdate'>) => call('orgMemberUpdate', patch, undefined, { id }),
@@ -293,7 +295,7 @@ export const createClient = (options: ClientOptions) => {
       },
       branches: {
         list: () => call('orgBranchesList'),
-        /** Vượt giới hạn của gói → `BRANCH_LIMIT`, `details.limit`. */
+        /** Vượt giới hạn của gói → `BRANCH_LIMIT`, `details.limit`. Hết gói → `PLAN_REQUIRED` (0.21.0). */
         create: (input: RouteBody<'orgBranchesCreate'>) => send('orgBranchesCreate', input),
         update: (id: string, patch: RouteBody<'orgBranchUpdate'>) => call('orgBranchUpdate', patch, undefined, { id }),
       },

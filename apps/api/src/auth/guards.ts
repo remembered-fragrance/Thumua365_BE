@@ -1,9 +1,9 @@
 /**
- * Ba guard toàn cục, chạy đúng thứ tự đăng ký trong AppModule (sau throttler):
+ * Bốn guard toàn cục, chạy đúng thứ tự đăng ký trong AppModule (sau throttler):
  *
- *   JwtAuthGuard → OrgContextGuard → PermissionGuard
+ *   JwtAuthGuard → OrgContextGuard → PermissionGuard → EntitlementGuard
  *
- * Cả ba đọc cấu hình từ dòng `routes` gắn qua `@Endpoint`. Handler không có
+ * Cả bốn đọc cấu hình từ dòng `routes` gắn qua `@Endpoint`. Handler không có
  * `@Endpoint` bị coi là cần đăng nhập — mặc định ĐÓNG, quên khai báo không thành
  * lỗ hổng.
  */
@@ -11,10 +11,12 @@
 import { can, type RouteDef } from '@mambo/contracts';
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { assertEntitlement } from '../billing/plan-of';
 import { ApiException } from '../common/api-exception';
 import { ROUTE_KEY } from '../common/endpoint';
 import type { ApiRequest } from '../common/request-context';
 import { ENV, type Env } from '../config/env';
+import { DATABASE, type Database } from '../db/database';
 import { JWKS, type Jwks, verifySupabaseToken } from './auth-user';
 import { MEMBERSHIP_LOOKUP, type MembershipLookup } from './membership';
 
@@ -107,6 +109,36 @@ export class PermissionGuard implements CanActivate {
     if (!membership || !can(membership.orgType, membership.role, route.permission)) {
       throw new ApiException('FORBIDDEN', 'Không có quyền làm việc này', { permission: route.permission });
     }
+    return true;
+  }
+}
+
+/**
+ * Gói của tổ chức có quyền lợi route này đòi không (`route.entitlement`) — chạy SAU PermissionGuard: người
+ * không có quyền nhận FORBIDDEN, không bao giờ thấy PLAN_REQUIRED. Việc chỉ chặn một phần route (dùng lại chi
+ * nhánh trong PATCH) thì service tự gọi `assertEntitlement`.
+ */
+@Injectable()
+export class EntitlementGuard implements CanActivate {
+  private readonly reflector: Reflector;
+  private readonly db: Database;
+
+  constructor(reflector: Reflector, @Inject(DATABASE) db: Database) {
+    this.reflector = reflector;
+    this.db = db;
+  }
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const route = routeOf(this.reflector, ctx);
+    if (route?.auth !== 'org' || !route.entitlement) return true;
+
+    const req = ctx.switchToHttp().getRequest<ApiRequest>();
+    const membership = req.membership;
+    if (!membership) throw new ApiException('FORBIDDEN', 'Không có quyền làm việc này');
+    const entitlement = route.entitlement;
+    await this.db.scoped({ userId: req.user?.id ?? '', orgId: membership.organizationId }, (tx) =>
+      assertEntitlement(tx, membership, entitlement),
+    );
     return true;
   }
 }

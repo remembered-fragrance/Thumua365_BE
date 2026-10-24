@@ -37,7 +37,7 @@ import type { z } from 'zod';
 import { recordAudit } from '../audit/audit';
 import type { AuthUser } from '../auth/auth-user';
 import type { MembershipContext } from '../auth/membership';
-import { planSummary } from '../auth/prisma-memberships';
+import { planOf } from '../billing/plan-of';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import { DomainEvents, LOGGER, type OrderChanged } from '../events/domain-events';
@@ -124,13 +124,7 @@ export class SyncPushService {
 
   /** Vựa/DN hết gói: không ghi gì, cả lượt dừng — app giữ nguyên hàng đợi, không đốt lượt thử. */
   private async assertPlan(user: AuthUser, membership: MembershipContext): Promise<void> {
-    const sub = await this.db.scoped({ userId: user.id, orgId: membership.organizationId }, (tx) =>
-      tx.subscription.findFirst({
-        where: { organizationId: membership.organizationId, deletedAt: null },
-        select: { id: true, status: true, trialEndsAt: true, currentPeriodEnd: true, branchLimit: true },
-      }),
-    );
-    const plan = planSummary(sub ?? undefined, new Date());
+    const plan = await this.db.scoped({ userId: user.id, orgId: membership.organizationId }, (tx) => planOf(tx, membership.organizationId));
     if (!plan || plan.tier === 'free') {
       throw new ApiException('PLAN_EXPIRED', 'Gói đã hết hạn — sổ vẫn đọc và xuất file được, nhưng chưa gửi lên mạng được');
     }

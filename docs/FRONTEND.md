@@ -229,6 +229,8 @@ mã của hợp đồng, còn hai trường hợp nữa:
 | `LINK_REQUIRED` | 403 | Báo "Cần kết nối trước" |
 | `PLAN_EXPIRED` | 402 | Dừng lượt sync, **không tính là một lần thử**, hiện màn gia hạn |
 | `BRANCH_LIMIT` | 402 | Báo "Gói hiện tại cho tối đa N chi nhánh" |
+| `PLAN_REQUIRED` | 402 | (`v0.21.0`) Hết gói, việc này cần gói — `details.entitlement` cho biết việc gì. Không thử lại; khoá nút, chủ thấy "Xem gói", người khác thấy "Báo chủ gia hạn". Hàng đợi ảnh gặp mã này: dừng lượt, **giữ** ảnh, không tính lần thử (như `PLAN_EXPIRED`). App tự biết trước bằng `entitlementsFor(orgType, plan.tier)` |
+| `MEMBER_LIMIT` | 402 | (`v0.21.0`) Đủ số người của gói (vựa: `STAFF_LIMIT.trader` = 3) — báo "Gói hiện tại cho tối đa N người cân" (`details.limit`) |
 | `VALIDATION_FAILED` | 422 | Không thử lại. `details.fields` = `{ "orgName": "…" }` (tên trường → câu lỗi), gắn câu lỗi vào đúng ô |
 | `PARENT_MISSING` | 409 | Thử lại theo lịch giãn cách |
 | `ORDER_STATE_CHANGED` | 409 | Tải lại đơn |
@@ -522,11 +524,11 @@ thành viên cùng thấy, cùng trạng thái đã đọc.
 
 ```ts
 const { members } = await api.org.members.list();              // chủ: staff:manage
-await api.org.members.create({ name, phone, password, role: 'staff', branchId });
+await api.org.members.create({ name, phone, password, role: 'staff', branchId }); // v0.21.0 — hết gói → PLAN_REQUIRED, đủ người → MEMBER_LIMIT
 await api.org.members.update(id, { role: 'manager', branchId });  // đổi chi nhánh → máy người đó resetRequired
 await api.org.members.remove(id);                                 // mất quyền ngay
 const { branches, limit, used } = await api.org.branches.list();  // branch:manage
-await api.org.branches.create({ name, address });                 // vượt gói → BRANCH_LIMIT (details.limit)
+await api.org.branches.create({ name, address });                 // vượt gói → BRANCH_LIMIT (details.limit); hết gói → PLAN_REQUIRED (v0.21.0)
 await api.org.branches.update(id, { archived: true });            // còn người gắn → VALIDATION_FAILED
 const report = await api.reports.summary({ from, to, branchId }); // report:view
 await api.org.update({ name: 'Vựa Tư Hùng 2' });                // v0.12.0 — chỉ chủ, người khác FORBIDDEN
