@@ -10,7 +10,7 @@
  * - Công thức dòng (lineNetWeight, lineTotals) KHÔNG thay đổi.
  */
 
-import { lineNetWeight } from './calc.js';
+import { computeReceiptTotal, lineNetWeight } from './calc.js';
 import type { PriceAdjustment, PricingRule, QualityStep, TransactionLine } from './types.js';
 
 // ─── Context để suggestAdjustments tính toán ─────────────────────────────────
@@ -69,14 +69,17 @@ export const suggestAdjustments = (
       if (rule.appliesOnPickup !== Boolean(ctx.isPickup)) continue;
     }
 
-    // Lọc theo khối lượng tối thiểu
-    if (rule.minWeightKg !== undefined && ctx.totalKg < rule.minWeightKg) continue;
-
-    // Lọc theo sản phẩm (nếu rule có productId cụ thể)
+    // Quy tắc gắn một mặt hàng chỉ đọc dòng của mặt hàng đó: "mua cà phê từ 500 kg bớt 1%" không tính
+    // 300 kg tiêu cùng phiếu vào ngưỡng, không bớt 1% trên tiền tiêu.
+    let { totalKg, totalAmount } = ctx;
     if (rule.productId) {
-      const hasProduct = ctx.lines.some((l) => l.productId === rule.productId);
-      if (!hasProduct) continue;
+      const own = ctx.lines.filter((l) => l.productId === rule.productId);
+      if (own.length === 0) continue;
+      ({ netWeight: totalKg, total: totalAmount } = computeReceiptTotal(own));
     }
+
+    // Lọc theo khối lượng tối thiểu
+    if (rule.minWeightKg !== undefined && totalKg < rule.minWeightKg) continue;
 
     // Tính số tiền điều chỉnh
     let amount = 0;
@@ -87,7 +90,7 @@ export const suggestAdjustments = (
         amount += rule.fixedAmount;
       }
       if (rule.percentOfTotal !== undefined) {
-        amount += Math.round((ctx.totalAmount * rule.percentOfTotal) / 100);
+        amount += Math.round((totalAmount * rule.percentOfTotal) / 100);
       }
     }
 

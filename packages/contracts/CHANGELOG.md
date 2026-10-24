@@ -26,6 +26,8 @@ khi deploy API.
   tiền chênh vì lệch độ, độ trung bình theo hộ). `taxReport.buildSalesLedger` (V17 — bảng kê bán ra).
 - Quyền lợi mới: `map:prices` (máy chủ chặn); `analytics`, `rubber:reconcile` (chỉ chặn ở app).
 - `quota_wall_shown.feature` thêm `analytics`, `map_prices`, `season`.
+- Core `suggestAdjustments`: quy tắc gắn một mặt hàng (`productId`) tính ngưỡng `minWeightKg` và `percentOfTotal` trên
+  các dòng của mặt hàng đó, không trên cả phiếu. Quy tắc không gắn mặt hàng tính như cũ. Hợp đồng không đổi.
 
 ## 0.23.0 — 25/10/2026 (gói Pro Đợt 2: nhật ký, báo cáo theo gói, hình thức trả, thưởng giới thiệu)
 
