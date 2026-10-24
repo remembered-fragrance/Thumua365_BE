@@ -3,6 +3,29 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.23.0 — 25/10/2026 (gói Pro Đợt 2: nhật ký, báo cáo theo gói, hình thức trả, thưởng giới thiệu)
+
+Migration `20261025000000_quan_nguoi_giu_tien`: thêm cột cho phép NULL `payments.method` (CHECK `cash` | `transfer`) và
+`subscriptions.referral_rewarded_at`; đổi `audit_log.created_at` về `timestamptz(3)` (cursor phân trang tính tới mili
+giây). Chạy migration trước khi deploy API.
+
+- Route mới `auditList` — `GET /v1/audit?actor=&from=&to=&cursor=&limit=`, quyền `staff:manage`, quyền lợi `audit:view`.
+  Trả `{ entries: AuditEntryView[], cursor }`, mới nhất trước. `action` là chuỗi (không enum) — loại thao tác mới
+  không làm app cũ vỡ. Nhật ký vẫn GHI ở mọi bậc gói.
+- Nhật ký mới: `receipt.updated` (sửa ghi chú / ảnh của phiếu đã chốt — `before` / `after` là `{ note, photos }`;
+  tiền, cân, giá không sửa được trên máy chủ), `plan.referral_bonus`, `branch.over_limit`.
+- `reportsSummary`, `reportsMembers` thêm lỗi `PLAN_REQUIRED` (`reports:org`) — chỉ vựa / doanh nghiệp hết gói;
+  nông dân xem phiếu đã kết nối như cũ.
+- Lần trả (`PaymentInsert`, `PaymentRecord`): thêm `method` (`cash` | `transfer`, null = không ghi). `PaymentMethod`.
+  Core: `recordPayment(..., method?)`, `cashPaidOnDay`, `needsCashReminder`, `CASH_REMINDER_THRESHOLD` (5.000.000đ /
+  ngày / người — chỉ nhắc, không chặn).
+- Quyền lợi mới: `audit:view`, `reports:org` (máy chủ chặn); `debt:statement`, `tax:docs`, `pay:qr` (chỉ chặn ở app).
+- `quota_wall_shown.feature` thêm `audit`, `statement`, `reports`, `tax`, `pay`. Sự kiện mới
+  `locked_feature_viewed { feature: 'zalo_oa' }`.
+- Mở gói (webhook / quản trị viên): lần trả ĐẦU của tổ chức có chủ được giới thiệu → +1 tháng cho tổ chức đó và tổ
+  chức có sổ đầu tiên của người mời, đúng một lần; thông báo dùng lại loại `plan.activated`. Doanh nghiệp đang dùng
+  nhiều chi nhánh hơn `branchLimit` mới → vẫn mở gói, ghi `branch.over_limit`; tạo thêm vẫn `BRANCH_LIMIT`.
+
 ## 0.22.0 — 24/10/2026 (gói Pro Đợt 1b: giá theo chất lượng, mủ tạp theo DRC)
 
 Migration `20261024000000_gia_theo_chat_luong`: chỉ **thêm cột cho phép NULL** (`products.rubber_kind`,
