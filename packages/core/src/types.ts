@@ -135,6 +135,8 @@ export interface Product {
   readonly trackInventory?: boolean;
   /** V20: mặt hàng mủ tính theo DRC (mủ tạp). Chọn mặt hàng thì dòng phiếu mang theo. */
   readonly rubberKind?: RubberKind;
+  /** V24: cà phê tươi — kg tươi ra 1 kg nhân. Có thì công thức là `lossPercent`, chọn mặt hàng thì dòng mang theo. */
+  readonly greenRatio?: number;
 }
 
 // ─── Supplier ────────────────────────────────────────────────────────────────
@@ -198,6 +200,11 @@ export interface TransactionLine {
   readonly impurityPercent?: number;
   /** Tỷ lệ thu hồi nhân KOR, lbs/bao 80 kg (điều). */
   readonly kor?: number;
+  /**
+   * V24: dòng cà phê tươi tính ra nhân — kg tươi ra 1 kg nhân. Chỉ để hiện và sửa: tiền vẫn tính bằng `lossPercent`
+   * (`lossFromGreenRatio`), app bản cũ đọc ra đúng số.
+   */
+  readonly greenRatio?: number;
 }
 
 // ─── Transaction ─────────────────────────────────────────────────────────────
@@ -289,6 +296,35 @@ export interface Note {
   readonly updatedAt: string;
 }
 
+// ─── SeasonContract ──────────────────────────────────────────────────────────
+
+/**
+ * (V15) Hợp đồng mùa vụ: hẹn mua (hoặc bán) một lượng mặt hàng với một người trong một khoảng ngày. Không gắn vào
+ * phiếu — lượng đã giao tính từ phiếu cùng người, cùng mặt hàng, trong khoảng ngày (xem `seasonContracts.ts`).
+ */
+export interface SeasonContract {
+  readonly id: string;
+  readonly kind: TransactionKind;
+  /** Nông hộ / người mua trong sổ; không có thì khớp phiếu theo tên. */
+  readonly counterpartyId?: string;
+  readonly counterpartyName: string;
+  /** Không có thì khớp dòng phiếu theo tên mặt hàng. */
+  readonly productId?: string;
+  readonly productName: string;
+  readonly unit: string;
+  /** Lượng hẹn, cùng đơn vị với lượng tính tiền trên phiếu (cà phê: kg nhân; mủ: kg khô). */
+  readonly quantity: number;
+  readonly pricePerUnit?: number;
+  /** Đầu ngày bắt đầu. */
+  readonly startDate: string;
+  /** Đầu ngày kết thúc — phiếu trong cả ngày đó vẫn tính. */
+  readonly endDate: string;
+  readonly note?: string;
+  readonly closed: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 // ─── AppSettings ─────────────────────────────────────────────────────────────
 
 export interface AppSettings {
@@ -314,6 +350,8 @@ export interface AppData {
   readonly settings: AppSettings;
   /** G: quy tắc điều chỉnh giá tự động. Default [] cho data cũ (backward-compat). */
   readonly pricingRules?: readonly PricingRule[];
+  /** V15: hợp đồng mùa vụ. Default [] cho data cũ. */
+  readonly seasonContracts?: readonly SeasonContract[];
 }
 
 // ─── UserProfile ─────────────────────────────────────────────────────────────

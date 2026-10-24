@@ -96,10 +96,9 @@ export const ledgerPaidBy = (t: Pick<Transaction, 'payments'>): LedgerPaidBy => 
   return transfer === paid.length ? 'transfer' : 'mixed';
 };
 
-/** Phiếu mua trong kỳ, cũ trước — đúng thứ tự ghi bảng kê. */
-export const buildPurchaseLedger = (data: AppData, range: TaxReportRange): readonly PurchaseLedgerRow[] =>
+const buildLedger = (data: AppData, range: TaxReportRange, sale: boolean): readonly PurchaseLedgerRow[] =>
   data.transactions
-    .filter((t) => t.kind !== 'sale' && isInRange(t.date, range))
+    .filter((t) => (t.kind === 'sale') === sale && isInRange(t.date, range))
     .sort((a, b) => a.date.localeCompare(b.date))
     .flatMap((t) => {
       const base = { transactionId: t.id, date: t.date, sellerName: t.supplierName, paidBy: ledgerPaidBy(t) };
@@ -118,3 +117,11 @@ export const buildPurchaseLedger = (data: AppData, range: TaxReportRange): reado
       if (adjustments !== 0) rows.push({ ...base, product: null, quantity: null, unit: null, unitPrice: null, amount: adjustments });
       return rows;
     });
+
+/** Phiếu mua trong kỳ, cũ trước — đúng thứ tự ghi bảng kê. */
+export const buildPurchaseLedger = (data: AppData, range: TaxReportRange): readonly PurchaseLedgerRow[] =>
+  buildLedger(data, range, false);
+
+/** Phiếu bán trong kỳ (V17, bộ hồ sơ kê khai) — cùng dạng dòng; `sellerName` là tên người mua. */
+export const buildSalesLedger = (data: AppData, range: TaxReportRange): readonly PurchaseLedgerRow[] =>
+  buildLedger(data, range, true);

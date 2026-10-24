@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPurchaseLedger, buildTaxReport, isInRange, ledgerPaidBy, TAX_REPORT_DISCLAIMER } from '../src/taxReport';
+import { buildPurchaseLedger, buildSalesLedger, buildTaxReport, isInRange, ledgerPaidBy, TAX_REPORT_DISCLAIMER } from '../src/taxReport';
 import { data, line, tx } from './fixtures';
 
 const range = {
@@ -135,5 +135,20 @@ describe('bảng kê thu mua dạng 02/TNDN (V12)', () => {
 
   it('câu tự chịu trách nhiệm theo §4.2', () => {
     expect(TAX_REPORT_DISCLAIMER).toBe('Số liệu tổng hợp từ sổ của bạn. Bạn tự kiểm tra và chịu trách nhiệm khi dùng để kê khai thuế.');
+  });
+});
+
+describe('bảng kê bán ra (V17)', () => {
+  it('chỉ phiếu bán trong kỳ, cùng dạng dòng với bảng kê mua', () => {
+    const rows = buildSalesLedger(
+      data({
+        transactions: [
+          purchase1M({ id: 'mua' }),
+          purchase1M({ id: 'ban', kind: 'sale', supplierName: 'Công ty X', date: '2026-08-03T02:00:00.000Z' }),
+        ],
+      }),
+      range,
+    );
+    expect(rows.map((r) => [r.transactionId, r.sellerName, r.amount])).toEqual([['ban', 'Công ty X', 1_000_000]]);
   });
 });

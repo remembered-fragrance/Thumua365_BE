@@ -39,6 +39,7 @@ export const emptyData = (): AppData => ({
   notes: [],
   settings: defaultSettings(),
   pricingRules: [],
+  seasonContracts: [],
 });
 
 /** Sổ rỗng cho sổ CHỈ NẰM TRÊN MÁY (tài khoản máy): có sẵn bốn mặt hàng gợi ý. */
@@ -78,6 +79,7 @@ export const normalizeProducts = (raw: unknown): Product[] => {
         : undefined,
       trackInventory: p.trackInventory === true ? true : undefined,
       rubberKind: rubberKindFrom(p.rubberKind),
+      greenRatio: Number(p.greenRatio) > 1 ? Number(p.greenRatio) : undefined,
     };
   });
 
@@ -150,5 +152,6 @@ export const normalize = (raw: unknown): AppData => {
     notes: asRecords(d.notes).map(normalizeNote),
     settings: { ...defaultSettings(), ...(d.settings as AppSettings | undefined) },
     pricingRules: Array.isArray(d.pricingRules) ? d.pricingRules : [],
+    seasonContracts: Array.isArray(d.seasonContracts) ? d.seasonContracts : [],
   };
 };

@@ -80,6 +80,7 @@ export const normalizeLine = (raw: Record<string, unknown>, freeze = true): Tran
     moisturePercent: optionalNum(raw.moisturePercent),
     impurityPercent: optionalNum(raw.impurityPercent),
     kor: optionalNum(raw.kor),
+    greenRatio: num(raw.greenRatio) > 1 ? num(raw.greenRatio) : undefined,
   };
   return freeze ? freezeLineTotals(line) : line;
 };
