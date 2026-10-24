@@ -46,7 +46,7 @@ export const TrackedEvent = z.discriminatedUnion('name', [
   event('receipt_shared', z.strictObject({ channel: z.enum(['zalo', 'image', 'pdf', 'other']) })),
   event('debt_payment_recorded', z.strictObject({ offline: z.boolean() })),
   event('import_completed', z.strictObject({ kind: z.enum(['receipts', 'partners']), rows: Count })),
-  event('quota_wall_shown', z.strictObject({ feature: z.enum(['sync', 'branches', 'members', 'attachments', 'other']) })),
+  event('quota_wall_shown', z.strictObject({ feature: z.enum(['sync', 'branches', 'members', 'attachments', 'quality', 'rubber', 'other']) })),
   event('plans_viewed', none),
   event('checkout_started', z.strictObject({ months: z.union([z.literal(1), z.literal(12)]) })),
   event('member_invited', z.strictObject({ role: z.enum(['manager', 'staff']) })),

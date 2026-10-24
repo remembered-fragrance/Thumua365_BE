@@ -19,6 +19,7 @@ giá trị lạ thì cả lượt kéo sổ báo `CONTRACT_MISMATCH`. Chỉ thê
   `qualitySteps` (`[{ from, amountPerUnit }]`, tối đa `PRICING_RULE_LIMITS.qualitySteps` = 20, tiền là số nguyên).
   Có `qualityMetric` thì `suggestAdjustments` cộng mỗi dòng: mốc áp (`qualityStepOf`) × lượng tính tiền của dòng,
   bỏ qua `fixedAmount` / `percentOfTotal`. Khoản sinh ra là `PriceAdjustment` như cũ (`kind` giữ của quy tắc).
+- `quota_wall_shown.feature` thêm `quality`, `rubber`.
 - Quyền lợi mới: `quality:pricing` (V19), `rubber:grades` (V20). Chỉ chặn ở app — quy tắc giá chạy ở máy, và hết gói
   thì `/sync/push` đã chặn bằng `PLAN_EXPIRED`.
 

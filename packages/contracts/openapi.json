@@ -11037,6 +11037,8 @@
                                     "branches",
                                     "members",
                                     "attachments",
+                                    "quality",
+                                    "rubber",
                                     "other"
                                   ]
                                 }
