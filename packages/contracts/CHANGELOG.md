@@ -19,6 +19,9 @@ giây). Chạy migration trước khi deploy API.
 - Lần trả (`PaymentInsert`, `PaymentRecord`): thêm `method` (`cash` | `transfer`, null = không ghi). `PaymentMethod`.
   Core: `recordPayment(..., method?)`, `cashPaidOnDay`, `needsCashReminder`, `CASH_REMINDER_THRESHOLD` (5.000.000đ /
   ngày / người — chỉ nhắc, không chặn).
+- Core `taxReport`: `TAX_REPORT_DISCLAIMER` đổi thành câu tự chịu trách nhiệm (§4.2); mới `buildPurchaseLedger` (bảng kê
+  thu mua dạng 02/TNDN — mỗi dòng hàng một dòng, khoản cộng / trừ một dòng, hình thức trả của phiếu) và `ledgerPaidBy`.
+  Không thêm trường nhạy cảm nào vào sổ: CCCD, địa chỉ để file chừa trống.
 - Quyền lợi mới: `audit:view`, `reports:org` (máy chủ chặn); `debt:statement`, `tax:docs`, `pay:qr` (chỉ chặn ở app).
 - `quota_wall_shown.feature` thêm `audit`, `statement`, `reports`, `tax`, `pay`. Sự kiện mới
   `locked_feature_viewed { feature: 'zalo_oa' }`.
