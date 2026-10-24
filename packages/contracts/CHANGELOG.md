@@ -3,6 +3,30 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.24.0 — 26/10/2026 (gói Pro Đợt 3: phân tích, đối chiếu độ mủ, giá trên bản đồ, hợp đồng mùa vụ, cà phê tươi)
+
+Migration `20261026000000_thay_tien_loi`: thêm cột cho phép NULL `products.green_ratio`, `places.prices`,
+`places.prices_updated_at` (kèm CHECK); bảng sổ mới `season_contracts` (RLS theo tổ chức, trigger `touch_updated_at`,
+`keep_soft_deleted`); hàm `place_price_plans()` (security definer, chỉ trả cột ngày tháng của gói). Chạy migration trước
+khi deploy API.
+
+- Đồng bộ: loại bản ghi mới `seasonContract` (V15) — `SeasonContractInsert` / `Patch` / `Record`, đứng CUỐI
+  `SYNC_ENTITIES` để cursor kéo dở của app bản cũ không lệch bảng. `SyncChanges.seasonContracts` (mặc định `[]`; app cũ
+  bỏ qua khoá lạ). Quyền: `partner:manage` cho cả thêm, sửa, xoá — người cân không tạo được. Hợp đồng không gắn vào
+  phiếu: app tự cộng đã giao từ phiếu cùng người, cùng mặt hàng, trong khoảng ngày.
+- Bản đồ (V9): `Place.prices` (`PlacePrice[]`, tối đa `PLACE_PRICES_LIMIT` = 10) và `Place.pricesUpdatedAt`.
+  `PlaceInput` / `PlacePatch` thêm `prices` (gửi danh sách có giá cần `map:prices`, không có → 402 `PLAN_REQUIRED`;
+  `null` / rỗng = gỡ giá, gói nào cũng được). Chủ điểm hết gói → máy chủ trả `prices: []`, `pricesUpdatedAt: null`
+  cho mọi người; gia hạn là hiện lại, không phải khai lại.
+- Mặt hàng và dòng phiếu (V24): thêm `greenRatio` (kg cà phê tươi ra 1 kg nhân, > 1, ≤ 20). Công thức vẫn là
+  `lossPercent` với `lossPercent = (1 − 1/greenRatio) × 100` (core `lossFromGreenRatio`) — app bản cũ tính ra đúng tiền.
+  Không thêm giá trị enum nào.
+- Core mới: `analytics.ts` — `buildAnalytics` (V8: lời ước tính theo mặt hàng = lượng bán × (giá bán bình quân − giá mua
+  bình quân), giá bình quân, kỳ trước qua `previousRange`), `buildRubberReconcile` (V21: độ vựa đo vs độ nhà máy đo,
+  tiền chênh vì lệch độ, độ trung bình theo hộ). `taxReport.buildSalesLedger` (V17 — bảng kê bán ra).
+- Quyền lợi mới: `map:prices` (máy chủ chặn); `analytics`, `rubber:reconcile` (chỉ chặn ở app).
+- `quota_wall_shown.feature` thêm `analytics`, `map_prices`, `season`.
+
 ## 0.23.0 — 25/10/2026 (gói Pro Đợt 2: nhật ký, báo cáo theo gói, hình thức trả, thưởng giới thiệu)
 
 Migration `20261025000000_quan_nguoi_giu_tien`: thêm cột cho phép NULL `payments.method` (CHECK `cash` | `transfer`) và
