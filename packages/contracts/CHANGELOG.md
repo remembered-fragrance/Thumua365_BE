@@ -3,6 +3,24 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.21.0 — 24/10/2026 (gói Pro Đợt 1: bức tường theo gói ở máy chủ)
+
+Không có migration. Quyền lợi suy từ bậc gói (`planFor`), không lưu thêm gì. **Bật ngay khi deploy**, không qua cờ
+`features`. App 0.20 vẫn chạy với API 0.21 nhưng gặp 402 mới chỉ hiện câu lỗi chung ⇒ nâng app ngay sau khi tag.
+
+- Mới: `ENTITLEMENTS`, `Entitlement`, `entitlementsFor(orgType, tier)`, `entitled(...)`, `STAFF_LIMIT` — bảng quyền lợi
+  theo gói, bản duy nhất cho máy chủ, app và test. Dùng thử / đang trả / ân hạn: đủ; hết gói, chưa có gói, nông dân:
+  không có gì. App tính từ `plan.tier` của `/v1/me` (đã có cho mọi thành viên) — `/v1/me` không đổi.
+- Mã lỗi mới, cả hai là 402 và không thử lại:
+  - `PLAN_REQUIRED` — `details.entitlement`. Hết gói mà thêm người (`orgMembersCreate`), xin URL tải ảnh
+    (`attachmentsUploadUrl`), tạo chi nhánh (`orgBranchesCreate`) hoặc bỏ lưu trữ chi nhánh (`orgBranchUpdate`
+    với `archived: false`). Đổi tên / lưu trữ chi nhánh, xem ảnh cũ, kéo sổ, người đang có: không chặn.
+  - `MEMBER_LIMIT` — `details.limit`. Vựa có gói tối đa 3 người (không tính chủ); thêm mới hay bật lại người cũ
+    đều tính. Doanh nghiệp không giới hạn số người (giới hạn theo chi nhánh như cũ).
+- `RouteDef.entitlement` (tuỳ chọn) — route cần quyền lợi nào; `openapi.json` ghi `x-entitlement`.
+- `quota_wall_shown.feature` thêm `members`, `attachments`.
+- `/sync/push` hết gói vẫn là `PLAN_EXPIRED` như cũ.
+
 ## 0.20.2 — 23/10/2026 (biểu đồ 7 ngày có ngày/tháng)
 
 Không đổi route, không có migration. App 0.20.0 chạy được với API 0.20.2.
