@@ -25,11 +25,15 @@ export type TransactionKind = 'purchase' | 'sale';
  * Một lần trả tiền cho giao dịch.
  * Bất biến: sum(payments) === amountPaid tại mọi thời điểm.
  */
+/** V13 — trả bằng gì. Vắng = lần trả cũ, không rõ (coi như tiền mặt khi nhắc ngưỡng 5 triệu). */
+export type PaymentMethod = 'cash' | 'transfer';
+
 export interface Payment {
   readonly id: string;
   readonly date: string;   // ISO 8601
   readonly amount: number;
   readonly note?: string;
+  readonly method?: PaymentMethod;
 }
 
 // ─── Credit term (Workstream H) ─────────────────────────────────────────────

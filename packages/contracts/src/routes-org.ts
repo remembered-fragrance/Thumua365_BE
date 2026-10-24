@@ -1,5 +1,6 @@
-/** Nhân viên, chi nhánh, báo cáo tổng (BE7) — một phần của danh bạ `routes`. */
+/** Nhân viên, chi nhánh, báo cáo tổng (BE7), nhật ký (V6, D4) — một phần của danh bạ `routes`. */
 
+import { AuditQuery, AuditResult } from './audit.js';
 import {
   IdParams,
   MemberActivityQuery,
@@ -118,7 +119,8 @@ export const orgRoutes = {
     permission: 'report:view',
     query: ReportSummaryQuery,
     response: ReportSummary,
-    errors: ['NOT_FOUND'],
+    // Vựa / doanh nghiệp hết gói → PLAN_REQUIRED (`reports:org`), chặn trong service: nông dân vẫn xem.
+    errors: ['NOT_FOUND', 'PLAN_REQUIRED'],
   },
   reportsMembers: {
     method: 'GET',
@@ -128,5 +130,17 @@ export const orgRoutes = {
     permission: 'staff:manage',
     query: MemberActivityQuery,
     response: MemberActivityReport,
+    errors: ['PLAN_REQUIRED'],
+  },
+  auditList: {
+    method: 'GET',
+    path: '/v1/audit',
+    summary: 'Nhật ký thao tác của tổ chức, mới nhất trước — ai, lúc nào, làm gì, số cũ → số mới. Hết gói → PLAN_REQUIRED',
+    auth: 'org',
+    permission: 'staff:manage',
+    entitlement: 'audit:view',
+    query: AuditQuery,
+    response: AuditResult,
+    errors: ['PLAN_REQUIRED'],
   },
 } as const satisfies Record<string, RouteDef>;

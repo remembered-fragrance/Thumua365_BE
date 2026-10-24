@@ -30,6 +30,19 @@ export const ENTITLEMENTS = [
   'quality:pricing',
   /** V20 — mặt hàng mủ tạp tính theo DRC. App chặn khi tạo / đổi mặt hàng; mặt hàng đã có vẫn cân được. */
   'rubber:grades',
+  /** V6, D4 — đọc nhật ký thao tác (`GET /v1/audit`). Nhật ký GHI ở mọi bậc gói; gói chỉ quyết định đọc. */
+  'audit:view',
+  /** V7 — sao kê công nợ gửi khách (ảnh / PDF sinh ở máy). App chặn; xem công nợ trong app vẫn Free. */
+  'debt:statement',
+  /**
+   * D3 — báo cáo tổng phía server (`/reports/summary`, `/reports/members`) cho vựa / doanh nghiệp. Chặn
+   * trong service, không ở route: nông dân dùng `summary` để xem phiếu đã kết nối (Free).
+   */
+  'reports:org',
+  /** V12, V17 — bảng kê thu mua dạng 02/TNDN. App chặn (file sinh ở máy); báo cáo thuế tổng vẫn Free. */
+  'tax:docs',
+  /** V13 — trả nông hộ bằng chuyển khoản: chép số tiền + nội dung `PM-…`. App chặn; ghi trả tiền vẫn Free. */
+  'pay:qr',
 ] as const;
 
 export const Entitlement = z.enum(ENTITLEMENTS);

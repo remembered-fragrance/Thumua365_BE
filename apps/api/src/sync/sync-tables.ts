@@ -194,7 +194,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
 
   payment: {
     branch: 'parent',
-    defaults: { note: null },
+    defaults: { note: null, method: null },
     toDb: convert({ date: asDate, amount: toBigInt }),
     toRecord: (row: Payment): PaymentRecord => ({
       ...meta(row),
@@ -202,6 +202,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       date: iso(row.date),
       amount: Number(row.amount),
       note: row.note,
+      method: row.method as PaymentRecord['method'],
     }),
   },
 };

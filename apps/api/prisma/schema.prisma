@@ -113,17 +113,19 @@ model Membership {
 /// Gói của một tổ chức vựa/doanh nghiệp. Nông dân không có hàng nào ở đây.
 /// Không có trạng thái 'expired' — suy ra từ ngày tháng (@mambo/core/subscription).
 model Subscription {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId   String    @map("organization_id") @db.Uuid
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
   /// trialing | active | past_due | canceled
-  status           String
-  trialEndsAt      DateTime? @map("trial_ends_at") @db.Timestamptz(6)
-  currentPeriodEnd DateTime? @map("current_period_end") @db.Timestamptz(6)
+  status             String
+  trialEndsAt        DateTime? @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodEnd   DateTime? @map("current_period_end") @db.Timestamptz(6)
   /// Doanh nghiệp: số chi nhánh tối đa theo gói. null = không giới hạn.
-  branchLimit      Int?      @map("branch_limit")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  branchLimit        Int?      @map("branch_limit")
+  /// Đã cộng tháng thưởng giới thiệu (cho tổ chức này và người mời) — chỉ một lần.
+  referralRewardedAt DateTime? @map("referral_rewarded_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization   Organization    @relation(fields: [organizationId], references: [id])
   paymentIntents PaymentIntent[]
@@ -403,6 +405,8 @@ model Payment {
   date           DateTime  @db.Timestamptz(6)
   amount         BigInt
   note           String?
+  /// cash | transfer. null = app cũ / không ghi (Đợt 2, V13).
+  method         String?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// Có từ BE2: huỷ một lần trả phải lan sang máy khác khi kéo theo updated_at.
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
@@ -558,7 +562,7 @@ model AuditLog {
   before         Json?
   after          Json?
   requestId      String?  @map("request_id")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@map("audit_log")

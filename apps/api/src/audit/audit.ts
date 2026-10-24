@@ -16,6 +16,7 @@ export type AuditAction =
   | 'organization.bootstrapped'
   | 'organization.updated'
   | 'receipt.deleted'
+  | 'receipt.updated'
   | 'payment.voided'
   | 'member.role_changed'
   | 'link.invited'
@@ -26,9 +27,11 @@ export type AuditAction =
   | 'member.left'
   | 'branch.created'
   | 'branch.updated'
+  | 'branch.over_limit'
   | 'place.created'
   | 'place.updated'
-  | 'place.deleted';
+  | 'place.deleted'
+  | 'plan.referral_bonus';
 
 export interface AuditEntry {
   readonly organizationId: string;

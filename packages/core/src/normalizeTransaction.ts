@@ -89,6 +89,7 @@ export const normalizePayment = (raw: Record<string, unknown>): Payment => ({
   date: String(raw.date || new Date().toISOString()),
   amount: num(raw.amount),
   note: raw.note ? String(raw.note) : undefined,
+  method: raw.method === 'cash' || raw.method === 'transfer' ? raw.method : undefined,
 });
 
 const normalizeCreditTerm = (raw: Record<string, unknown>): CreditTerm => ({

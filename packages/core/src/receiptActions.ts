@@ -10,7 +10,7 @@
 import { freezeLineTotals, transactionTotals } from './calc.js';
 import { newId } from './id.js';
 import { type PartyMatch, resolveBuyer, resolveSupplier } from './partyActions.js';
-import type { AppData, Payment, Product, Transaction, TransactionLine } from './types.js';
+import type { AppData, Payment, PaymentMethod, Product, Transaction, TransactionLine } from './types.js';
 
 export type NewTransaction = Omit<Transaction, 'id' | 'supplierId'> & { supplierId?: string };
 
@@ -77,6 +77,7 @@ export const recordPayment = (
   data: AppData,
   txId: string,
   amount: number,
+  method?: PaymentMethod,
 ): { data: AppData; payment: Payment | null } => {
   const target = data.transactions.find((t) => t.id === txId);
   if (!target) return { data, payment: null };
@@ -86,7 +87,7 @@ export const recordPayment = (
   const actual = Math.min(Math.max(amount, 0), remaining);
   if (actual <= 0) return { data, payment: null };
 
-  const payment: Payment = { id: newId(), date: new Date().toISOString(), amount: actual };
+  const payment: Payment = { id: newId(), date: new Date().toISOString(), amount: actual, ...(method ? { method } : {}) };
   const payments = [...target.payments, payment];
 
   return {

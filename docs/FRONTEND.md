@@ -171,8 +171,9 @@ Các hàm SDK đã có ở `v0.20.1` (giống `v0.20.0`):
 | `api.notifications.list()` · `.read({ ids })` | `/v1/notifications…` (BE5) | tổ chức | mục 5.8 |
 | `api.org.update({ name })` | `PATCH /v1/org` (`v0.12.0`) | tổ chức; chỉ chủ | mục 5.9 |
 | `api.org.members.list` · `.create` · `.update` · `.remove` · `api.org.branches.list` · `.create` · `.update` | `/v1/org/…` (BE7) | tổ chức + `staff:manage` / `branch:manage` | mục 5.9 |
-| `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view` | mục 5.9 |
-| `api.reports.members({ from, to })` | `GET /v1/reports/members` (`v0.13.0`) | tổ chức + `staff:manage` | mục 5.9 |
+| `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view`; vựa / DN cần gói `reports:org` (`v0.23.0`) | mục 5.9 |
+| `api.reports.members({ from, to })` | `GET /v1/reports/members` (`v0.13.0`) | tổ chức + `staff:manage` + gói `reports:org` (`v0.23.0`) | mục 5.9 |
+| `api.audit.list({ actor, from, to, cursor, limit })` | `GET /v1/audit` (`v0.23.0`) | tổ chức + `staff:manage` + gói `audit:view` | `{ entries, cursor }` — mới nhất trước; `action` là chuỗi, loại lạ thì hiện tên thô |
 | `api.places.inView({ bbox, kinds }, signal)` · `.get(id)` | `GET /v1/places…` (`v0.14.0`) | đăng nhập — mọi vai trò | mục 5.13 |
 | `api.places.mine()` · `.create(input)` · `.update(id, patch)` · `.remove(id)` | `/v1/org/places…` (`v0.14.0`) | tổ chức + `place:manage` | mục 5.13 |
 | `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |

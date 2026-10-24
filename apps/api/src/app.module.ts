@@ -14,6 +14,8 @@ import { EventsController } from './analytics/events.controller';
 import { EventsService } from './analytics/events.service';
 import { AttachmentsController } from './attachments/attachments.controller';
 import { AttachmentsService } from './attachments/attachments.service';
+import { AuditController } from './audit/audit.controller';
+import { AuditService } from './audit/audit.service';
 import { AuthController } from './auth/auth.controller';
 import { BankWebhookService } from './billing/bank-webhook.service';
 import { BillingController } from './billing/billing.controller';
@@ -84,6 +86,7 @@ export class AppModule {
         LinksController,
         OrdersController,
         NotificationsController,
+        AuditController,
         OrgController,
         ReportsController,
         AccountController,
@@ -111,6 +114,7 @@ export class AppModule {
         LinksService,
         OrdersService,
         NotificationsService,
+        AuditService,
         NotificationsListener,
         MembersService,
         BranchesService,

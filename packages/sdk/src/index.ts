@@ -322,13 +322,24 @@ export const createClient = (options: ClientOptions) => {
       /** Gỡ khỏi bản đồ của mọi người. */
       remove: (id: string) => call('orgPlaceDelete', undefined, undefined, { id }),
     },
-    /** Báo cáo tổng tính phía server (BE7). `from` gồm, `to` không gồm; tối đa 366 ngày. */
+    /**
+     * Báo cáo tổng tính phía server (BE7). `from` gồm, `to` không gồm; tối đa 366 ngày. Vựa / doanh nghiệp hết
+     * gói → `PLAN_REQUIRED` (`reports:org`); nông dân không bị chặn.
+     */
     reports: {
       summary: (params: { readonly from: string; readonly to: string; readonly branchId?: string }) =>
         call('reportsSummary', undefined, { from: params.from, to: params.to, branchId: params.branchId }),
       /** Việc của từng người (chỉ chủ — `staff:manage`): phiếu đã lập, lần trả đã ghi, lần làm gần nhất. */
       members: (params: { readonly from: string; readonly to: string }) =>
         call('reportsMembers', undefined, { from: params.from, to: params.to }),
+    },
+    /**
+     * Nhật ký thao tác (V6) — chỉ chủ (`staff:manage`), cần gói (`audit:view`, hết gói → `PLAN_REQUIRED`). Mới nhất
+     * trước; gọi lại với `cursor` vừa nhận tới khi `cursor` là null.
+     */
+    audit: {
+      list: (params: { readonly actor?: string; readonly from?: string; readonly to?: string; readonly cursor?: string; readonly limit?: number } = {}) =>
+        call('auditList', undefined, { actor: params.actor, from: params.from, to: params.to, cursor: params.cursor, limit: params.limit }),
     },
     /** Thông báo trong app (BE5). Hỏi khi mở app và mỗi 60 giây. */
     notifications: {

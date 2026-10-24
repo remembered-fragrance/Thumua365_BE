@@ -229,7 +229,9 @@ export class SyncPushService {
           warning = 'ORDER_NOT_OPEN';
         }
       }
+      const before = op.entity === 'transaction' ? await receiptEditable(tx, op.recordId) : undefined;
       await model.update({ where: { id: op.recordId }, data: table.toDb(patch), select: { id: true } });
+      if (before) await this.auditUpdate(tx, ctx, op, before);
       return warning ? { status: 'applied', warning } : APPLIED;
     }
 
@@ -300,6 +302,26 @@ export class SyncPushService {
     });
     await logStep(tx, order.id, order.status, 'fulfilled', ctx.user.id, ctx.membership.organizationId, null);
     return { data, fulfilled: changeOf(done, ctx.user, ctx.membership.organizationId) };
+  }
+
+  /**
+   * Sửa phiếu đã chốt → nhật ký (V6). Máy chủ chỉ nhận sửa ghi chú và ảnh (`TransactionPatch`); tiền, cân,
+   * giá không sửa được — đổi là xoá phiếu rồi lập lại, cả hai đều có trong nhật ký. Ảnh ghi số lượng, không
+   * ghi id. Không đổi gì thì không ghi.
+   */
+  private async auditUpdate(tx: Tx, ctx: PushContext, op: ParsedSyncOp, before: ReceiptEditable): Promise<void> {
+    const after = await receiptEditable(tx, op.recordId);
+    if (!after || (after.note === before.note && after.photos === before.photos)) return;
+    await recordAudit(tx, {
+      organizationId: ctx.membership.organizationId,
+      actorUserId: ctx.user.id,
+      action: 'receipt.updated',
+      entity: 'transaction',
+      entityId: op.recordId,
+      before: { ...before },
+      after: { ...after },
+      requestId: ctx.requestId,
+    });
   }
 
   /** Xoá phiếu, huỷ lần trả → nhật ký trong CÙNG transaction. */
@@ -420,6 +442,17 @@ const verifyLineTotals = (lines: TransactionLine[]): TransactionLine[] => {
     });
   }
   return frozen;
+};
+
+/** Phần sửa được của phiếu đã chốt, dạng ghi nhật ký: ghi chú và số ảnh. */
+interface ReceiptEditable {
+  readonly note: string | null;
+  readonly photos: number;
+}
+
+const receiptEditable = async (tx: Tx, id: string): Promise<ReceiptEditable | undefined> => {
+  const row = await tx.transaction.findUnique({ where: { id }, select: { note: true, attachmentIds: true } });
+  return row ? { note: row.note, photos: row.attachmentIds.length } : undefined;
 };
 
 /** Gỡ phiếu / nháp khỏi đơn không dùng được — bản ghi vẫn lưu, app nhận cảnh báo. */

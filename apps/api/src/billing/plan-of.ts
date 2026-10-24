@@ -27,6 +27,12 @@ const REASON: Readonly<Record<Entitlement, string>> = {
   // Hai mã dưới chỉ chặn ở app (quy tắc giá chạy ở máy); máy chủ không ném, câu để bảng đủ mã.
   'quality:pricing': 'Gói đã hết hạn — quy tắc đã khai vẫn giữ, gia hạn để giá tự tính theo chất lượng',
   'rubber:grades': 'Gói đã hết hạn — mặt hàng đang có vẫn cân được, gia hạn để thêm mặt hàng mủ tạp (DRC)',
+  'audit:view': 'Gói đã hết hạn — nhật ký vẫn được ghi đầy đủ, gia hạn để xem lại',
+  'reports:org': 'Gói đã hết hạn — sổ và công nợ trong app vẫn xem được, gia hạn để xem báo cáo tổng',
+  // Ba mã dưới chỉ chặn ở app (file và nội dung chuyển khoản sinh ở máy).
+  'debt:statement': 'Gói đã hết hạn — công nợ vẫn xem được, gia hạn để gửi sao kê cho khách',
+  'tax:docs': 'Gói đã hết hạn — báo cáo thuế tổng vẫn xem được, gia hạn để xuất bảng kê thu mua',
+  'pay:qr': 'Gói đã hết hạn — vẫn ghi trả tiền được, gia hạn để chép nội dung chuyển khoản',
 };
 
 export const assertEntitlement = async (tx: Tx, m: MembershipContext, entitlement: Entitlement): Promise<void> => {

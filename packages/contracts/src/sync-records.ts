@@ -330,12 +330,19 @@ export type TransactionRecord = z.infer<typeof TransactionRecord>;
 
 // ─── Lần trả tiền — chỉ ghi thêm ─────────────────────────────────────────────
 
+/**
+ * V13 — trả bằng gì. Chỉ là nhãn vựa tự ghi: app không lưu số tài khoản, không giữ tiền hộ (§4.2).
+ * Lần trả cũ (trước 0.23.0) không có trường này = không rõ.
+ */
+export const PaymentMethod = z.enum(['cash', 'transfer']);
+
 /** Không có `update`: không bao giờ sửa số tiền. Huỷ = `softDelete`. */
 export const PaymentInsert = z.strictObject({
   transactionId: Id,
   date: Time,
   amount: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   note: nullableText(500).optional(),
+  method: PaymentMethod.nullable().optional(),
 });
 export const PaymentRecord = z.object({
   ...meta,
@@ -343,6 +350,7 @@ export const PaymentRecord = z.object({
   date: Time,
   amount: z.number().int(),
   note: z.string().nullable(),
+  method: PaymentMethod.nullable(),
 });
 export type PaymentRecord = z.infer<typeof PaymentRecord>;
 
