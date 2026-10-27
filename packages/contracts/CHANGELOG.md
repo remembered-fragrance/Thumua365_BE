@@ -28,6 +28,9 @@ khi deploy API.
 - `quota_wall_shown.feature` thêm `analytics`, `map_prices`, `season`.
 - Core `suggestAdjustments`: quy tắc gắn một mặt hàng (`productId`) tính ngưỡng `minWeightKg` và `percentOfTotal` trên
   các dòng của mặt hàng đó, không trên cả phiếu. Quy tắc không gắn mặt hàng tính như cũ. Hợp đồng không đổi.
+- `endsAfterStart` (export): so ngày theo thời điểm (`Date.parse`), không so chuỗi — hai mốc khác múi giờ vẫn đúng.
+  Máy chủ: patch hợp đồng chỉ đổi một ngày mà vượt ngày đã lưu → `VALIDATION_FAILED` (trước đây lỗi CHECK → `INTERNAL`,
+  op kẹt hàng đợi). Nhật ký `receipt.updated` thêm `after.photosRemoved` khi thay ảnh mà số ảnh giữ nguyên.
 
 ## 0.23.0 — 25/10/2026 (gói Pro Đợt 2: nhật ký, báo cáo theo gói, hình thức trả, thưởng giới thiệu)
 

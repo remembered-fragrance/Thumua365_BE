@@ -165,6 +165,29 @@ describe('V15 — hợp đồng mùa vụ', () => {
     expect(backwards).toMatchObject({ status: 'rejected', error: { code: 'VALIDATION_FAILED' } });
   });
 
+  it('sửa mỗi một ngày, vượt qua ngày đã lưu → VALIDATION_FAILED (không thử lại), không phải INTERNAL', async () => {
+    const owner = await as(vuaOwner, vua);
+    const id = newId();
+    const op = opMaker();
+    await owner.push([op('seasonContract', 'insert', id, contract())]);
+
+    const [endEarly] = await owner.push([op('seasonContract', 'update', id, { endDate: '2026-10-01T00:00:00.000Z' })]);
+    expect(endEarly).toMatchObject({ status: 'rejected', error: { code: 'VALIDATION_FAILED' } });
+    const [startLate] = await owner.push([op('seasonContract', 'update', id, { startDate: '2027-02-01T00:00:00.000Z' })]);
+    expect(startLate).toMatchObject({ status: 'rejected', error: { code: 'VALIDATION_FAILED' } });
+
+    const [ok] = await owner.push([op('seasonContract', 'update', id, { endDate: '2026-12-31T00:00:00.000Z' })]);
+    expect(ok?.status).toBe('applied');
+  });
+
+  it('ngày khác múi giờ so theo thời điểm, không theo chuỗi', async () => {
+    // 06:00 +07:00 ngày 1/11 = 23:00Z ngày 31/10 — trước 00:00Z ngày 1/11, dù chuỗi "lớn hơn".
+    const [res] = await (await as(vuaOwner, vua)).push([
+      opMaker()('seasonContract', 'insert', newId(), contract({ startDate: '2026-11-01T06:00:00+07:00', endDate: '2026-11-01T00:00:00.000Z' })),
+    ]);
+    expect(res?.status).toBe('applied');
+  });
+
   it('RLS: tổ chức khác không kéo được hợp đồng', async () => {
     const owner = await as(vuaOwner, vua);
     await owner.push([opMaker()('seasonContract', 'insert', newId(), contract())]);

@@ -269,8 +269,9 @@ const seasonContractFields = {
   /** Chủ tự đóng (giao đủ, huỷ ngang) — không tính vào danh sách đang chạy. */
   closed: z.boolean(),
 };
-const endsAfterStart = (c: { startDate?: string; endDate?: string }) =>
-  c.startDate === undefined || c.endDate === undefined || c.startDate <= c.endDate;
+/** So theo thời điểm, không theo chuỗi: hai mốc khác múi giờ (`+07:00` với `Z`) so chuỗi ra sai thứ tự. */
+export const endsAfterStart = (c: { startDate?: string; endDate?: string }) =>
+  c.startDate === undefined || c.endDate === undefined || Date.parse(c.startDate) <= Date.parse(c.endDate);
 const END_BEFORE_START = { message: 'Ngày kết thúc phải sau ngày bắt đầu', path: ['endDate'] };
 export const SeasonContractInsert = z
   .strictObject(seasonContractFields)

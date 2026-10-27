@@ -149,6 +149,9 @@ export class MembersService {
 
     const existing = await this.db.scoped(scope, async (tx) => {
       await assertBranch(tx, m, input.branchId);
+      // Hết chỗ thì báo ngay, chưa tạo tài khoản Supabase (tạo rồi xoá, xoá hỏng là số đó kẹt). Transaction ghi
+      // membership vẫn kiểm lại dưới khoá — hai lần bấm cùng lúc.
+      await assertStaffRoom(tx, m);
       const rows = await tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${phone}) as id`;
       return rows[0]?.id ?? null;
     });

@@ -113,6 +113,20 @@ describe('V6 — nhật ký thao tác', () => {
     expect((await audit(owner, `?actor=${staff}`)).entries.map((e) => e.action)).toEqual(['receipt.updated']);
   });
 
+  it('thay ảnh phiếu mà số ảnh giữ nguyên vẫn ghi nhật ký, kèm số ảnh cũ bị gỡ; đổi thứ tự thì không ghi', async () => {
+    const owner = await as(vuaOwner, vua);
+    const op = opMaker();
+    const txId = newId();
+    const [a, b, c] = [newId(), newId(), newId()];
+    await owner.push([op('transaction', 'insert', txId, txData({ attachmentIds: [a, b] }))]);
+    await owner.push([op('transaction', 'update', txId, { attachmentIds: [b, a] })]);
+    await owner.push([op('transaction', 'update', txId, { attachmentIds: [b, c] })]);
+
+    const { entries } = await audit(owner);
+    expect(entries.map((e) => e.action)).toEqual(['receipt.updated']);
+    expect(entries[0]).toMatchObject({ before: { photos: 2 }, after: { photos: 2, photosRemoved: 1 } });
+  });
+
   it('phân trang không sót dòng ghi trong cùng một transaction (cùng now())', async () => {
     const owner = await as(vuaOwner, vua);
     const op = opMaker();
@@ -210,6 +224,28 @@ describe('mở gói — thưởng giới thiệu và vượt chi nhánh', () => 
     await activate({ organizationId: moi, bankTxId: 'FT-SAU' });
     expect(await periodEnd(vua)).toEqual(inviterEnd);
     expect((await actions(moi)).filter((a) => a === 'plan.referral_bonus')).toHaveLength(1);
+  });
+
+  it('người mời đang trả 12 tháng đúng lúc được thưởng: không lần nào ghi đè lần kia', async () => {
+    const invitee = newId();
+    const moi = await createOrg('trader', invitee, 'Vựa Năm Lành');
+    await profile(invitee, 'Chị Lành', '+84905112255');
+    await admin.query('update profiles set referred_by = $1 where id = $2', [vuaOwner, invitee]);
+
+    // Lần trả 12 tháng của người mời đang giữ dòng gói, chưa commit; thưởng phải chờ rồi cộng lên ngày mới.
+    const paying = await admin.connect();
+    try {
+      await paying.query('begin');
+      await paying.query('select 1 from subscriptions where organization_id = $1 for update', [vua]);
+      await paying.query(`update subscriptions set current_period_end = now() + interval '365 days' where organization_id = $1`, [vua]);
+      const bonus = activate({ organizationId: moi, bankTxId: 'FT-DAU' });
+      await new Promise((r) => setTimeout(r, 500));
+      await paying.query('commit');
+      await bonus;
+    } finally {
+      paying.release();
+    }
+    expect(days(await periodEnd(vua))).toBeGreaterThanOrEqual(365 + 28); // 12 tháng trả + 1 tháng thưởng
   });
 
   it('đã trả trước khi nhập mã mời → không thưởng; người mời chỉ là nông dân → chỉ bên trả nhận', async () => {

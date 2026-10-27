@@ -21,6 +21,7 @@ import { computeReceiptTotal, freezeLineTotals, totalAdjustments } from '@mambo/
 import type { PriceAdjustment, TransactionLine } from '@mambo/core/types';
 import {
   can,
+  endsAfterStart,
   type ErrorCode,
   type ParsedSyncOp,
   parseSyncOp,
@@ -186,7 +187,7 @@ export class SyncPushService {
     const model = delegateOf(tx, op.entity);
     const existing = await model.findUnique({
       where: { id: op.recordId },
-      select: selectFor(table.branch),
+      select: { ...selectFor(table.branch), ...(op.entity === 'transaction' ? EDITABLE : {}) },
     });
 
     if (op.kind === 'insert') {
@@ -229,7 +230,8 @@ export class SyncPushService {
           warning = 'ORDER_NOT_OPEN';
         }
       }
-      const before = op.entity === 'transaction' ? await receiptEditable(tx, op.recordId) : undefined;
+      if (op.entity === 'seasonContract') await assertContractPeriod(tx, op.recordId, patch);
+      const before = op.entity === 'transaction' ? (existing as unknown as ReceiptEditable) : undefined;
       await model.update({ where: { id: op.recordId }, data: table.toDb(patch), select: { id: true } });
       if (before) await this.auditUpdate(tx, ctx, op, before);
       return warning ? { status: 'applied', warning } : APPLIED;
@@ -306,20 +308,24 @@ export class SyncPushService {
 
   /**
    * Sửa phiếu đã chốt → nhật ký (V6). Máy chủ chỉ nhận sửa ghi chú và ảnh (`TransactionPatch`); tiền, cân,
-   * giá không sửa được — đổi là xoá phiếu rồi lập lại, cả hai đều có trong nhật ký. Ảnh ghi số lượng, không
-   * ghi id. Không đổi gì thì không ghi.
+   * giá không sửa được — đổi là xoá phiếu rồi lập lại, cả hai đều có trong nhật ký. Ảnh so theo id (thay ảnh mà số
+   * ảnh giữ nguyên vẫn là sửa); nhật ký ghi số lượng, không ghi id: số ảnh, thêm `photosRemoved` khi có ảnh cũ bị gỡ.
+   * Không đổi gì thì không ghi.
    */
   private async auditUpdate(tx: Tx, ctx: PushContext, op: ParsedSyncOp, before: ReceiptEditable): Promise<void> {
-    const after = await receiptEditable(tx, op.recordId);
-    if (!after || (after.note === before.note && after.photos === before.photos)) return;
+    const after = await tx.transaction.findUnique({ where: { id: op.recordId }, select: EDITABLE });
+    if (!after) return;
+    const removed = before.attachmentIds.filter((id) => !after.attachmentIds.includes(id)).length;
+    const added = after.attachmentIds.some((id) => !before.attachmentIds.includes(id));
+    if (after.note === before.note && removed === 0 && !added) return;
     await recordAudit(tx, {
       organizationId: ctx.membership.organizationId,
       actorUserId: ctx.user.id,
       action: 'receipt.updated',
       entity: 'transaction',
       entityId: op.recordId,
-      before: { ...before },
-      after: { ...after },
+      before: { note: before.note, photos: before.attachmentIds.length },
+      after: { note: after.note, photos: after.attachmentIds.length, ...(removed > 0 ? { photosRemoved: removed } : {}) },
       requestId: ctx.requestId,
     });
   }
@@ -365,6 +371,10 @@ export class SyncPushService {
     if (isBusy(err)) {
       this.logger.warn('sync.op_busy', { requestId, opId: op.opId, error: err instanceof Error ? err.message : String(err) });
       return rejected(op.opId, 'RATE_LIMITED', 'Nhiều máy đang gửi cùng lúc — sẽ thử lại');
+    }
+    if (isCheckViolation(err)) {
+      // Vỡ ràng buộc CHECK: gửi lại bao nhiêu lần cũng vậy — không để app thử mãi, chặn cả hàng đợi.
+      return rejected(op.opId, 'VALIDATION_FAILED', 'Dữ liệu của thao tác chưa đúng');
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') {
@@ -444,15 +454,28 @@ const verifyLineTotals = (lines: TransactionLine[]): TransactionLine[] => {
   return frozen;
 };
 
-/** Phần sửa được của phiếu đã chốt, dạng ghi nhật ký: ghi chú và số ảnh. */
+/** Phần sửa được của phiếu đã chốt: ghi chú và ảnh. Đọc chung lần đọc `existing` của `apply`. */
 interface ReceiptEditable {
   readonly note: string | null;
-  readonly photos: number;
+  readonly attachmentIds: string[];
 }
+const EDITABLE = { note: true, attachmentIds: true } as const;
 
-const receiptEditable = async (tx: Tx, id: string): Promise<ReceiptEditable | undefined> => {
-  const row = await tx.transaction.findUnique({ where: { id }, select: { note: true, attachmentIds: true } });
-  return row ? { note: row.note, photos: row.attachmentIds.length } : undefined;
+/**
+ * Hợp đồng mùa vụ: patch chỉ đổi một trong hai ngày thì schema không so được — ghép với dòng đã lưu rồi so, như
+ * CHECK `season_contracts_dates_check`. Để database chặn thì thành lỗi chung, op kẹt đầu hàng đợi.
+ */
+const assertContractPeriod = async (tx: Tx, id: string, patch: Record<string, unknown>): Promise<void> => {
+  if ((patch.startDate === undefined) === (patch.endDate === undefined)) return;
+  const stored = await tx.seasonContract.findUnique({ where: { id }, select: { startDate: true, endDate: true } });
+  if (!stored) return;
+  const startDate = (patch.startDate as string | undefined) ?? stored.startDate.toISOString();
+  const endDate = (patch.endDate as string | undefined) ?? stored.endDate.toISOString();
+  if (!endsAfterStart({ startDate, endDate })) {
+    throw new OpRejected('VALIDATION_FAILED', 'Ngày kết thúc phải sau ngày bắt đầu', {
+      fields: { 'data.endDate': 'Ngày kết thúc phải sau ngày bắt đầu' },
+    });
+  }
 };
 
 /** Gỡ phiếu / nháp khỏi đơn không dùng được — bản ghi vẫn lưu, app nhận cảnh báo. */
@@ -493,12 +516,21 @@ const findDraftOrder = async (tx: Tx, ctx: PushContext, orderId: string, kind: s
   return order && order.status !== 'cancelled' ? order : null;
 };
 
+const errorText = (err: unknown): string =>
+  err instanceof Error ? `${err.message} ${JSON.stringify((err as { meta?: unknown }).meta ?? '')}` : '';
+
+/** Vỡ ràng buộc CHECK (SQLSTATE 23514). Adapter `pg` không có mã Prisma riêng cho lỗi này — đọc theo SQLSTATE. */
+const isCheckViolation = (err: unknown): boolean => {
+  const text = errorText(err);
+  return text.includes('23514') || /violates check constraint/i.test(text);
+};
+
 /**
  * Chờ quá lâu — khoá advisory (`lock_timeout`, SQLSTATE 55P03), kết nối trong pool hoặc hạn của
  * transaction (Prisma P2024 / P2028). Đông máy cùng đẩy, không phải lỗi dữ liệu: thử lại là qua.
  */
 const isBusy = (err: unknown): boolean => {
   if (err instanceof Prisma.PrismaClientKnownRequestError && (err.code === 'P2024' || err.code === 'P2028')) return true;
-  const text = err instanceof Error ? `${err.message} ${JSON.stringify((err as { meta?: unknown }).meta ?? '')}` : '';
+  const text = errorText(err);
   return text.includes('55P03') || /lock timeout|canceling statement due to lock timeout/i.test(text);
 };

@@ -156,7 +156,9 @@ describe('vựa tối đa 3 người cân', () => {
 
     const fourth = await owner.post('/v1/org/members', staffInput()).expect(402);
     expect(errorOf(fourth)).toMatchObject({ code: 'MEMBER_LIMIT', details: { limit: 3 } });
-    expect(auth.deleted).toHaveLength(1); // tài khoản Auth vừa tạo cho người thứ 4 đã bị xoá
+    // Chặn trước khi tạo tài khoản Auth: không tạo rồi xoá (xoá hỏng là số đó kẹt).
+    expect(auth.passwords.size).toBe(3);
+    expect(auth.deleted).toHaveLength(0);
 
     await owner.del(`/v1/org/members/${added[0]?.id}`).expect(200);
     await owner.post('/v1/org/members', staffInput()).expect(200);

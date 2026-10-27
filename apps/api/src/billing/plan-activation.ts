@@ -77,6 +77,9 @@ const iso = (d: Date | null): string | null => d?.toISOString() ?? null;
 
 /** Cộng `months` vào gói của tổ chức (chưa có gói thì tạo) — `extendPeriod` giữ ngày dùng thử còn lại. */
 const extend = async (tx: Tx, orgId: string, months: number, now: Date, extra: { branchLimit?: number | null } = {}): Promise<Sub> => {
+  // Khoá gói trước khi đọc ngày hết hạn: thưởng giới thiệu cộng vào gói của NGƯỜI MỜI trong transaction của tổ chức
+  // khác — người mời trả tiền cùng lúc thì hai bên đọc cùng một ngày cũ, bên ghi sau xoá mất tháng bên kia vừa cộng.
+  await tx.$executeRaw`select 1 from subscriptions where organization_id = ${orgId}::uuid and deleted_at is null for update`;
   const current = await tx.subscription.findFirst({
     where: { organizationId: orgId, deletedAt: null },
     orderBy: { createdAt: 'asc' },
