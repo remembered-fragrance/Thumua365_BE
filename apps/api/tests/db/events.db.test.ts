@@ -118,7 +118,7 @@ describe('nhận sự kiện từ app', () => {
   });
 
   it('UTM (0.26.0): app_opened mang nguồn khách tới được lưu nguyên; UTM sai bị bỏ riêng sự kiện đó', async () => {
-    const utm = { source: 'facebook', medium: 'social', campaign: 'mua-ca-phe-2026' };
+    const utm = { source: 'facebook', medium: 'nhom', campaign: 'oc2', content: 'tin-a' };
     const res = EventsTrackResult.parse(
       (await track([ev('app_opened', { utm }), ev('app_opened', { utm: { source: 'Cô Mai 0912345678' } })]).expect(200)).body,
     );

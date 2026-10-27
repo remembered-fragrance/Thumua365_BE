@@ -10954,6 +10954,10 @@
                                     "campaign": {
                                       "type": "string",
                                       "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    },
+                                    "content": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
                                     }
                                   },
                                   "required": [
@@ -11034,6 +11038,10 @@
                                       "pattern": "^[a-z0-9_.-]{1,64}$"
                                     },
                                     "campaign": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    },
+                                    "content": {
                                       "type": "string",
                                       "pattern": "^[a-z0-9_.-]{1,64}$"
                                     }

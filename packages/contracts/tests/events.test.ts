@@ -21,7 +21,7 @@ describe('danh mục sự kiện', () => {
   });
 
   it('UTM (0.26.0): app_opened và sign_up_completed nhận nguồn khách tới; giá trị lạ hỏng cả sự kiện', () => {
-    const utm = { source: 'facebook', medium: 'social', campaign: 'mua-ca-phe-2026' };
+    const utm = { source: 'facebook', medium: 'nhom', campaign: 'oc2', content: 'tin-a' };
     expect(TrackedEvent.safeParse({ ...base, name: 'app_opened', props: { utm } }).success).toBe(true);
     expect(TrackedEvent.safeParse({ ...base, name: 'sign_up_completed', props: { orgType: 'trader', utm: { source: 'zalo' } } }).success).toBe(true);
     for (const bad of [{ medium: 'social' }, { source: 'Facebook' }, { source: 'cô mai' }, { source: 'x'.repeat(65) }, { source: 'zalo', phone: '0912345678' }]) {

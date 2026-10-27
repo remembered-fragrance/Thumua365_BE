@@ -31,12 +31,18 @@ const common = {
 };
 
 /**
- * Nguồn khách tới (0.26.0): `utm_source` / `utm_medium` / `utm_campaign` của link gần nhất mở app. App gửi kèm
+ * Nguồn khách tới (0.26.0): `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` (mẫu thông điệp A/B/C của kế
+ * hoạch thu hút khách) của link gần nhất mở app. App gửi kèm
  * `app_opened` và `sign_up_completed` — phễu theo kênh nối các sự kiện khác qua `anonId` / tổ chức. Chỉ chữ thường,
  * số và `_ . -` (tên kênh, chiến dịch do nhóm đặt) — không có chỗ cho tên người hay câu chữ tự do.
  */
 const UtmValue = z.string().regex(/^[a-z0-9_.-]{1,64}$/);
-export const Utm = z.strictObject({ source: UtmValue, medium: UtmValue.optional(), campaign: UtmValue.optional() });
+export const Utm = z.strictObject({
+  source: UtmValue,
+  medium: UtmValue.optional(),
+  campaign: UtmValue.optional(),
+  content: UtmValue.optional(),
+});
 export type Utm = z.infer<typeof Utm>;
 
 const event = <N extends string, P extends z.ZodType>(name: N, props: P) =>

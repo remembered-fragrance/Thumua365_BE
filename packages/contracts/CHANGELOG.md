@@ -8,7 +8,8 @@ thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecat
 Không có migration. **Deploy API trước, rồi mới nâng app**: server bản cũ bỏ sự kiện có thuộc tính lạ, nên app mới gửi
 `utm` lên server 0.25.0 thì mất `app_opened` / `sign_up_completed`.
 
-- `Utm` `{ source, medium?, campaign? }` — mỗi giá trị `^[a-z0-9_.-]{1,64}$` (tên kênh / chiến dịch, không phải chữ tự do).
+- `Utm` `{ source, medium?, campaign?, content? }` — mỗi giá trị `^[a-z0-9_.-]{1,64}$` (tên kênh / chiến dịch / mẫu thông
+  điệp, không phải chữ tự do). `content` = mẫu thông điệp A/B/C để so thông điệp nào chuyển đổi tốt hơn trên cùng kênh.
 - `app_opened` nhận `props.utm?` (trước là `{}` — app cũ vẫn hợp lệ); `sign_up_completed` nhận `props.utm?`.
 - Phễu theo kênh: lọc `analytics_events.props->'utm'->>'source'`, nối các sự kiện khác qua `anon_id` / `organization_id`.
 
