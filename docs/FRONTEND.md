@@ -640,6 +640,9 @@ track('receipt_created', { kind: 'purchase', lines: 2, offline: !navigator.onLin
 - Đã đăng nhập: SDK gửi kèm token + tổ chức (route có `optionalAuth`), server gắn tổ chức và
   `orgType` thật. Chưa đăng nhập: có thể gửi `orgType` nếu đã biết (sau bước "Bạn là ai?").
 - `dropped > 0` là lỗi của app (sai danh mục) — xoá khỏi hàng đợi, ghi Sentry, không gửi lại.
+- UTM (`v0.26.0`): mở app từ link có `utm_source` (+ `utm_medium`, `utm_campaign`) thì app giữ nguồn đó trong máy
+  (link mới có UTM thì thay) và gửi kèm `app_opened` / `sign_up_completed` dạng `props.utm`. Giá trị chỉ chữ thường,
+  số, `_ . -` — app tự chuyển về chữ thường, giá trị sai thì bỏ, không gửi.
 
 ### 5.13 Bản đồ thu mua (`v0.14.0`, chưa nghiệm thu; app thật đã dùng)
 

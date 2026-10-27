@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.25.0"
+    "version": "0.26.0"
   },
   "servers": [
     {
@@ -10939,7 +10939,29 @@
                             },
                             "props": {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "utm": {
+                                  "type": "object",
+                                  "properties": {
+                                    "source": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    },
+                                    "medium": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    },
+                                    "campaign": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "source"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
                               "additionalProperties": false
                             }
                           },
@@ -10999,6 +11021,27 @@
                                     "trader",
                                     "enterprise"
                                   ]
+                                },
+                                "utm": {
+                                  "type": "object",
+                                  "properties": {
+                                    "source": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    },
+                                    "medium": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    },
+                                    "campaign": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9_.-]{1,64}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "source"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [

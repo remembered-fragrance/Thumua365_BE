@@ -20,6 +20,15 @@ describe('danh mục sự kiện', () => {
     for (const e of leaks) expect(TrackedEvent.safeParse({ ...base, ...e }).success).toBe(false);
   });
 
+  it('UTM (0.26.0): app_opened và sign_up_completed nhận nguồn khách tới; giá trị lạ hỏng cả sự kiện', () => {
+    const utm = { source: 'facebook', medium: 'social', campaign: 'mua-ca-phe-2026' };
+    expect(TrackedEvent.safeParse({ ...base, name: 'app_opened', props: { utm } }).success).toBe(true);
+    expect(TrackedEvent.safeParse({ ...base, name: 'sign_up_completed', props: { orgType: 'trader', utm: { source: 'zalo' } } }).success).toBe(true);
+    for (const bad of [{ medium: 'social' }, { source: 'Facebook' }, { source: 'cô mai' }, { source: 'x'.repeat(65) }, { source: 'zalo', phone: '0912345678' }]) {
+      expect(TrackedEvent.safeParse({ ...base, name: 'app_opened', props: { utm: bad } }).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+
   it('app không gửi được sự kiện của server, cũng không tự đặt tên mới', () => {
     for (const name of [...SERVER_EVENT_NAMES, 'receipt_deleted_secretly']) {
       expect(TrackedEvent.safeParse({ ...base, name, props: {} }).success).toBe(false);

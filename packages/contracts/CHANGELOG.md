@@ -3,6 +3,15 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.26.0 — 27/10/2026 (UTM — nguồn khách tới theo kênh)
+
+Không có migration. **Deploy API trước, rồi mới nâng app**: server bản cũ bỏ sự kiện có thuộc tính lạ, nên app mới gửi
+`utm` lên server 0.25.0 thì mất `app_opened` / `sign_up_completed`.
+
+- `Utm` `{ source, medium?, campaign? }` — mỗi giá trị `^[a-z0-9_.-]{1,64}$` (tên kênh / chiến dịch, không phải chữ tự do).
+- `app_opened` nhận `props.utm?` (trước là `{}` — app cũ vẫn hợp lệ); `sign_up_completed` nhận `props.utm?`.
+- Phễu theo kênh: lọc `analytics_events.props->'utm'->>'source'`, nối các sự kiện khác qua `anon_id` / `organization_id`.
+
 ## 0.25.0 — 27/10/2026 (góp ý + chấm sao trong app)
 
 Migration `20261027000000_gop_y`: bảng mới `feedback` (CHECK `rating` 1–5, `comment` ≤ 1000 ký tự, `platform`;
