@@ -699,6 +699,21 @@ await supabase.auth.updateUser({ password });                 // PASSWORD_MIN_LE
   quản trị viên đặt lại mật khẩu tay được khi người đó **chưa** có email khôi phục đã xác nhận
   (`HAS_RECOVERY_EMAIL`).
 
+### 5.15 Góp ý + chấm sao (`v0.25.0`)
+
+Màn `/gop-y` của app: 1–5 sao, góp ý tuỳ chọn (≤ `FEEDBACK_COMMENT_MAX` = 1000 ký tự). Route `auth: 'org'`, không
+cần quyền riêng — chủ, người làm, nông dân đều gửi được, gói hết hạn vẫn gửi được.
+
+```ts
+await api.feedback.create({ rating: 4, comment: 'Bàn phím to dễ bấm', platform: 'pwa', appVersion: APP_VERSION }); // { ok: true }
+```
+
+- Máy chủ gắn người và tổ chức từ phiên; gửi `organizationId` / `userId` → 422. Góp ý chỉ có dấu cách → `null`.
+- 5 lần mỗi phút mỗi IP (429 `RATE_LIMITED`). Không có hàng đợi offline: mất mạng thì báo lỗi, người dùng gửi lại
+  hoặc nhắn Zalo hỗ trợ.
+- App không đọc lại được góp ý (api_service chỉ có INSERT). Quản trị xem bảng `feedback` trên Supabase. Xoá tài khoản
+  xoá luôn góp ý của người đó.
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu, mọi form

@@ -3,6 +3,18 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.25.0 — 27/10/2026 (góp ý + chấm sao trong app)
+
+Migration `20261027000000_gop_y`: bảng mới `feedback` (CHECK `rating` 1–5, `comment` ≤ 1000 ký tự, `platform`;
+api_service chỉ INSERT, RLS `own_feedback` theo `app.org_id` + `app.user_id`; không khoá ngoại). Chỉ thêm — chạy
+migration trước khi deploy API, rồi mới nâng app.
+
+- Route mới `feedbackCreate` — `POST /v1/feedback` (`auth: 'org'`, không cần quyền riêng, 5 lần/phút/IP):
+  `FeedbackInput` `{ rating, comment?, platform, appVersion? }` → `FeedbackResult` `{ ok: true }`. Người và tổ chức
+  lấy từ phiên. `FEEDBACK_COMMENT_MAX` = 1000.
+- SDK: `api.feedback.create(input)`.
+- Xoá tài khoản (`DELETE /v1/me`) xoá luôn góp ý của người đó.
+
 ## 0.24.0 — 26/10/2026 (gói Pro Đợt 3: phân tích, đối chiếu độ mủ, giá trên bản đồ, hợp đồng mùa vụ, cà phê tươi)
 
 Migration `20261026000000_thay_tien_loi`: thêm cột cho phép NULL `products.green_ratio`, `places.prices`,

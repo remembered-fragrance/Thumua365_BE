@@ -30,6 +30,8 @@ import { ContractInterceptor } from './common/contract.interceptor';
 import { ENV, type Env } from './config/env';
 import { DATABASE, type Database, DatabaseShutdown } from './db/database';
 import { PRIVILEGED_DATABASE, type PrivilegedDatabase } from './db/privileged-database';
+import { FeedbackController } from './feedback/feedback.controller';
+import { FeedbackService } from './feedback/feedback.service';
 import { STORAGE_ADMIN, type StorageAdmin } from './storage/storage-admin';
 import { MAILER, type Mailer } from './mail/mailer';
 import { DomainEvents, LOGGER } from './events/domain-events';
@@ -94,6 +96,7 @@ export class AppModule {
         AdminController,
         AttachmentsController,
         EventsController,
+        FeedbackController,
         SyncController,
         PlacesController,
       ],
@@ -128,6 +131,7 @@ export class AppModule {
         AdminService,
         AttachmentsService,
         EventsService,
+        FeedbackService,
         AnalyticsListener,
         SyncPushService,
         SyncPullService,

@@ -297,6 +297,7 @@ export class AccountDeletionService {
       }
       await tx.membership.updateMany({ where: { userId: user.id, status: { not: 'removed' } }, data: { status: 'removed' } });
       await tx.notification.deleteMany({ where: { userId: user.id } });
+      await tx.feedback.deleteMany({ where: { userId: user.id } });
       await tx.profile.deleteMany({ where: { id: user.id } });
       await tx.auditLog.create({
         data: {

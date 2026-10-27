@@ -12,6 +12,7 @@ import type { z } from 'zod';
 import { AttachmentDownloadUrl, AttachmentIdParams, AttachmentUploadInput, AttachmentUploadUrl } from './attachments.js';
 import { ResolveIdentifierInput, ResolveIdentifierResult } from './auth.js';
 import { AdminFunnel, AdminFunnelQuery, EventsTrackInput, EventsTrackRequest, EventsTrackResult } from './events.js';
+import { FeedbackInput, FeedbackResult } from './feedback.js';
 import { Health } from './health.js';
 import {
   LinkedBalance,
@@ -159,6 +160,15 @@ export const routes = {
     docBody: EventsTrackRequest,
     response: EventsTrackResult,
     rateLimitPerMinute: 60,
+  },
+  feedbackCreate: {
+    method: 'POST',
+    path: '/v1/feedback',
+    summary: 'Gửi một lần chấm sao (1–5) kèm góp ý tuỳ chọn, gắn người và tổ chức đang làm việc. Chỉ ghi thêm; quản trị đọc ở database',
+    auth: 'org',
+    body: FeedbackInput,
+    response: FeedbackResult,
+    rateLimitPerMinute: 5,
   },
   adminFunnel: {
     method: 'GET',
