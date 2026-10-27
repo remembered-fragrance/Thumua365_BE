@@ -117,6 +117,15 @@ describe('nhận sự kiện từ app', () => {
     expect(await rowsOf('plan_activated')).toEqual([]);
   });
 
+  it('UTM (0.26.0): app_opened mang nguồn khách tới được lưu nguyên; UTM sai bị bỏ riêng sự kiện đó', async () => {
+    const utm = { source: 'facebook', medium: 'nhom', campaign: 'oc2', content: 'tin-a' };
+    const res = EventsTrackResult.parse(
+      (await track([ev('app_opened', { utm }), ev('app_opened', { utm: { source: 'Cô Mai 0912345678' } })]).expect(200)).body,
+    );
+    expect(res).toEqual({ accepted: 1, dropped: 1 });
+    expect((await rowsOf('app_opened')).map((r) => r.props)).toEqual([{ utm }]);
+  });
+
   it('đã đăng nhập: server gắn tổ chức và orgType THẬT — không tin orgType app khai; token sai → ẩn danh, vẫn 200', async () => {
     const token = await signer.sign({ sub: vuaOwner });
     await track([ev('receipt_created', { kind: 'purchase', lines: 2, offline: true, fromOrder: false }, { orgType: 'farmer' })], {
