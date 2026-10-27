@@ -233,6 +233,10 @@ export const createClient = (options: ClientOptions) => {
     events: {
       track: (input: EventsTrackRequest) => call('eventsTrack', input),
     },
+    /** Góp ý + chấm sao (0.25.0) — gắn người và tổ chức đang làm việc. Giới hạn 5 lần mỗi phút. */
+    feedback: {
+      create: (input: RouteBody<'feedbackCreate'>) => send('feedbackCreate', input),
+    },
     /** Ảnh chứng từ (BE8) — ảnh đi thẳng giữa app và Storage, API chỉ ký URL. */
     attachments: {
       uploadUrl: (input: RouteBody<'attachmentsUploadUrl'>) => send('attachmentsUploadUrl', input),

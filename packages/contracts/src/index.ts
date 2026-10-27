@@ -5,6 +5,7 @@ export * from './auth.js';
 export * from './entitlements.js';
 export * from './errors.js';
 export * from './events.js';
+export * from './feedback.js';
 export * from './health.js';
 export * from './links.js';
 export * from './me.js';

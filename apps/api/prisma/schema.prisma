@@ -584,6 +584,21 @@ model AnalyticsEvent {
   @@map("analytics_events")
 }
 
+/// Góp ý + chấm sao trong app (0.25.0). api_service chỉ ghi thêm; quản trị đọc ở Supabase.
+/// Không khoá ngoại, như analytics_events; xoá tài khoản thì xoá theo `user_id`.
+model Feedback {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  rating         Int
+  comment        String?
+  appVersion     String?  @map("app_version")
+  platform       String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("feedback")
+}
+
 /// Thao tác nhạy cảm: xoá phiếu, huỷ lần trả, đổi quyền, kết nối... CHỈ GHI THÊM.
 /// Không khoá ngoại: xoá tổ chức không được xoá dấu vết.
 model AuditLog {

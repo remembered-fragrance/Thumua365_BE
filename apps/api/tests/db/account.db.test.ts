@@ -207,6 +207,10 @@ describe('xoá tài khoản', () => {
       [vua, owner],
     );
     await admin.query(`insert into bank_transactions (bank_tx_id, organization_id, amount, source) values ('FT-CU', $1, 149000, 'webhook')`, [vua]);
+    await admin.query(`insert into feedback (organization_id, user_id, rating, comment, platform) values ($1, $2, 4, 'Bàn phím to dễ bấm', 'pwa')`, [
+      vua,
+      owner,
+    ]);
     return { owner, vua, mai, farm, supplier, order, tx };
   };
 
@@ -222,6 +226,7 @@ describe('xoá tài khoản', () => {
     }
     expect(await count('organizations where id = $1', [vua])).toBe(0);
     expect(await count('profiles where id = $1', [owner])).toBe(0);
+    expect(await count('feedback where user_id = $1', [owner])).toBe(0);
     expect(await count('orders')).toBe(0);
     expect(await count('order_events')).toBe(0);
     expect(await count('partner_links')).toBe(0);
