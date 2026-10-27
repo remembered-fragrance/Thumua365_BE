@@ -131,12 +131,11 @@ export type PaymentIntentCreateInput = z.input<typeof PaymentIntentCreateInput>;
 
 /** Casso gửi `{ data: [...] }`, SePay gửi một giao dịch phẳng — server đọc được cả hai. */
 export const BankWebhookBody = z.record(z.string(), z.unknown());
-export const BankWebhookResult = z.object({
-  /** Mã giao dịch ngân hàng đã mở / gia hạn gói. */
-  handled: z.array(z.string()),
-  /** Không có mã, không khớp ý định, thiếu tiền, hoặc đã xử lý rồi — để đường thủ công. */
-  skipped: z.array(z.string()),
-});
+/**
+ * 0.27.0: đúng `{"success": true}` — SePay chỉ coi là gửi thành công khi body đúng như vậy (khác là gửi lại, bắn cảnh
+ * báo). Casso chỉ cần 2xx. Mã giao dịch đã mở gói / bỏ qua nằm trong log `bank_webhook`, không trả về.
+ */
+export const BankWebhookResult = z.object({ success: z.literal(true) });
 export type BankWebhookResult = z.infer<typeof BankWebhookResult>;
 
 // ─── Quản trị ────────────────────────────────────────────────────────────────

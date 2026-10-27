@@ -3,6 +3,15 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.27.0 — 27/10/2026 (webhook ngân hàng trả đúng `{"success": true}` cho SePay)
+
+Không có migration. App không cần nâng (app không gọi webhook).
+
+- `BankWebhookResult` đổi từ `{ handled, skipped }` thành `{ success: true }`. SePay chỉ coi một lần gửi là thành công
+  khi HTTP 200/201 **và** body đúng `{"success": true}` — body khác thì SePay gửi lại và bắn cảnh báo. Casso chỉ cần
+  2xx. Đây là phản hồi cho nhà cung cấp, không client nào của ta đọc, nên đổi thẳng không qua `deprecated`. Mã giao
+  dịch đã mở gói / bỏ qua nay ghi trong log `bank_webhook` (`handled`, `skipped`).
+
 ## 0.26.0 — 27/10/2026 (UTM — nguồn khách tới theo kênh)
 
 Không có migration. **Deploy API trước, rồi mới nâng app**: server bản cũ bỏ sự kiện có thuộc tính lạ, nên app mới gửi

@@ -98,6 +98,10 @@ const planOf = async (orgId: string) =>
 
 const daysFromNow = (d: Date | null | undefined): number => Math.round(((d?.getTime() ?? 0) - Date.now()) / 86_400_000);
 
+/** Sổ đối soát — phản hồi webhook không còn liệt kê mã đã xử lý (0.27.0), kết quả đọc ở đây. */
+const outcomes = async () =>
+  (await admin.query<{ bank_tx_id: string; outcome: string }>('select bank_tx_id, outcome from bank_transactions order by bank_tx_id')).rows;
+
 beforeEach(async () => {
   await truncateAll();
   vuaOwner = newId();
@@ -127,10 +131,9 @@ describe('#1 + #7 — tự đi hết, không ai can thiệp', () => {
     expect(again.id).toBe(intent.id);
 
     // Người dùng gõ nội dung kiểu ngân hàng hay làm: chữ thường, thêm chữ, mất dấu cách.
-    const res = BankWebhookResult.parse(
-      (await casso({ tid: 'FT26276001', amount: 149_000, description: `chuyen tien tm365${intent.code.toLowerCase()} cam on` }).expect(200)).body,
-    );
-    expect(res).toEqual({ handled: ['FT26276001'], skipped: [] });
+    const res = await casso({ tid: 'FT26276001', amount: 149_000, description: `chuyen tien tm365${intent.code.toLowerCase()} cam on` }).expect(200);
+    expect(BankWebhookResult.parse(res.body)).toEqual({ success: true });
+    expect(await outcomes()).toEqual([{ bank_tx_id: 'FT26276001', outcome: 'applied' }]);
 
     const plan = await planOf(vua);
     expect(plan?.status).toBe('active');
@@ -172,8 +175,8 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
     const i = await intent();
     const body = { tid: 'FT-TRUNG', amount: 149_000, description: i.transferContent };
     const results = await Promise.all([casso(body), casso(body), casso(body)]);
-    const handled = results.flatMap((r) => BankWebhookResult.parse(r.body).handled);
-    expect(handled).toEqual(['FT-TRUNG']);
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(await outcomes()).toEqual([{ bank_tx_id: 'FT-TRUNG', outcome: 'applied' }]);
     await casso(body).expect(200);
     const { rows } = await admin.query(`select count(*)::int as n from bank_transactions where bank_tx_id = 'FT-TRUNG'`);
     expect(rows[0]?.n).toBe(1);
@@ -186,7 +189,7 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
       casso({ tid: 'FT-LAN1', amount: 149_000, description: i.transferContent }),
       casso({ tid: 'FT-LAN2', amount: 149_000, description: i.transferContent }),
     ]);
-    expect(results.flatMap((r) => BankWebhookResult.parse(r.body).handled)).toHaveLength(1);
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
     expect(daysFromNow((await planOf(vua))?.current_period_end)).toBeLessThanOrEqual(31);
     const { rows } = await admin.query('select outcome, organization_id, payment_intent_id from bank_transactions order by outcome');
     expect(rows).toEqual([
@@ -230,22 +233,20 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
     const i = await intent();
     const sepay = (body: object) =>
       request(app.getHttpServer()).post('/v1/webhooks/bank').set('authorization', `Apikey ${SECRET}`).send(body);
-    const out = BankWebhookResult.parse(
-      (await sepay({ id: 77, transferType: 'out', transferAmount: 149_000, content: i.transferContent, referenceCode: 'OUT1' }).expect(200)).body,
-    );
-    expect(out).toEqual({ handled: [], skipped: [] });
-    const ok = BankWebhookResult.parse(
-      (await sepay({ id: 78, transferType: 'in', transferAmount: 149_000, content: i.transferContent, referenceCode: 'IN1' }).expect(200)).body,
-    );
-    expect(ok.handled).toEqual(['78']);
+    // SePay chỉ tính là gửi được khi body ĐÚNG `{"success": true}` — so chuỗi, không chỉ so JSON.
+    const out = await sepay({ id: 77, transferType: 'out', transferAmount: 149_000, content: i.transferContent, referenceCode: 'OUT1' }).expect(200);
+    expect(out.text).toBe('{"success":true}');
+    expect(await outcomes()).toEqual([]);
+    const ok = await sepay({ id: 78, transferType: 'in', transferAmount: 149_000, content: i.transferContent, referenceCode: 'IN1' }).expect(200);
+    expect(ok.text).toBe('{"success":true}');
+    expect(await outcomes()).toEqual([{ bank_tx_id: '78', outcome: 'applied' }]);
+    expect((await planOf(vua))?.status).toBe('active');
   });
 
   it('#4 chuyển thiếu → không mở gói, sổ đối soát ghi `underpaid`; không có mã → bỏ qua, không ghi', async () => {
     const i = await intent();
-    const res = BankWebhookResult.parse(
-      (await casso({ tid: 'FT-THIEU', amount: 100_000, description: i.transferContent }).expect(200)).body,
-    );
-    expect(res).toEqual({ handled: [], skipped: ['FT-THIEU'] });
+    const res = await casso({ tid: 'FT-THIEU', amount: 100_000, description: i.transferContent }).expect(200);
+    expect(BankWebhookResult.parse(res.body)).toEqual({ success: true });
     await casso({ tid: 'FT-KHONGMA', amount: 149_000, description: 'chuyen tien mua goi' }).expect(200);
     expect((await planOf(vua))?.status).toBe('trialing');
     const { rows } = await admin.query('select bank_tx_id, organization_id, payment_intent_id, outcome from bank_transactions');

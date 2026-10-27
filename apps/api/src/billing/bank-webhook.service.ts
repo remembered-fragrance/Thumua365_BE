@@ -144,8 +144,8 @@ export class BankWebhookService {
       }
     }
 
-    this.logger.info('bank_webhook', { requestId, handled: handled.length, skipped: skipped.length });
-    return { handled, skipped };
+    this.logger.info('bank_webhook', { requestId, handled, skipped });
+    return { success: true };
   }
 }
 

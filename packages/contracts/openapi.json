@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.26.0"
+    "version": "0.27.0"
   },
   "servers": [
     {
@@ -10451,22 +10451,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "handled": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "skipped": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                    "success": {
+                      "type": "boolean",
+                      "const": true
                     }
                   },
                   "required": [
-                    "handled",
-                    "skipped"
+                    "success"
                   ],
                   "additionalProperties": false
                 }
