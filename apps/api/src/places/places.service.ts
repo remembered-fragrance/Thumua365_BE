@@ -10,12 +10,14 @@
 
 import {
   type BBox,
+  entitled,
   PLACES_PAGE_LIMIT,
   PLACES_PER_ORG_LIMIT,
   type Place,
   type PlaceInput,
   type PlaceKind,
   type PlacePatch,
+  type PlacePrice,
   type PlacesList,
 } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
@@ -23,6 +25,8 @@ import type { z } from 'zod';
 import { recordAudit } from '../audit/audit';
 import type { AuthUser } from '../auth/auth-user';
 import type { MembershipContext } from '../auth/membership';
+import { planSummary } from '../auth/prisma-memberships';
+import { assertEntitlement } from '../billing/plan-of';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import { Prisma } from '../generated/prisma/client';
@@ -41,24 +45,46 @@ interface PlaceRow {
   readonly description: string | null;
   readonly lat: number;
   readonly lng: number;
+  readonly prices: PlacePrice[] | null;
+  readonly prices_updated_at: Date | null;
+  /** Gói của chủ điểm — chỉ có khi điểm có giá (`place_price_plans`). */
+  readonly sub_id: string | null;
+  readonly sub_status: string | null;
+  readonly trial_ends_at: Date | null;
+  readonly current_period_end: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
 
-const toPlace = (row: PlaceRow): Place => ({
-  id: row.id,
-  organizationId: row.organization_id,
-  organizationName: row.organization_name,
-  kind: row.kind,
-  name: row.name,
-  address: row.address,
-  phone: row.phone,
-  description: row.description,
-  lat: row.lat,
-  lng: row.lng,
-  createdAt: row.created_at.toISOString(),
-  updatedAt: row.updated_at.toISOString(),
-});
+/** V9: giá chỉ hiện khi chủ điểm còn gói (`map:prices`) — tính theo ngày tháng lúc đọc, như mọi chỗ khác. */
+const pricesShown = (row: PlaceRow): boolean => {
+  if (!row.prices || row.prices.length === 0 || !row.sub_id || !row.sub_status) return false;
+  const plan = planSummary(
+    { id: row.sub_id, status: row.sub_status, trialEndsAt: row.trial_ends_at, currentPeriodEnd: row.current_period_end, branchLimit: null },
+    new Date(),
+  );
+  return entitled(row.kind, plan?.tier, 'map:prices');
+};
+
+const toPlace = (row: PlaceRow): Place => {
+  const shown = pricesShown(row);
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    organizationName: row.organization_name,
+    kind: row.kind,
+    name: row.name,
+    address: row.address,
+    phone: row.phone,
+    description: row.description,
+    lat: row.lat,
+    lng: row.lng,
+    prices: shown ? (row.prices ?? []) : [],
+    pricesUpdatedAt: shown ? (row.prices_updated_at?.toISOString() ?? null) : null,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+  };
+};
 
 /**
  * Điểm còn hiện thoả `where`, mới sửa trước, kèm tên tổ chức chủ. Một chỗ cho mọi truy vấn đọc.
@@ -67,16 +93,20 @@ const toPlace = (row: PlaceRow): Place => ({
 const selectLive = (tx: Tx, where: Prisma.Sql, limit: number): Promise<PlaceRow[]> => tx.$queryRaw<PlaceRow[]>`
   with v as (
     select p.id, p.organization_id, p.kind, p.name, p.address, p.phone, p.description, p.lat, p.lng,
-           p.created_at, p.updated_at
+           p.prices, p.prices_updated_at, p.created_at, p.updated_at
     from places p
     where p.deleted_at is null and ${where}
     order by p.updated_at desc, p.id
     limit ${limit}
   )
   select v.id::text, v.organization_id::text, o.name as organization_name, v.kind, v.name, v.address,
-         v.phone, v.description, v.lat, v.lng, v.created_at, v.updated_at
+         v.phone, v.description, v.lat, v.lng, v.prices, v.prices_updated_at,
+         s.id::text as sub_id, s.status as sub_status, s.trial_ends_at, s.current_period_end,
+         v.created_at, v.updated_at
   from v
   join public.place_owners(array(select distinct organization_id from v)) o on o.id = v.organization_id
+  left join public.place_price_plans(array(select distinct organization_id from v where prices is not null)) s
+    on s.organization_id = v.organization_id
   order by v.updated_at desc, v.id`;
 
 const page = (rows: readonly PlaceRow[]): PlacesList => ({
@@ -94,7 +124,23 @@ const snapshot = (p: Place): Prisma.InputJsonValue => ({
   description: p.description,
   lat: p.lat,
   lng: p.lng,
+  prices: p.prices,
 });
+
+/**
+ * V9: bảng giá trong input. `undefined` = không đụng; `null` / rỗng = gỡ giá (gói nào cũng được); có giá thì cần
+ * `map:prices`. Trả về cột để ghi.
+ */
+const pricesData = async (
+  tx: Tx,
+  m: MembershipContext,
+  prices: readonly PlacePrice[] | null | undefined,
+): Promise<{ prices?: Prisma.InputJsonValue | typeof Prisma.DbNull; pricesUpdatedAt?: Date | null }> => {
+  if (prices === undefined) return {};
+  if (prices === null || prices.length === 0) return { prices: Prisma.DbNull, pricesUpdatedAt: null };
+  await assertEntitlement(tx, m, 'map:prices');
+  return { prices: prices.map((p) => ({ ...p })), pricesUpdatedAt: new Date() };
+};
 
 /** Hai người bấm "Đặt" cùng lúc không vượt được giới hạn — đếm và tạo sau khoá này. */
 const lock = (tx: Tx, orgId: string) => tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${orgId}, 3))`;
@@ -160,6 +206,7 @@ export class PlacesService {
           description: input.description,
           lat: input.lat,
           lng: input.lng,
+          ...(await pricesData(tx, m, input.prices)),
         },
         select: { id: true },
       });
@@ -190,6 +237,7 @@ export class PlacesService {
         ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
         ...(patch.description !== undefined ? { description: patch.description } : {}),
         ...(patch.lat !== undefined && patch.lng !== undefined ? { lat: patch.lat, lng: patch.lng } : {}),
+        ...(await pricesData(tx, m, patch.prices)),
       };
       if (Object.keys(data).length === 0) return before;
 

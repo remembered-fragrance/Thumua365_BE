@@ -6,6 +6,7 @@ import {
   linePhysicalWeight,
   linePrice,
   lineTotals,
+  lossFromGreenRatio,
   roundToThousand,
   totalAdjustments,
   transactionHasProduct,
@@ -235,5 +236,16 @@ describe('transactionProducts / transactionHasProduct', () => {
 
   it('dòng thiếu tên vẫn hiện là "Mặt hàng", không rỗng', () => {
     expect(transactionProducts(tx({ lines: [line({ productName: '' })] }))).toEqual(['Mặt hàng']);
+  });
+});
+
+describe('quy đổi cà phê tươi → nhân (V24)', () => {
+  it('450 kg tươi, tỷ lệ 4,5 ra đúng 100 kg nhân; tiền theo giá nhân', () => {
+    const totals = lineTotals({
+      id: 'l', productName: 'Cà phê tươi', unit: 'kg', formulaType: 'lossPercent',
+      grossWeight: 450, lossPercent: lossFromGreenRatio(4.5), greenRatio: 4.5, pricePerUnit: 120_000,
+    });
+    expect(totals.netWeight).toBe(100);
+    expect(totals.total).toBe(12_000_000);
   });
 });

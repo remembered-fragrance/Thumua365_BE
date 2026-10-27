@@ -125,3 +125,9 @@ export const transactionProducts = (t: Pick<Transaction, 'lines'>): readonly str
 
 export const transactionHasProduct = (t: Pick<Transaction, 'lines'>, product: string): boolean =>
   t.lines.some((l) => l.productName === product || l.crop === product);
+
+/**
+ * V24 — quy đổi cà phê tươi ra nhân: `ratio` kg tươi ra 1 kg nhân ⇒ hao `(1 − 1/ratio) × 100` %. Dòng giữ công thức
+ * `lossPercent` để app bản cũ tính ra đúng tiền; 450 kg tươi tỷ lệ 4,5 ⇒ 100 kg nhân.
+ */
+export const lossFromGreenRatio = (ratio: number): number => (1 - 1 / ratio) * 100;

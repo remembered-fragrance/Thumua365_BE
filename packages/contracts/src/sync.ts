@@ -30,6 +30,9 @@ import {
   ProductInsert,
   ProductPatch,
   ProductRecord,
+  SeasonContractInsert,
+  SeasonContractPatch,
+  SeasonContractRecord,
   TransactionInsert,
   TransactionPatch,
   TransactionRecord,
@@ -39,10 +42,21 @@ const Id = z.uuid();
 const Seq = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
 /**
- * Tám loại bản ghi của sổ, theo ĐÚNG thứ tự server trả khi kéo: danh mục trước, phiếu sau,
- * lần trả tiền cuối cùng — mỗi `payment` kéo về đều đã có phiếu cha ở trang này hoặc trước đó.
+ * Các loại bản ghi của sổ, theo ĐÚNG thứ tự server trả khi kéo: danh mục trước, phiếu sau,
+ * lần trả tiền sau phiếu — mỗi `payment` kéo về đều đã có phiếu cha ở trang này hoặc trước đó.
+ * `seasonContract` (V15) đứng CUỐI: cursor kéo dở của app bản cũ giữ số thứ tự bảng, chèn giữa là lệch.
  */
-export const SYNC_ENTITIES = ['supplier', 'buyer', 'product', 'pricingRule', 'note', 'draft', 'transaction', 'payment'] as const;
+export const SYNC_ENTITIES = [
+  'supplier',
+  'buyer',
+  'product',
+  'pricingRule',
+  'note',
+  'draft',
+  'transaction',
+  'payment',
+  'seasonContract',
+] as const;
 export const SyncEntity = z.enum(SYNC_ENTITIES);
 export type SyncEntity = z.infer<typeof SyncEntity>;
 
@@ -75,6 +89,7 @@ export const SYNC_OP_DATA = {
   draft: { insert: DraftInsert, update: DraftPatch },
   transaction: { insert: TransactionInsert, update: TransactionPatch },
   payment: { insert: PaymentInsert, update: null },
+  seasonContract: { insert: SeasonContractInsert, update: SeasonContractPatch },
 } as const satisfies Record<SyncEntity, { insert: z.ZodType; update: z.ZodType | null }>;
 
 // ─── Quyền của từng op ───────────────────────────────────────────────────────
@@ -95,6 +110,7 @@ export const SYNC_PERMISSION: Readonly<Record<SyncEntity, Readonly<Record<SyncOp
   draft: { insert: 'receipt:create', update: 'receipt:create', softDelete: 'receipt:create' },
   transaction: { insert: 'receipt:create', update: 'receipt:create', softDelete: 'receipt:delete' },
   payment: { insert: 'payment:record', update: null, softDelete: 'payment:void' },
+  seasonContract: { insert: 'partner:manage', update: 'partner:manage', softDelete: 'partner:manage' },
 };
 
 /** Sửa mặt hàng mà CHỈ đổi giá gần nhất — việc phụ của lập phiếu, người cân làm được. */
@@ -141,6 +157,9 @@ export const SyncOp = z.union([
   deleteOp('transaction'),
   insertOp('payment', PaymentInsert),
   deleteOp('payment'),
+  insertOp('seasonContract', SeasonContractInsert),
+  updateOp('seasonContract', SeasonContractPatch),
+  deleteOp('seasonContract'),
 ]);
 export type SyncOp = z.input<typeof SyncOp>;
 
@@ -235,6 +254,8 @@ export const SyncChanges = z.object({
   drafts: z.array(DraftRecord),
   transactions: z.array(TransactionRecord),
   payments: z.array(PaymentRecord),
+  /** V15 — app bản cũ không có khoá này: `z.object` bỏ qua khoá lạ. */
+  seasonContracts: z.array(SeasonContractRecord).default([]),
 });
 export type SyncChanges = z.infer<typeof SyncChanges>;
 
@@ -248,6 +269,7 @@ export const SYNC_CHANGE_KEY = {
   draft: 'drafts',
   transaction: 'transactions',
   payment: 'payments',
+  seasonContract: 'seasonContracts',
 } as const satisfies Record<SyncEntity, keyof SyncChanges>;
 
 export const SyncPullResult = z.object({

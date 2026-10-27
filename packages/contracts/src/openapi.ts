@@ -90,6 +90,7 @@ const operation = (name: string, route: RouteDef): JsonObject => {
         }
       : {}),
     ...(route.permission ? { 'x-permission': route.permission } : {}),
+    ...(route.entitlement ? { 'x-entitlement': route.entitlement } : {}),
     ...(route.errors ? { 'x-error-codes': route.errors } : {}),
     ...(route.rateLimitPerMinute ? { 'x-rate-limit-per-minute': route.rateLimitPerMinute } : {}),
     responses,

@@ -8,6 +8,9 @@
  *   Nông dân: phiếu các vựa đang kết nối ghi về mình (`linked_receipts()`, BE4), lật chiều — vựa MUA
  *     của mình là mình BÁN.
  *   Việc của từng người (`members`): phiếu và lần trả theo `created_by` — màn quản lý nhân viên của chủ.
+ *
+ * Gói (D3): báo cáo của tổ chức có sổ cần quyền lợi `reports:org` — chặn ở đây, không ở route, vì nông dân
+ * dùng `summary` để xem phiếu đã kết nối (Free).
  */
 
 import { transactionTotals } from '@mambo/core/calc';
@@ -25,6 +28,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth-user';
 import type { MembershipContext } from '../auth/membership';
+import { assertEntitlement } from '../billing/plan-of';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import { type MemberRow, toMember } from '../org/members.service';
@@ -78,6 +82,7 @@ export class ReportsService {
         return { from: from.toISOString(), to: to.toISOString(), totals, branches: [] };
       }
 
+      await assertEntitlement(tx, m, 'reports:org');
       const branchId = await scopeBranch(tx, m, query.branchId);
       const rows = await tx.transaction.findMany({
         where: {
@@ -123,7 +128,10 @@ export class ReportsService {
   }
 
   members(user: AuthUser, m: MembershipContext, query: MemberActivityQuery): Promise<MemberActivityReport> {
-    return this.db.scoped({ userId: user.id, orgId: m.organizationId }, (tx) => memberActivity(tx, user.id, m.organizationId, query));
+    return this.db.scoped({ userId: user.id, orgId: m.organizationId }, async (tx) => {
+      await assertEntitlement(tx, m, 'reports:org');
+      return memberActivity(tx, user.id, m.organizationId, query);
+    });
   }
 }
 

@@ -53,6 +53,7 @@ model Organization {
   drafts         Draft[]
   pricingRules   PricingRule[]
   notes          Note[]
+  seasonContracts SeasonContract[]
   paymentIntents PaymentIntent[]
   notifications  Notification[]
   syncOps        SyncOp[]
@@ -113,17 +114,19 @@ model Membership {
 /// Gói của một tổ chức vựa/doanh nghiệp. Nông dân không có hàng nào ở đây.
 /// Không có trạng thái 'expired' — suy ra từ ngày tháng (@mambo/core/subscription).
 model Subscription {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId   String    @map("organization_id") @db.Uuid
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
   /// trialing | active | past_due | canceled
-  status           String
-  trialEndsAt      DateTime? @map("trial_ends_at") @db.Timestamptz(6)
-  currentPeriodEnd DateTime? @map("current_period_end") @db.Timestamptz(6)
+  status             String
+  trialEndsAt        DateTime? @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodEnd   DateTime? @map("current_period_end") @db.Timestamptz(6)
   /// Doanh nghiệp: số chi nhánh tối đa theo gói. null = không giới hạn.
-  branchLimit      Int?      @map("branch_limit")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  branchLimit        Int?      @map("branch_limit")
+  /// Đã cộng tháng thưởng giới thiệu (cho tổ chức này và người mời) — chỉ một lần.
+  referralRewardedAt DateTime? @map("referral_rewarded_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization   Organization    @relation(fields: [organizationId], references: [id])
   paymentIntents PaymentIntent[]
@@ -264,23 +267,26 @@ model OrderEvent {
 
 /// Địa điểm thu mua của vựa / doanh nghiệp trên bản đồ. Vị trí của người dùng KHÔNG lưu ở đâu cả.
 model Place {
-  id             String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String                                 @map("organization_id") @db.Uuid
-  createdBy      String                                 @map("created_by") @db.Uuid
+  id              String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String                                 @map("organization_id") @db.Uuid
+  createdBy       String                                 @map("created_by") @db.Uuid
   /// trader | enterprise — đặt theo loại tổ chức lúc tạo, client không gửi.
-  kind           String
-  name           String
-  address        String?
-  phone          String?
-  description    String?
-  lat            Float
-  lng            Float
+  kind            String
+  name            String
+  address         String?
+  phone           String?
+  description     String?
+  lat             Float
+  lng             Float
   /// Cột GENERATED ALWAYS từ (lng, lat) — chỉ để truy vấn không gian (index GiST). Không ghi từ
   /// Prisma. `dbgenerated` chép đúng biểu thức Postgres đọc lại, để `migrate diff` không báo lệch.
-  location       Unsupported("geography(Point, 4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(lng, lat), 4326))::geography"))
-  createdAt      DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime                               @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?                              @map("deleted_at") @db.Timestamptz(6)
+  location        Unsupported("geography(Point, 4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(lng, lat), 4326))::geography"))
+  /// V9 — [{ product, price, unit }], tối đa 10. NULL = chưa khai giá.
+  prices          Json?
+  pricesUpdatedAt DateTime?                              @map("prices_updated_at") @db.Timestamptz(6)
+  createdAt       DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?                              @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -343,6 +349,10 @@ model Product {
   group            String?
   qualityGrades    String[]  @map("quality_grades")
   trackInventory   Boolean?  @map("track_inventory")
+  /// latex | cuplump — V20, NULL = mủ nước
+  rubberKind       String?   @map("rubber_kind")
+  /// V24 — kg cà phê tươi ra 1 kg nhân (> 1, ≤ 20). NULL = không quy đổi.
+  greenRatio       Float?    @map("green_ratio")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -401,6 +411,8 @@ model Payment {
   date           DateTime  @db.Timestamptz(6)
   amount         BigInt
   note           String?
+  /// cash | transfer. null = app cũ / không ghi (Đợt 2, V13).
+  method         String?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// Có từ BE2: huỷ một lần trả phải lan sang máy khác khi kéo theo updated_at.
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
@@ -460,6 +472,10 @@ model PricingRule {
   minWeightKg     Float?    @map("min_weight_kg")
   appliesOnPickup Boolean?  @map("applies_on_pickup")
   active          Boolean   @default(true)
+  /// bulkDensity | moisturePercent | impurityPercent | kor | qualityPercent — V19
+  qualityMetric   String?   @map("quality_metric")
+  /// [{ from, amountPerUnit }]
+  qualitySteps    Json?     @map("quality_steps")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -485,6 +501,34 @@ model Note {
 
   @@index([organizationId, updatedAt])
   @@map("notes")
+}
+
+/// V15 — hợp đồng mùa vụ: giữ giá / số lượng với một người bán hoặc người mua. Đã giao app tự cộng từ phiếu.
+model SeasonContract {
+  id               String    @id @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  createdBy        String    @map("created_by") @db.Uuid
+  /// purchase | sale
+  kind             String
+  counterpartyId   String?   @map("counterparty_id")
+  counterpartyName String    @map("counterparty_name")
+  productId        String?   @map("product_id")
+  productName      String    @map("product_name")
+  unit             String    @default("kg")
+  quantity         Float
+  pricePerUnit     Float?    @map("price_per_unit")
+  startDate        DateTime  @map("start_date") @db.Timestamptz(6)
+  endDate          DateTime  @map("end_date") @db.Timestamptz(6)
+  note             String?
+  closed           Boolean   @default(false)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, updatedAt])
+  @@map("season_contracts")
 }
 
 // ─── Hệ thống ────────────────────────────────────────────────────────────────
@@ -552,7 +596,7 @@ model AuditLog {
   before         Json?
   after          Json?
   requestId      String?  @map("request_id")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@map("audit_log")

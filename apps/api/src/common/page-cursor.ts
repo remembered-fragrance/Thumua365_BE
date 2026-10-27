@@ -1,5 +1,5 @@
 /**
- * Cursor phân trang "mới nhất trước" theo `(created_at, id)` — đơn, thông báo. Không ký: sửa cursor
+ * Cursor phân trang "mới nhất trước" theo `(created_at, id)` — đơn, thông báo, nhật ký. Không ký: sửa cursor
  * chỉ đọc lại dữ liệu mà RLS vốn cho tổ chức này thấy. Cột `created_at` của các bảng phân trang
  * kiểu này là `timestamptz(3)` — bằng độ chính xác của JS Date, so sánh không lệch.
  */
@@ -22,7 +22,9 @@ const decodeCursor = (raw: string): z.infer<typeof Cursor> => {
 };
 
 /** Điều kiện "sau cursor" cho `orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]`. */
-export const olderThan = (raw: string | undefined): Prisma.OrderWhereInput & Prisma.NotificationWhereInput => {
+export const olderThan = (
+  raw: string | undefined,
+): Prisma.OrderWhereInput & Prisma.NotificationWhereInput & Prisma.AuditLogWhereInput => {
   if (!raw) return {};
   const { d, i } = decodeCursor(raw);
   return { OR: [{ createdAt: { lt: new Date(d) } }, { createdAt: new Date(d), id: { lt: i } }] };

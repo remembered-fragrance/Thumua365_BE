@@ -3,6 +3,12 @@
 export type CropType = 'rubber' | 'cashew' | 'coffee' | 'pepper';
 export type WeightUnit = 'kg' | 'hg';
 export type ProductFormulaType = 'standard' | 'netAfterTare' | 'rubberLatex' | 'lossPercent';
+/**
+ * Loại mủ của công thức `rubberLatex` (V20): mủ nước tính theo độ TSC, mủ tạp (mủ chén, mủ đông) theo DRC.
+ * Cùng một phép tính (kg × độ % × giá); khác nhãn và bậc giá. Không thêm `ProductFormulaType` mới: app
+ * bản cũ đọc phải công thức lạ thì cả lượt kéo sổ hỏng (`CONTRACT_MISMATCH`), còn trường lạ thì bỏ qua.
+ */
+export type RubberKind = 'latex' | 'cuplump';
 export type DraftStatus = 'draft' | 'waiting';
 
 /**
@@ -19,11 +25,15 @@ export type TransactionKind = 'purchase' | 'sale';
  * Một lần trả tiền cho giao dịch.
  * Bất biến: sum(payments) === amountPaid tại mọi thời điểm.
  */
+/** V13 — trả bằng gì. Vắng = lần trả cũ, không rõ (coi như tiền mặt khi nhắc ngưỡng 5 triệu). */
+export type PaymentMethod = 'cash' | 'transfer';
+
 export interface Payment {
   readonly id: string;
   readonly date: string;   // ISO 8601
   readonly amount: number;
   readonly note?: string;
+  readonly method?: PaymentMethod;
 }
 
 // ─── Credit term (Workstream H) ─────────────────────────────────────────────
@@ -73,6 +83,23 @@ export interface PricingRule {
   /** true = chỉ khi xe đến lấy · false = chỉ khi tự mang tới · null = cả hai. */
   readonly appliesOnPickup?: boolean | null;
   readonly active: boolean;
+  /**
+   * V19 — có thì đây là quy tắc theo chỉ tiêu chất lượng: bỏ qua `fixedAmount` / `percentOfTotal`,
+   * mỗi dòng có chỉ tiêu này được cộng/trừ theo bảng `qualitySteps`.
+   */
+  readonly qualityMetric?: QualityMetric;
+  /** Bảng mốc, tăng dần theo `from`. Xem `qualityStepOf`. */
+  readonly qualitySteps?: readonly QualityStep[];
+}
+
+/** Chỉ tiêu trên dòng phiếu mà quy tắc giá đọc được. `qualityPercent` = độ TSC / DRC của mủ. */
+export type QualityMetric = 'bulkDensity' | 'moisturePercent' | 'impurityPercent' | 'kor' | 'qualityPercent';
+
+/** Một mốc: chỉ tiêu TỪ `from` trở lên (tới mốc kế) thì cộng `amountPerUnit` đồng cho mỗi đơn vị tính tiền. */
+export interface QualityStep {
+  readonly from: number;
+  /** Đồng / kg (đơn vị tính tiền của dòng). Dương = cộng thêm, âm = trừ bớt. */
+  readonly amountPerUnit: number;
 }
 
 // ─── Attachment (Workstream J) ───────────────────────────────────────────────
@@ -106,6 +133,10 @@ export interface Product {
   readonly qualityGrades?: readonly string[];
   /** Bật theo dõi tồn kho (F) */
   readonly trackInventory?: boolean;
+  /** V20: mặt hàng mủ tính theo DRC (mủ tạp). Chọn mặt hàng thì dòng phiếu mang theo. */
+  readonly rubberKind?: RubberKind;
+  /** V24: cà phê tươi — kg tươi ra 1 kg nhân. Có thì công thức là `lossPercent`, chọn mặt hàng thì dòng mang theo. */
+  readonly greenRatio?: number;
 }
 
 // ─── Supplier ────────────────────────────────────────────────────────────────
@@ -157,6 +188,23 @@ export interface TransactionLine {
   readonly roundedTotal?: number;
   /** Phân loại chất lượng (E2) — nhãn mô tả, không tham gia công thức */
   readonly qualityGrade?: string;
+  /** V20: `qualityPercent` là độ TSC (mủ nước) hay DRC (mủ tạp). Không có = mủ nước. Công thức như nhau. */
+  readonly rubberKind?: RubberKind;
+  // V19 — chỉ tiêu chất lượng đo lúc mua. Không tham gia công thức dòng: quy tắc giá theo chỉ tiêu
+  // (`PricingRule.qualityMetric`) đọc chúng để đề xuất khoản cộng/trừ.
+  /** Dung trọng, g/l (tiêu). */
+  readonly bulkDensity?: number;
+  /** Độ ẩm, % (tiêu, cà phê, điều). */
+  readonly moisturePercent?: number;
+  /** Tạp chất, % (tiêu, cà phê). */
+  readonly impurityPercent?: number;
+  /** Tỷ lệ thu hồi nhân KOR, lbs/bao 80 kg (điều). */
+  readonly kor?: number;
+  /**
+   * V24: dòng cà phê tươi tính ra nhân — kg tươi ra 1 kg nhân. Chỉ để hiện và sửa: tiền vẫn tính bằng `lossPercent`
+   * (`lossFromGreenRatio`), app bản cũ đọc ra đúng số.
+   */
+  readonly greenRatio?: number;
 }
 
 // ─── Transaction ─────────────────────────────────────────────────────────────
@@ -248,6 +296,35 @@ export interface Note {
   readonly updatedAt: string;
 }
 
+// ─── SeasonContract ──────────────────────────────────────────────────────────
+
+/**
+ * (V15) Hợp đồng mùa vụ: hẹn mua (hoặc bán) một lượng mặt hàng với một người trong một khoảng ngày. Không gắn vào
+ * phiếu — lượng đã giao tính từ phiếu cùng người, cùng mặt hàng, trong khoảng ngày (xem `seasonContracts.ts`).
+ */
+export interface SeasonContract {
+  readonly id: string;
+  readonly kind: TransactionKind;
+  /** Nông hộ / người mua trong sổ; không có thì khớp phiếu theo tên. */
+  readonly counterpartyId?: string;
+  readonly counterpartyName: string;
+  /** Không có thì khớp dòng phiếu theo tên mặt hàng. */
+  readonly productId?: string;
+  readonly productName: string;
+  readonly unit: string;
+  /** Lượng hẹn, cùng đơn vị với lượng tính tiền trên phiếu (cà phê: kg nhân; mủ: kg khô). */
+  readonly quantity: number;
+  readonly pricePerUnit?: number;
+  /** Đầu ngày bắt đầu. */
+  readonly startDate: string;
+  /** Đầu ngày kết thúc — phiếu trong cả ngày đó vẫn tính. */
+  readonly endDate: string;
+  readonly note?: string;
+  readonly closed: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 // ─── AppSettings ─────────────────────────────────────────────────────────────
 
 export interface AppSettings {
@@ -273,6 +350,8 @@ export interface AppData {
   readonly settings: AppSettings;
   /** G: quy tắc điều chỉnh giá tự động. Default [] cho data cũ (backward-compat). */
   readonly pricingRules?: readonly PricingRule[];
+  /** V15: hợp đồng mùa vụ. Default [] cho data cũ. */
+  readonly seasonContracts?: readonly SeasonContract[];
 }
 
 // ─── UserProfile ─────────────────────────────────────────────────────────────

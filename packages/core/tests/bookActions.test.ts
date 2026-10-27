@@ -60,6 +60,16 @@ describe('mặt hàng', () => {
     expect(second.data.products).toHaveLength(1);
   });
 
+  it('mặt hàng mủ tạp giữ loại mủ ngay từ lúc tạo (V20)', () => {
+    const { product } = addProduct(data({ products: [] }), {
+      name: 'Mủ chén',
+      unit: 'kg',
+      formulaType: 'rubberLatex',
+      rubberKind: 'cuplump',
+    });
+    expect(product.rubberKind).toBe('cuplump');
+  });
+
   it('sửa mặt hàng, giữ nguyên id', () => {
     const first = addProduct(data({ products: [] }), {
       name: 'Sầu riêng',

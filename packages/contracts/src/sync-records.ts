@@ -28,6 +28,8 @@ export const RECEIPT_LIMITS = {
   percent: 100,
   /** Số cân, đơn giá: 0 – 1 tỷ. */
   quantity: 1e9,
+  /** V24 — kg cà phê tươi ra 1 kg nhân: lớn hơn 1, tối đa 20. */
+  greenRatio: 20,
   adjustmentLabel: 120,
   partyName: 200,
   note: 2000,
@@ -47,6 +49,7 @@ const Money = z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE
 const NonNegativeMoney = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const Quantity = z.number().min(0).max(RECEIPT_LIMITS.quantity);
 const Percent = z.number().min(0).max(RECEIPT_LIMITS.percent);
+const GreenRatio = z.number().gt(1).max(RECEIPT_LIMITS.greenRatio);
 const text = (max: number) => z.string().trim().min(1).max(max);
 const nullableText = (max: number) => z.string().trim().max(max).nullable();
 const hasKeys = (patch: object): boolean => Object.keys(patch).length > 0;
@@ -56,6 +59,10 @@ export const FormulaType = z.enum(['standard', 'netAfterTare', 'rubberLatex', 'l
 export const TransactionKind = z.enum(['purchase', 'sale']);
 export const DraftStatus = z.enum(['draft', 'waiting']);
 export const PricingRuleKind = z.enum(['logistics', 'volumeDiscount', 'manual']);
+/** V20 — mủ nước (độ TSC) hay mủ tạp (DRC). Trường riêng, không thêm `FormulaType`: xem `RubberKind` ở core. */
+export const RubberKind = z.enum(['latex', 'cuplump']);
+/** V19 — chỉ tiêu trên dòng phiếu mà quy tắc giá theo chất lượng đọc. */
+export const QualityMetric = z.enum(['bulkDensity', 'moisturePercent', 'impurityPercent', 'kor', 'qualityPercent']);
 
 // ─── Thành phần của phiếu (JSONB, giữ nguyên hình dạng của @mambo/core) ─────
 
@@ -77,6 +84,17 @@ const lineShape = {
   rawTotal: z.number().optional(),
   roundedTotal: NonNegativeMoney.optional(),
   qualityGrade: z.string().max(60).optional(),
+  rubberKind: RubberKind.optional(),
+  /** V19 — chỉ tiêu chất lượng, không tham gia công thức dòng. Dung trọng g/l, KOR lbs/bao 80 kg. */
+  bulkDensity: Quantity.optional(),
+  moisturePercent: Percent.optional(),
+  impurityPercent: Percent.optional(),
+  kor: Quantity.optional(),
+  /**
+   * V24 — dòng cà phê tươi tính ra nhân: bao nhiêu kg tươi ra 1 kg nhân. Chỉ để hiển thị và sửa lại: công thức vẫn là
+   * `lossPercent` với `lossPercent = (1 − 1/greenRatio) × 100`, nên app bản cũ đọc ra đúng tiền.
+   */
+  greenRatio: GreenRatio.optional(),
 };
 
 /** Dòng hàng của phiếu nháp — chưa chốt, có thể chưa có tổng. */
@@ -135,6 +153,9 @@ const productFields = {
   group: nullableText(PRODUCT_LIMITS.group),
   qualityGrades: z.array(text(PRODUCT_LIMITS.qualityGrade)).max(PRODUCT_LIMITS.qualityGrades),
   trackInventory: z.boolean().nullable(),
+  rubberKind: RubberKind.nullable(),
+  /** V24 — mặt hàng cà phê tươi: kg tươi ra 1 kg nhân. Có thì `formulaType` là `lossPercent`. */
+  greenRatio: GreenRatio.nullable(),
 };
 /** Bỏ qua thì server điền: `unit` 'kg', `isSuggested` false, `isActive` true, `qualityGrades` []. */
 export const ProductInsert = z.strictObject(productFields).partial({
@@ -146,6 +167,8 @@ export const ProductInsert = z.strictObject(productFields).partial({
   group: true,
   qualityGrades: true,
   trackInventory: true,
+  rubberKind: true,
+  greenRatio: true,
 });
 export const ProductPatch = z.strictObject(productFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const ProductRecord = z.object({
@@ -160,10 +183,20 @@ export const ProductRecord = z.object({
   group: z.string().nullable(),
   qualityGrades: z.array(z.string()),
   trackInventory: z.boolean().nullable(),
+  rubberKind: RubberKind.nullable(),
+  greenRatio: z.number().nullable(),
 });
 export type ProductRecord = z.infer<typeof ProductRecord>;
 
 // ─── Quy tắc điều chỉnh giá ──────────────────────────────────────────────────
+
+/** Bảng mốc của một quy tắc chất lượng: tối đa 20 mốc. */
+export const PRICING_RULE_LIMITS = { qualitySteps: 20 } as const;
+const QualityStep = z.strictObject({
+  from: Quantity,
+  /** Đồng / đơn vị tính tiền (kg, kg quy khô). Dương = cộng, âm = trừ. */
+  amountPerUnit: z.number().int().min(-RECEIPT_LIMITS.quantity).max(RECEIPT_LIMITS.quantity),
+});
 
 const pricingRuleFields = {
   name: text(120),
@@ -174,6 +207,9 @@ const pricingRuleFields = {
   minWeightKg: Quantity.nullable(),
   appliesOnPickup: z.boolean().nullable(),
   active: z.boolean(),
+  /** V19 — có thì là quy tắc theo chỉ tiêu: tiền tính theo `qualitySteps`, bỏ qua `fixedAmount` / `percentOfTotal`. */
+  qualityMetric: QualityMetric.nullable(),
+  qualitySteps: z.array(QualityStep).max(PRICING_RULE_LIMITS.qualitySteps).nullable(),
 };
 export const PricingRuleInsert = z.strictObject(pricingRuleFields).partial({
   productId: true,
@@ -181,6 +217,8 @@ export const PricingRuleInsert = z.strictObject(pricingRuleFields).partial({
   percentOfTotal: true,
   minWeightKg: true,
   appliesOnPickup: true,
+  qualityMetric: true,
+  qualitySteps: true,
 });
 export const PricingRulePatch = z.strictObject(pricingRuleFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const PricingRuleRecord = z.object({
@@ -193,6 +231,8 @@ export const PricingRuleRecord = z.object({
   minWeightKg: z.number().nullable(),
   appliesOnPickup: z.boolean().nullable(),
   active: z.boolean(),
+  qualityMetric: QualityMetric.nullable(),
+  qualitySteps: z.array(z.object({ from: z.number(), amountPerUnit: z.number() })).nullable(),
 });
 export type PricingRuleRecord = z.infer<typeof PricingRuleRecord>;
 
@@ -203,6 +243,61 @@ export const NoteInsert = z.strictObject(noteFields).partial({ pinned: true, don
 export const NotePatch = z.strictObject(noteFields).partial().refine(hasKeys, EMPTY_PATCH);
 export const NoteRecord = z.object({ ...meta, body: z.string(), pinned: z.boolean(), done: z.boolean() });
 export type NoteRecord = z.infer<typeof NoteRecord>;
+
+// ─── Hợp đồng mùa vụ (V15) ───────────────────────────────────────────────────
+
+/**
+ * Hợp đồng giữ giá / số lượng với một người bán (`purchase`) hoặc người mua (`sale`). Không gắn vào phiếu: đã giao
+ * bao nhiêu app tự cộng từ phiếu cùng người, cùng mặt hàng, trong khoảng ngày của hợp đồng — phiếu không phải sửa.
+ */
+const seasonContractFields = {
+  kind: TransactionKind,
+  /** Id người bán / người mua trong sổ. `null` khi hợp đồng ghi theo tên. */
+  counterpartyId: z.string().min(1).max(64).nullable(),
+  counterpartyName: text(RECEIPT_LIMITS.partyName),
+  /** Như `productId` của dòng phiếu: không phải khoá, có thể là id kiểu cũ. */
+  productId: z.string().min(1).max(64).nullable(),
+  productName: text(PRODUCT_LIMITS.name),
+  unit: text(PRODUCT_LIMITS.unit),
+  /** Lượng cam kết, theo lượng tính tiền của dòng phiếu (cao su: kg quy khô). */
+  quantity: Quantity.refine((n) => n > 0, 'Nhập số lượng'),
+  /** Giá giữ, đồng / đơn vị. `null` = chỉ giữ số lượng, giá theo ngày giao. */
+  pricePerUnit: Quantity.nullable(),
+  startDate: Time,
+  endDate: Time,
+  note: nullableText(RECEIPT_LIMITS.note),
+  /** Chủ tự đóng (giao đủ, huỷ ngang) — không tính vào danh sách đang chạy. */
+  closed: z.boolean(),
+};
+/** So theo thời điểm, không theo chuỗi: hai mốc khác múi giờ (`+07:00` với `Z`) so chuỗi ra sai thứ tự. */
+export const endsAfterStart = (c: { startDate?: string; endDate?: string }) =>
+  c.startDate === undefined || c.endDate === undefined || Date.parse(c.startDate) <= Date.parse(c.endDate);
+const END_BEFORE_START = { message: 'Ngày kết thúc phải sau ngày bắt đầu', path: ['endDate'] };
+export const SeasonContractInsert = z
+  .strictObject(seasonContractFields)
+  .partial({ counterpartyId: true, productId: true, unit: true, pricePerUnit: true, note: true, closed: true })
+  .refine(endsAfterStart, END_BEFORE_START);
+export const SeasonContractPatch = z
+  .strictObject(seasonContractFields)
+  .partial()
+  .refine(hasKeys, EMPTY_PATCH)
+  .refine(endsAfterStart, END_BEFORE_START);
+export const SeasonContractRecord = z.object({
+  ...meta,
+  kind: TransactionKind,
+  counterpartyId: z.string().nullable(),
+  counterpartyName: z.string(),
+  productId: z.string().nullable(),
+  productName: z.string(),
+  unit: z.string(),
+  quantity: z.number(),
+  pricePerUnit: z.number().nullable(),
+  startDate: Time,
+  endDate: Time,
+  note: z.string().nullable(),
+  closed: z.boolean(),
+});
+export type SeasonContractRecord = z.infer<typeof SeasonContractRecord>;
 
 // ─── Phiếu nháp ──────────────────────────────────────────────────────────────
 
@@ -302,12 +397,19 @@ export type TransactionRecord = z.infer<typeof TransactionRecord>;
 
 // ─── Lần trả tiền — chỉ ghi thêm ─────────────────────────────────────────────
 
+/**
+ * V13 — trả bằng gì. Chỉ là nhãn vựa tự ghi: app không lưu số tài khoản, không giữ tiền hộ (§4.2).
+ * Lần trả cũ (trước 0.23.0) không có trường này = không rõ.
+ */
+export const PaymentMethod = z.enum(['cash', 'transfer']);
+
 /** Không có `update`: không bao giờ sửa số tiền. Huỷ = `softDelete`. */
 export const PaymentInsert = z.strictObject({
   transactionId: Id,
   date: Time,
   amount: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   note: nullableText(500).optional(),
+  method: PaymentMethod.nullable().optional(),
 });
 export const PaymentRecord = z.object({
   ...meta,
@@ -315,6 +417,7 @@ export const PaymentRecord = z.object({
   date: Time,
   amount: z.number().int(),
   note: z.string().nullable(),
+  method: PaymentMethod.nullable(),
 });
 export type PaymentRecord = z.infer<typeof PaymentRecord>;
 

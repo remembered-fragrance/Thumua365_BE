@@ -29,6 +29,23 @@ const optionalText = (max: number) =>
     .nullish()
     .transform((v) => (v ? v : null));
 
+/** V9 — tối đa số mặt hàng kèm giá trên một địa điểm. */
+export const PLACE_PRICES_LIMIT = 10;
+
+/** V9 — giá thu mua một mặt hàng tại điểm này. Đồng / đơn vị. */
+export const PlacePrice = z.strictObject({
+  product: z.string().trim().min(1, 'Nhập tên mặt hàng').max(60, 'Tối đa 60 ký tự'),
+  price: z.number().int('Giá là số đồng chẵn').min(1, 'Nhập giá').max(1e9),
+  unit: z.string().trim().min(1).max(20).default('kg'),
+});
+export type PlacePrice = z.output<typeof PlacePrice>;
+
+/**
+ * V9 — gói Pro (`map:prices`). Gửi danh sách (kể cả rỗng) là thay cả bảng giá và đặt lại `pricesUpdatedAt`;
+ * gửi danh sách có giá khi hết gói → 402 `PLAN_REQUIRED`. Rỗng / `null` (gỡ giá) thì gói nào cũng được.
+ */
+const PlacePrices = z.array(PlacePrice).max(PLACE_PRICES_LIMIT, `Tối đa ${PLACE_PRICES_LIMIT} mặt hàng`);
+
 export const Place = z.object({
   id: z.uuid(),
   organizationId: z.uuid(),
@@ -40,6 +57,13 @@ export const Place = z.object({
   description: z.string().nullable(),
   lat: z.number(),
   lng: z.number(),
+  /**
+   * V9 — giá thu mua chủ điểm khai. Rỗng khi chưa khai, hoặc khi gói của chủ điểm đã hết (giá cũ không hiện để
+   * khỏi làm nông hộ hiểu lầm — gia hạn là hiện lại).
+   */
+  prices: z.array(PlacePrice).default([]),
+  /** Lúc khai bảng giá gần nhất; `null` khi không có giá. App ghi "Giá hôm nay" khi trùng ngày. */
+  pricesUpdatedAt: z.iso.datetime({ offset: true }).nullable().default(null),
   createdAt: z.iso.datetime({ offset: true }),
   updatedAt: z.iso.datetime({ offset: true }),
 });
@@ -54,6 +78,7 @@ export const PlaceInput = z.strictObject({
   description: optionalText(1000),
   lat: Latitude,
   lng: Longitude,
+  prices: PlacePrices.nullish(),
 });
 export type PlaceInput = z.input<typeof PlaceInput>;
 
@@ -65,6 +90,7 @@ export const PlacePatch = z
     description: optionalText(1000).optional(),
     lat: Latitude.optional(),
     lng: Longitude.optional(),
+    prices: PlacePrices.nullish(),
   })
   .refine((p) => (p.lat === undefined) === (p.lng === undefined), {
     message: 'Gửi cả lat và lng khi đổi vị trí',

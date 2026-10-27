@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTaxReport, isInRange, TAX_REPORT_DISCLAIMER } from '../src/taxReport';
+import { buildPurchaseLedger, buildSalesLedger, buildTaxReport, isInRange, ledgerPaidBy, TAX_REPORT_DISCLAIMER } from '../src/taxReport';
 import { data, line, tx } from './fixtures';
 
 const range = {
@@ -93,5 +93,62 @@ describe('buildTaxReport', () => {
       range,
     );
     expect(report.purchaseCount).toBe(2);
+  });
+});
+
+describe('bảng kê thu mua dạng 02/TNDN (V12)', () => {
+  const pay = (amount: number, method?: 'cash' | 'transfer') => ({ id: `p${amount}${method ?? ''}`, date: '2026-08-05T02:00:00.000Z', amount, ...(method ? { method } : {}) });
+
+  it('mỗi dòng hàng một dòng, phiếu cũ trước; bỏ phiếu bán và phiếu ngoài kỳ; khoản cộng / trừ thành một dòng riêng', () => {
+    const rows = buildPurchaseLedger(
+      data({
+        transactions: [
+          tx({
+            id: 'b',
+            date: '2026-08-09T02:00:00.000Z',
+            supplierName: 'Chú Tư',
+            lines: [line({ productName: 'Cà phê', grossWeight: 100, pricePerUnit: 10_000 }), line({ id: 'l2', productName: 'Tiêu', grossWeight: 10, pricePerUnit: 100_000 })],
+            adjustments: [{ id: 'a', kind: 'logistics', label: 'Phí xe', amount: -50_000 }],
+            payments: [pay(1_000_000, 'transfer'), pay(900_000)],
+            amountPaid: 1_900_000,
+          }),
+          purchase1M({ id: 'a', date: '2026-08-02T02:00:00.000Z', supplierName: 'Cô Năm' }),
+          purchase1M({ id: 'ban', kind: 'sale', date: '2026-08-03T02:00:00.000Z' }),
+          purchase1M({ id: 'cu', date: '2026-07-30T02:00:00.000Z' }),
+        ],
+      }),
+      range,
+    );
+    expect(rows.map((r) => [r.transactionId, r.sellerName, r.product, r.quantity, r.unitPrice, r.amount, r.paidBy])).toEqual([
+      ['a', 'Cô Năm', expect.any(String), 100, 10_000, 1_000_000, 'unpaid'],
+      ['b', 'Chú Tư', 'Cà phê', 100, 10_000, 1_000_000, 'mixed'],
+      ['b', 'Chú Tư', 'Tiêu', 10, 100_000, 1_000_000, 'mixed'],
+      ['b', 'Chú Tư', null, null, null, -50_000, 'mixed'],
+    ]);
+  });
+
+  it('hình thức trả: lần trả không ghi hình thức (app cũ) là tiền mặt', () => {
+    expect(ledgerPaidBy({ payments: [pay(1)] })).toBe('cash');
+    expect(ledgerPaidBy({ payments: [pay(1, 'transfer')] })).toBe('transfer');
+    expect(ledgerPaidBy({ payments: [] })).toBe('unpaid');
+  });
+
+  it('câu tự chịu trách nhiệm theo §4.2', () => {
+    expect(TAX_REPORT_DISCLAIMER).toBe('Số liệu tổng hợp từ sổ của bạn. Bạn tự kiểm tra và chịu trách nhiệm khi dùng để kê khai thuế.');
+  });
+});
+
+describe('bảng kê bán ra (V17)', () => {
+  it('chỉ phiếu bán trong kỳ, cùng dạng dòng với bảng kê mua', () => {
+    const rows = buildSalesLedger(
+      data({
+        transactions: [
+          purchase1M({ id: 'mua' }),
+          purchase1M({ id: 'ban', kind: 'sale', supplierName: 'Công ty X', date: '2026-08-03T02:00:00.000Z' }),
+        ],
+      }),
+      range,
+    );
+    expect(rows.map((r) => [r.transactionId, r.sellerName, r.amount])).toEqual([['ban', 'Công ty X', 1_000_000]]);
   });
 });

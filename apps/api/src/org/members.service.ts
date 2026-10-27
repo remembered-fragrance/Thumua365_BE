@@ -16,6 +16,7 @@ import {
   type OrgMemberCreateInput,
   type OrgMemberPatch,
   type OrgType,
+  STAFF_LIMIT,
 } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
@@ -96,6 +97,23 @@ const assertBranch = async (tx: Tx, m: MembershipContext, branchId: string | nul
   }
 };
 
+const lock = (tx: Tx, orgId: string) => tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${orgId}, 4))`;
+
+/**
+ * Còn chỗ cho thêm một người theo gói không (vựa: 3 người cân — KE_HOACH_GOI_PRO §10 mục 2). Giữ khoá theo tổ
+ * chức tới hết transaction: hai lần bấm "Thêm" cùng lúc không vượt được. Gọi trong CHÍNH transaction ghi membership.
+ * Chặn theo gói hết hạn (PLAN_REQUIRED) đã nằm ở EntitlementGuard.
+ */
+const assertStaffRoom = async (tx: Tx, m: MembershipContext): Promise<void> => {
+  const limit = STAFF_LIMIT[m.orgType];
+  if (limit === undefined) return;
+  await lock(tx, m.organizationId);
+  const used = await tx.membership.count({ where: { organizationId: m.organizationId, status: 'active', role: { not: 'owner' } } });
+  if (used >= limit) {
+    throw new ApiException('MEMBER_LIMIT', `Gói hiện tại cho tối đa ${limit} người cân`, { limit });
+  }
+};
+
 const findMember = async (tx: Tx, id: string, me: string): Promise<OrgMember> => {
   const row = (await tx.$queryRaw<MemberRow[]>`select * from public.org_members()`).find((r) => r.id === id);
   if (!row) throw notFound();
@@ -131,6 +149,9 @@ export class MembersService {
 
     const existing = await this.db.scoped(scope, async (tx) => {
       await assertBranch(tx, m, input.branchId);
+      // Hết chỗ thì báo ngay, chưa tạo tài khoản Supabase (tạo rồi xoá, xoá hỏng là số đó kẹt). Transaction ghi
+      // membership vẫn kiểm lại dưới khoá — hai lần bấm cùng lúc.
+      await assertStaffRoom(tx, m);
       const rows = await tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${phone}) as id`;
       return rows[0]?.id ?? null;
     });
@@ -141,6 +162,7 @@ export class MembersService {
 
     try {
       return await this.db.scoped(scope, async (tx) => {
+        await assertStaffRoom(tx, m);
         const membership = await tx.membership.create({
           data: {
             userId: created.id,
@@ -178,6 +200,7 @@ export class MembersService {
           fields: { phone: 'Người này đã ở trong tổ chức' },
         });
       }
+      await assertStaffRoom(tx, m);
       await tx.membership.update({
         where: { id: row.id },
         data: { status: 'active', role: input.role, branchId: input.branchId ?? null },

@@ -59,3 +59,15 @@ export const currentRange = (kind: PeriodKind, now: Date = new Date()): TaxRepor
 
 export const monthsOfYear = (year: number): TaxReportRange[] =>
   MONTH_NAMES.map((_, month) => monthRange(year, month));
+
+/** Kỳ liền trước cùng loại (V8 so kỳ trước): tháng 1 lùi về tháng 12 năm trước, quý 1 về quý 4. */
+export const previousRange = (kind: PeriodKind, now: Date = new Date()): TaxReportRange => {
+  const year = now.getFullYear();
+  if (kind === 'year') return yearRange(year - 1);
+  if (kind === 'quarter') {
+    const quarter = Math.floor(now.getMonth() / 3);
+    return quarter === 0 ? quarterRange(year - 1, 3) : quarterRange(year, quarter - 1);
+  }
+  const month = now.getMonth();
+  return month === 0 ? monthRange(year - 1, 11) : monthRange(year, month - 1);
+};

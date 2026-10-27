@@ -2,7 +2,7 @@ import { newId } from './id.js';
 import type { AppData, Product } from './types.js';
 
 export type NewProduct = Pick<Product, 'name' | 'unit' | 'formulaType'> &
-  Partial<Pick<Product, 'crop' | 'isSuggested' | 'group'>>;
+  Partial<Pick<Product, 'crop' | 'isSuggested' | 'group' | 'rubberKind' | 'greenRatio'>>;
 
 export const addProduct = (
   data: AppData,
@@ -21,6 +21,8 @@ export const addProduct = (
     isActive: true,
     crop: input.crop,
     group: input.group?.trim() || undefined,
+    rubberKind: input.rubberKind,
+    greenRatio: input.greenRatio,
   };
   return { data: { ...data, products: [...data.products, product] }, product };
 };

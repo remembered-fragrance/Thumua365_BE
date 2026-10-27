@@ -11,6 +11,7 @@ import type { z } from 'zod';
 import { recordAudit } from '../audit/audit';
 import type { AuthUser } from '../auth/auth-user';
 import type { MembershipContext } from '../auth/membership';
+import { assertEntitlement } from '../billing/plan-of';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import type { Branch } from '../generated/prisma/client';
@@ -37,8 +38,10 @@ const limitOf = async (tx: Tx, orgId: string): Promise<number | null> =>
 const membersIn = (tx: Tx, orgId: string, branchId: string): Promise<number> =>
   tx.membership.count({ where: { organizationId: orgId, branchId, status: 'active' } });
 
-/** Còn chỗ cho thêm một chi nhánh đang dùng không — gọi SAU khi đã giữ khoá. */
-const assertRoom = async (tx: Tx, orgId: string): Promise<void> => {
+/** Gói còn cho thêm một chi nhánh đang dùng không (hết gói → PLAN_REQUIRED, đủ số → BRANCH_LIMIT) — gọi SAU khi đã giữ khoá. */
+const assertRoom = async (tx: Tx, m: MembershipContext): Promise<void> => {
+  const orgId = m.organizationId;
+  await assertEntitlement(tx, m, 'branches:add');
   const limit = await limitOf(tx, orgId);
   if (limit === null) return;
   const used = await tx.branch.count({ where: { organizationId: orgId, deletedAt: null } });
@@ -89,7 +92,7 @@ export class BranchesService {
     const orgId = m.organizationId;
     return this.db.scoped({ userId: user.id, orgId }, async (tx) => {
       await lock(tx, orgId);
-      await assertRoom(tx, orgId);
+      await assertRoom(tx, m);
       const row = await tx.branch.create({ data: { organizationId: orgId, name: input.name, address: input.address ?? null }, select: SELECT });
       await recordAudit(tx, {
         organizationId: orgId,
@@ -122,7 +125,7 @@ export class BranchesService {
       }
       if (patch.archived === false && row.deletedAt !== null) {
         assertEnterprise(m);
-        await assertRoom(tx, orgId);
+        await assertRoom(tx, m);
         deletedAt = null;
       }
 

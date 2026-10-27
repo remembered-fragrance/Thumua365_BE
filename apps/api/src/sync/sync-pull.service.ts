@@ -1,7 +1,7 @@
 /**
  * GET /v1/sync/pull — KH backend §4.2. Cursor: xem sync-cursor.ts.
  *
- * Một trang lấy tối đa `limit` bản ghi, cộng mọi loại, đi lần lượt qua tám bảng. Gồm cả bản
+ * Một trang lấy tối đa `limit` bản ghi, cộng mọi loại, đi lần lượt qua các bảng. Gồm cả bản
  * ghi đã xoá mềm. Phạm vi: người không gắn chi nhánh kéo cả tổ chức; người gắn chi nhánh kéo
  * phiếu, nháp, lần trả của chi nhánh mình + danh mục chung.
  *
@@ -34,6 +34,7 @@ const emptyChanges = (): SyncChanges => ({
   drafts: [],
   transactions: [],
   payments: [],
+  seasonContracts: [],
 });
 
 interface Key {

@@ -239,7 +239,8 @@ export const createClient = (options: ClientOptions) => {
       /**
        * Xin URL rồi PUT ảnh lên. Ảnh đã lên từ lần trước (mất phản hồi) → Storage trả 409 → coi là
        * xong. Lỗi khác ném `ApiError`: `VALIDATION_FAILED` / `PAYLOAD_TOO_LARGE` là ảnh hỏng thật, còn lại
-       * hàng đợi ảnh thử lại theo lịch giãn cách — xem `storageErrorCode`.
+       * hàng đợi ảnh thử lại theo lịch giãn cách — xem `storageErrorCode`. Hết gói → `PLAN_REQUIRED` (0.21.0):
+       * giữ ảnh, chờ gia hạn, không tính lần thử.
        */
       upload: async (attachmentId: string, image: Blob) => {
         const contentType = image.type as RouteBody<'attachmentsUploadUrl'>['contentType'];
@@ -285,6 +286,7 @@ export const createClient = (options: ClientOptions) => {
         /**
          * Chủ tạo tài khoản cho người cân / quản lý — người đó đăng nhập bằng số điện thoại và mật
          * khẩu này. Số đã có tài khoản ở nơi khác → `VALIDATION_FAILED`, `details.reason: 'ACCOUNT_EXISTS'`.
+         * Hết gói → `PLAN_REQUIRED`; đủ số người của gói → `MEMBER_LIMIT`, `details.limit` (0.21.0).
          */
         create: (input: RouteBody<'orgMembersCreate'>) => send('orgMembersCreate', input),
         update: (id: string, patch: RouteBody<'orgMemberUpdate'>) => call('orgMemberUpdate', patch, undefined, { id }),
@@ -293,7 +295,7 @@ export const createClient = (options: ClientOptions) => {
       },
       branches: {
         list: () => call('orgBranchesList'),
-        /** Vượt giới hạn của gói → `BRANCH_LIMIT`, `details.limit`. */
+        /** Vượt giới hạn của gói → `BRANCH_LIMIT`, `details.limit`. Hết gói → `PLAN_REQUIRED` (0.21.0). */
         create: (input: RouteBody<'orgBranchesCreate'>) => send('orgBranchesCreate', input),
         update: (id: string, patch: RouteBody<'orgBranchUpdate'>) => call('orgBranchUpdate', patch, undefined, { id }),
       },
@@ -320,13 +322,24 @@ export const createClient = (options: ClientOptions) => {
       /** Gỡ khỏi bản đồ của mọi người. */
       remove: (id: string) => call('orgPlaceDelete', undefined, undefined, { id }),
     },
-    /** Báo cáo tổng tính phía server (BE7). `from` gồm, `to` không gồm; tối đa 366 ngày. */
+    /**
+     * Báo cáo tổng tính phía server (BE7). `from` gồm, `to` không gồm; tối đa 366 ngày. Vựa / doanh nghiệp hết
+     * gói → `PLAN_REQUIRED` (`reports:org`); nông dân không bị chặn.
+     */
     reports: {
       summary: (params: { readonly from: string; readonly to: string; readonly branchId?: string }) =>
         call('reportsSummary', undefined, { from: params.from, to: params.to, branchId: params.branchId }),
       /** Việc của từng người (chỉ chủ — `staff:manage`): phiếu đã lập, lần trả đã ghi, lần làm gần nhất. */
       members: (params: { readonly from: string; readonly to: string }) =>
         call('reportsMembers', undefined, { from: params.from, to: params.to }),
+    },
+    /**
+     * Nhật ký thao tác (V6) — chỉ chủ (`staff:manage`), cần gói (`audit:view`, hết gói → `PLAN_REQUIRED`). Mới nhất
+     * trước; gọi lại với `cursor` vừa nhận tới khi `cursor` là null.
+     */
+    audit: {
+      list: (params: { readonly actor?: string; readonly from?: string; readonly to?: string; readonly cursor?: string; readonly limit?: number } = {}) =>
+        call('auditList', undefined, { actor: params.actor, from: params.from, to: params.to, cursor: params.cursor, limit: params.limit }),
     },
     /** Thông báo trong app (BE5). Hỏi khi mở app và mỗi 60 giây. */
     notifications: {

@@ -1,5 +1,6 @@
-/** Nhân viên, chi nhánh, báo cáo tổng (BE7) — một phần của danh bạ `routes`. */
+/** Nhân viên, chi nhánh, báo cáo tổng (BE7), nhật ký (V6, D4) — một phần của danh bạ `routes`. */
 
+import { AuditQuery, AuditResult } from './audit.js';
 import {
   IdParams,
   MemberActivityQuery,
@@ -50,12 +51,14 @@ export const orgRoutes = {
   orgMembersCreate: {
     method: 'POST',
     path: '/v1/org/members',
-    summary: 'Chủ tạo tài khoản cho người cân / quản lý (tên, số điện thoại, mật khẩu ban đầu) và gắn vào tổ chức',
+    summary:
+      'Chủ tạo tài khoản cho người cân / quản lý (tên, số điện thoại, mật khẩu ban đầu) và gắn vào tổ chức. Hết gói → PLAN_REQUIRED; đủ số người của gói → MEMBER_LIMIT',
     auth: 'org',
     permission: 'staff:manage',
+    entitlement: 'members:add',
     body: OrgMemberCreateInput,
     response: OrgMember,
-    errors: ['NOT_FOUND'],
+    errors: ['NOT_FOUND', 'PLAN_REQUIRED', 'MEMBER_LIMIT'],
     rateLimitPerMinute: 20,
   },
   orgMemberUpdate: {
@@ -90,23 +93,23 @@ export const orgRoutes = {
   orgBranchesCreate: {
     method: 'POST',
     path: '/v1/org/branches',
-    summary: 'Tạo chi nhánh — vượt giới hạn của gói thì BRANCH_LIMIT',
+    summary: 'Tạo chi nhánh — vượt giới hạn của gói thì BRANCH_LIMIT, hết gói thì PLAN_REQUIRED',
     auth: 'org',
     permission: 'branch:manage',
     body: OrgBranchCreateInput,
     response: OrgBranch,
-    errors: ['BRANCH_LIMIT'],
+    errors: ['BRANCH_LIMIT', 'PLAN_REQUIRED'],
   },
   orgBranchUpdate: {
     method: 'PATCH',
     path: '/v1/org/branches/:id',
-    summary: 'Đổi tên, địa chỉ; lưu trữ (chưa ai gắn) hoặc dùng lại (trong giới hạn của gói)',
+    summary: 'Đổi tên, địa chỉ; lưu trữ (chưa ai gắn) hoặc dùng lại (trong giới hạn của gói; hết gói → PLAN_REQUIRED)',
     auth: 'org',
     permission: 'branch:manage',
     params: IdParams,
     body: OrgBranchPatch,
     response: OrgBranch,
-    errors: ['BRANCH_LIMIT', 'NOT_FOUND'],
+    errors: ['BRANCH_LIMIT', 'NOT_FOUND', 'PLAN_REQUIRED'],
   },
   reportsSummary: {
     method: 'GET',
@@ -116,7 +119,8 @@ export const orgRoutes = {
     permission: 'report:view',
     query: ReportSummaryQuery,
     response: ReportSummary,
-    errors: ['NOT_FOUND'],
+    // Vựa / doanh nghiệp hết gói → PLAN_REQUIRED (`reports:org`), chặn trong service: nông dân vẫn xem.
+    errors: ['NOT_FOUND', 'PLAN_REQUIRED'],
   },
   reportsMembers: {
     method: 'GET',
@@ -126,5 +130,17 @@ export const orgRoutes = {
     permission: 'staff:manage',
     query: MemberActivityQuery,
     response: MemberActivityReport,
+    errors: ['PLAN_REQUIRED'],
+  },
+  auditList: {
+    method: 'GET',
+    path: '/v1/audit',
+    summary: 'Nhật ký thao tác của tổ chức, mới nhất trước — ai, lúc nào, làm gì, số cũ → số mới. Hết gói → PLAN_REQUIRED',
+    auth: 'org',
+    permission: 'staff:manage',
+    entitlement: 'audit:view',
+    query: AuditQuery,
+    response: AuditResult,
+    errors: ['PLAN_REQUIRED'],
   },
 } as const satisfies Record<string, RouteDef>;

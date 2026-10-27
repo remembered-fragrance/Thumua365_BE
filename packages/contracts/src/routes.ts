@@ -171,11 +171,13 @@ export const routes = {
   attachmentsUploadUrl: {
     method: 'POST',
     path: '/v1/attachments/upload-url',
-    summary: 'URL có chữ ký để PUT một ảnh chứng từ thẳng lên Storage. Không ghi đè: PUT lại ảnh đã lên → 409, coi là xong',
+    summary: 'URL có chữ ký để PUT một ảnh chứng từ thẳng lên Storage. Không ghi đè: PUT lại ảnh đã lên → 409, coi là xong. Hết gói → PLAN_REQUIRED',
     auth: 'org',
     permission: 'receipt:create',
+    entitlement: 'attachments',
     body: AttachmentUploadInput,
     response: AttachmentUploadUrl,
+    errors: ['PLAN_REQUIRED'],
   },
   attachmentUrl: {
     method: 'GET',

@@ -11,6 +11,13 @@ describe('định dạng lỗi', () => {
     expect(isRetryable('PLAN_EXPIRED')).toBe(false);
   });
 
+  it('thiếu quyền lợi của gói và đủ người là 402, không thử lại', () => {
+    expect(ERROR_STATUS.PLAN_REQUIRED).toBe(402);
+    expect(ERROR_STATUS.MEMBER_LIMIT).toBe(402);
+    expect(isRetryable('PLAN_REQUIRED')).toBe(false);
+    expect(isRetryable('MEMBER_LIMIT')).toBe(false);
+  });
+
   it('chỉ lỗi tạm thời mới thử lại', () => {
     expect(ERROR_CODES.filter(isRetryable)).toEqual(['PARENT_MISSING', 'RATE_LIMITED', 'INTERNAL']);
   });

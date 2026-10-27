@@ -18,7 +18,7 @@ import type {
   Supplier,
 } from './types.js';
 import { DEFAULT_PRODUCTS, isLegacyProductId, productNameFromCrop } from './catalog.js';
-import { cropFrom, formulaFrom } from './normalizeTransaction.js';
+import { cropFrom, formulaFrom, rubberKindFrom } from './normalizeTransaction.js';
 
 export const defaultSettings = (): AppSettings => ({
   defaultWeightUnit: 'kg',
@@ -39,6 +39,7 @@ export const emptyData = (): AppData => ({
   notes: [],
   settings: defaultSettings(),
   pricingRules: [],
+  seasonContracts: [],
 });
 
 /** Sổ rỗng cho sổ CHỈ NẰM TRÊN MÁY (tài khoản máy): có sẵn bốn mặt hàng gợi ý. */
@@ -77,6 +78,8 @@ export const normalizeProducts = (raw: unknown): Product[] => {
         ? (p.qualityGrades as unknown[]).map(String)
         : undefined,
       trackInventory: p.trackInventory === true ? true : undefined,
+      rubberKind: rubberKindFrom(p.rubberKind),
+      greenRatio: Number(p.greenRatio) > 1 ? Number(p.greenRatio) : undefined,
     };
   });
 
@@ -149,5 +152,6 @@ export const normalize = (raw: unknown): AppData => {
     notes: asRecords(d.notes).map(normalizeNote),
     settings: { ...defaultSettings(), ...(d.settings as AppSettings | undefined) },
     pricingRules: Array.isArray(d.pricingRules) ? d.pricingRules : [],
+    seasonContracts: Array.isArray(d.seasonContracts) ? d.seasonContracts : [],
   };
 };

@@ -14,6 +14,7 @@ import type {
   PaymentRecord,
   PricingRuleRecord,
   ProductRecord,
+  SeasonContractRecord,
   SyncEntity,
   TransactionRecord,
 } from '@mambo/contracts';
@@ -26,6 +27,7 @@ import {
   Prisma,
   type PricingRule,
   type Product,
+  type SeasonContract,
   type Supplier,
   type Transaction,
 } from '../generated/prisma/client';
@@ -34,7 +36,7 @@ type Data = Record<string, unknown>;
 type Row = { readonly id: string; readonly updatedAt: Date } & Record<string, unknown>;
 
 /**
- * Phần delegate Prisma mà đồng bộ dùng — giống nhau ở cả tám bảng. `data` đã qua schema
+ * Phần delegate Prisma mà đồng bộ dùng — giống nhau ở mọi bảng. `data` đã qua schema
  * zod của hợp đồng và `toDb` trước khi tới đây.
  */
 export interface SyncDelegate {
@@ -120,13 +122,15 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       group: row.group,
       qualityGrades: list(row.qualityGrades),
       trackInventory: row.trackInventory,
+      rubberKind: row.rubberKind as ProductRecord['rubberKind'],
+      greenRatio: row.greenRatio,
     }),
   },
 
   pricingRule: {
     branch: 'none',
     defaults: {},
-    toDb: convert({ fixedAmount: toBigInt }),
+    toDb: convert({ fixedAmount: toBigInt, qualitySteps: nullableJson }),
     toRecord: (row: PricingRule): PricingRuleRecord => ({
       ...meta(row),
       name: row.name,
@@ -137,6 +141,8 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       minWeightKg: row.minWeightKg,
       appliesOnPickup: row.appliesOnPickup,
       active: row.active,
+      qualityMetric: row.qualityMetric as PricingRuleRecord['qualityMetric'],
+      qualitySteps: row.qualitySteps as PricingRuleRecord['qualitySteps'],
     }),
   },
 
@@ -191,7 +197,7 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
 
   payment: {
     branch: 'parent',
-    defaults: { note: null },
+    defaults: { note: null, method: null },
     toDb: convert({ date: asDate, amount: toBigInt }),
     toRecord: (row: Payment): PaymentRecord => ({
       ...meta(row),
@@ -199,6 +205,28 @@ export const SYNC_TABLES: Readonly<Record<SyncEntity, SyncTable>> = {
       date: iso(row.date),
       amount: Number(row.amount),
       note: row.note,
+      method: row.method as PaymentRecord['method'],
+    }),
+  },
+
+  seasonContract: {
+    branch: 'none',
+    defaults: { counterpartyId: null, productId: null, unit: 'kg', pricePerUnit: null, note: null, closed: false },
+    toDb: convert({ startDate: asDate, endDate: asDate }),
+    toRecord: (row: SeasonContract): SeasonContractRecord => ({
+      ...meta(row),
+      kind: row.kind as SeasonContractRecord['kind'],
+      counterpartyId: row.counterpartyId,
+      counterpartyName: row.counterpartyName,
+      productId: row.productId,
+      productName: row.productName,
+      unit: row.unit,
+      quantity: row.quantity,
+      pricePerUnit: row.pricePerUnit,
+      startDate: iso(row.startDate),
+      endDate: iso(row.endDate),
+      note: row.note,
+      closed: row.closed,
     }),
   },
 };

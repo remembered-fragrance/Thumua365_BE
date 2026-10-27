@@ -3,6 +3,99 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.24.0 — 26/10/2026 (gói Pro Đợt 3: phân tích, đối chiếu độ mủ, giá trên bản đồ, hợp đồng mùa vụ, cà phê tươi)
+
+Migration `20261026000000_thay_tien_loi`: thêm cột cho phép NULL `products.green_ratio`, `places.prices`,
+`places.prices_updated_at` (kèm CHECK); bảng sổ mới `season_contracts` (RLS theo tổ chức, trigger `touch_updated_at`,
+`keep_soft_deleted`); hàm `place_price_plans()` (security definer, chỉ trả cột ngày tháng của gói). Chạy migration trước
+khi deploy API.
+
+- Đồng bộ: loại bản ghi mới `seasonContract` (V15) — `SeasonContractInsert` / `Patch` / `Record`, đứng CUỐI
+  `SYNC_ENTITIES` để cursor kéo dở của app bản cũ không lệch bảng. `SyncChanges.seasonContracts` (mặc định `[]`; app cũ
+  bỏ qua khoá lạ). Quyền: `partner:manage` cho cả thêm, sửa, xoá — người cân không tạo được. Hợp đồng không gắn vào
+  phiếu: app tự cộng đã giao từ phiếu cùng người, cùng mặt hàng, trong khoảng ngày.
+- Bản đồ (V9): `Place.prices` (`PlacePrice[]`, tối đa `PLACE_PRICES_LIMIT` = 10) và `Place.pricesUpdatedAt`.
+  `PlaceInput` / `PlacePatch` thêm `prices` (gửi danh sách có giá cần `map:prices`, không có → 402 `PLAN_REQUIRED`;
+  `null` / rỗng = gỡ giá, gói nào cũng được). Chủ điểm hết gói → máy chủ trả `prices: []`, `pricesUpdatedAt: null`
+  cho mọi người; gia hạn là hiện lại, không phải khai lại.
+- Mặt hàng và dòng phiếu (V24): thêm `greenRatio` (kg cà phê tươi ra 1 kg nhân, > 1, ≤ 20). Công thức vẫn là
+  `lossPercent` với `lossPercent = (1 − 1/greenRatio) × 100` (core `lossFromGreenRatio`) — app bản cũ tính ra đúng tiền.
+  Không thêm giá trị enum nào.
+- Core mới: `analytics.ts` — `buildAnalytics` (V8: lời ước tính theo mặt hàng = lượng bán × (giá bán bình quân − giá mua
+  bình quân), giá bình quân, kỳ trước qua `previousRange`), `buildRubberReconcile` (V21: độ vựa đo vs độ nhà máy đo,
+  tiền chênh vì lệch độ, độ trung bình theo hộ). `taxReport.buildSalesLedger` (V17 — bảng kê bán ra).
+- Quyền lợi mới: `map:prices` (máy chủ chặn); `analytics`, `rubber:reconcile` (chỉ chặn ở app).
+- `quota_wall_shown.feature` thêm `analytics`, `map_prices`, `season`.
+- Core `suggestAdjustments`: quy tắc gắn một mặt hàng (`productId`) tính ngưỡng `minWeightKg` và `percentOfTotal` trên
+  các dòng của mặt hàng đó, không trên cả phiếu. Quy tắc không gắn mặt hàng tính như cũ. Hợp đồng không đổi.
+- `endsAfterStart` (export): so ngày theo thời điểm (`Date.parse`), không so chuỗi — hai mốc khác múi giờ vẫn đúng.
+  Máy chủ: patch hợp đồng chỉ đổi một ngày mà vượt ngày đã lưu → `VALIDATION_FAILED` (trước đây lỗi CHECK → `INTERNAL`,
+  op kẹt hàng đợi). Nhật ký `receipt.updated` thêm `after.photosRemoved` khi thay ảnh mà số ảnh giữ nguyên.
+
+## 0.23.0 — 25/10/2026 (gói Pro Đợt 2: nhật ký, báo cáo theo gói, hình thức trả, thưởng giới thiệu)
+
+Migration `20261025000000_quan_nguoi_giu_tien`: thêm cột cho phép NULL `payments.method` (CHECK `cash` | `transfer`) và
+`subscriptions.referral_rewarded_at`; đổi `audit_log.created_at` về `timestamptz(3)` (cursor phân trang tính tới mili
+giây). Chạy migration trước khi deploy API.
+
+- Route mới `auditList` — `GET /v1/audit?actor=&from=&to=&cursor=&limit=`, quyền `staff:manage`, quyền lợi `audit:view`.
+  Trả `{ entries: AuditEntryView[], cursor }`, mới nhất trước. `action` là chuỗi (không enum) — loại thao tác mới
+  không làm app cũ vỡ. Nhật ký vẫn GHI ở mọi bậc gói.
+- Nhật ký mới: `receipt.updated` (sửa ghi chú / ảnh của phiếu đã chốt — `before` / `after` là `{ note, photos }`;
+  tiền, cân, giá không sửa được trên máy chủ), `plan.referral_bonus`, `branch.over_limit`.
+- `reportsSummary`, `reportsMembers` thêm lỗi `PLAN_REQUIRED` (`reports:org`) — chỉ vựa / doanh nghiệp hết gói;
+  nông dân xem phiếu đã kết nối như cũ.
+- Lần trả (`PaymentInsert`, `PaymentRecord`): thêm `method` (`cash` | `transfer`, null = không ghi). `PaymentMethod`.
+  Core: `recordPayment(..., method?)`, `cashPaidOnDay`, `needsCashReminder`, `CASH_REMINDER_THRESHOLD` (5.000.000đ /
+  ngày / người — chỉ nhắc, không chặn).
+- Core `taxReport`: `TAX_REPORT_DISCLAIMER` đổi thành câu tự chịu trách nhiệm (§4.2); mới `buildPurchaseLedger` (bảng kê
+  thu mua dạng 02/TNDN — mỗi dòng hàng một dòng, khoản cộng / trừ một dòng, hình thức trả của phiếu) và `ledgerPaidBy`.
+  Không thêm trường nhạy cảm nào vào sổ: CCCD, địa chỉ để file chừa trống.
+- Quyền lợi mới: `audit:view`, `reports:org` (máy chủ chặn); `debt:statement`, `tax:docs`, `pay:qr` (chỉ chặn ở app).
+- `quota_wall_shown.feature` thêm `audit`, `statement`, `reports`, `tax`, `pay`. Sự kiện mới
+  `locked_feature_viewed { feature: 'zalo_oa' }`.
+- Mở gói (webhook / quản trị viên): lần trả ĐẦU của tổ chức có chủ được giới thiệu → +1 tháng cho tổ chức đó và tổ
+  chức có sổ đầu tiên của người mời, đúng một lần; thông báo dùng lại loại `plan.activated`. Doanh nghiệp đang dùng
+  nhiều chi nhánh hơn `branchLimit` mới → vẫn mở gói, ghi `branch.over_limit`; tạo thêm vẫn `BRANCH_LIMIT`.
+
+## 0.22.0 — 24/10/2026 (gói Pro Đợt 1b: giá theo chất lượng, mủ tạp theo DRC)
+
+Migration `20261024000000_gia_theo_chat_luong`: chỉ **thêm cột cho phép NULL** (`products.rubber_kind`,
+`pricing_rules.quality_metric`, `pricing_rules.quality_steps`) kèm CHECK. Chạy migration trước khi deploy API.
+
+**Không thêm giá trị enum nào** vào `FormulaType`, `PricingRuleKind`: SDK kiểm phản hồi bằng schema, app bản cũ gặp
+giá trị lạ thì cả lượt kéo sổ báo `CONTRACT_MISMATCH`. Chỉ thêm trường tuỳ chọn — app cũ bỏ qua khi đọc.
+
+- Dòng phiếu (`TransactionLine`, `FrozenTransactionLine`): thêm tuỳ chọn `rubberKind` (`latex` | `cuplump`) và chỉ tiêu
+  chất lượng `bulkDensity` (g/l), `moisturePercent`, `impurityPercent` (0–100), `kor`. Không tham gia công thức dòng:
+  `freezeLineTotals` tính như cũ, sổ cũ ra đúng số cũ.
+- Mặt hàng: thêm `rubberKind` (null = mủ nước như trước). Mủ tạp dùng cùng công thức `rubberLatex` (kg × DRC % × giá).
+- Quy tắc giá: thêm `qualityMetric` (`bulkDensity` | `moisturePercent` | `impurityPercent` | `kor` | `qualityPercent`) và
+  `qualitySteps` (`[{ from, amountPerUnit }]`, tối đa `PRICING_RULE_LIMITS.qualitySteps` = 20, tiền là số nguyên).
+  Có `qualityMetric` thì `suggestAdjustments` cộng mỗi dòng: mốc áp (`qualityStepOf`) × lượng tính tiền của dòng,
+  bỏ qua `fixedAmount` / `percentOfTotal`. Khoản sinh ra là `PriceAdjustment` như cũ (`kind` giữ của quy tắc).
+- `quota_wall_shown.feature` thêm `quality`, `rubber`.
+- Quyền lợi mới: `quality:pricing` (V19), `rubber:grades` (V20). Chỉ chặn ở app — quy tắc giá chạy ở máy, và hết gói
+  thì `/sync/push` đã chặn bằng `PLAN_EXPIRED`.
+
+## 0.21.0 — 24/10/2026 (gói Pro Đợt 1: bức tường theo gói ở máy chủ)
+
+Không có migration. Quyền lợi suy từ bậc gói (`planFor`), không lưu thêm gì. **Bật ngay khi deploy**, không qua cờ
+`features`. App 0.20 vẫn chạy với API 0.21 nhưng gặp 402 mới chỉ hiện câu lỗi chung ⇒ nâng app ngay sau khi tag.
+
+- Mới: `ENTITLEMENTS`, `Entitlement`, `entitlementsFor(orgType, tier)`, `entitled(...)`, `STAFF_LIMIT` — bảng quyền lợi
+  theo gói, bản duy nhất cho máy chủ, app và test. Dùng thử / đang trả / ân hạn: đủ; hết gói, chưa có gói, nông dân:
+  không có gì. App tính từ `plan.tier` của `/v1/me` (đã có cho mọi thành viên) — `/v1/me` không đổi.
+- Mã lỗi mới, cả hai là 402 và không thử lại:
+  - `PLAN_REQUIRED` — `details.entitlement`. Hết gói mà thêm người (`orgMembersCreate`), xin URL tải ảnh
+    (`attachmentsUploadUrl`), tạo chi nhánh (`orgBranchesCreate`) hoặc bỏ lưu trữ chi nhánh (`orgBranchUpdate`
+    với `archived: false`). Đổi tên / lưu trữ chi nhánh, xem ảnh cũ, kéo sổ, người đang có: không chặn.
+  - `MEMBER_LIMIT` — `details.limit`. Vựa có gói tối đa 3 người (không tính chủ); thêm mới hay bật lại người cũ
+    đều tính. Doanh nghiệp không giới hạn số người (giới hạn theo chi nhánh như cũ).
+- `RouteDef.entitlement` (tuỳ chọn) — route cần quyền lợi nào; `openapi.json` ghi `x-entitlement`.
+- `quota_wall_shown.feature` thêm `members`, `attachments`.
+- `/sync/push` hết gói vẫn là `PLAN_EXPIRED` như cũ.
+
 ## 0.20.2 — 23/10/2026 (biểu đồ 7 ngày có ngày/tháng)
 
 Không đổi route, không có migration. App 0.20.0 chạy được với API 0.20.2.

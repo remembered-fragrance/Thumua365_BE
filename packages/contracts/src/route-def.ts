@@ -1,6 +1,7 @@
 /** Hình dạng một dòng trong danh bạ endpoint (`routes.ts`). */
 
 import type { z } from 'zod';
+import type { Entitlement } from './entitlements.js';
 import type { ErrorCode } from './errors.js';
 import type { Permission } from './permissions.js';
 
@@ -26,6 +27,11 @@ export interface RouteDef {
   readonly optionalAuth?: boolean;
   /** Chỉ có nghĩa khi `auth: 'org'`. */
   readonly permission?: Permission;
+  /**
+   * Chỉ có nghĩa khi `auth: 'org'`. Gói của tổ chức phải có quyền lợi này, không thì 402
+   * `PLAN_REQUIRED` (`details.entitlement`). Kiểm SAU quyền.
+   */
+  readonly entitlement?: Entitlement;
   /** Thân request (JSON). Server kiểm trước khi vào handler; sai → 422 `VALIDATION_FAILED`. */
   readonly body?: z.ZodType;
   /**

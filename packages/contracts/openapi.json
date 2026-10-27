@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.20.2"
+    "version": "0.24.0"
   },
   "servers": [
     {
@@ -5874,7 +5874,7 @@
       },
       "post": {
         "operationId": "orgMembersCreate",
-        "summary": "Chủ tạo tài khoản cho người cân / quản lý (tên, số điện thoại, mật khẩu ban đầu) và gắn vào tổ chức",
+        "summary": "Chủ tạo tài khoản cho người cân / quản lý (tên, số điện thoại, mật khẩu ban đầu) và gắn vào tổ chức. Hết gói → PLAN_REQUIRED; đủ số người của gói → MEMBER_LIMIT",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -5940,8 +5940,11 @@
           }
         },
         "x-permission": "staff:manage",
+        "x-entitlement": "members:add",
         "x-error-codes": [
-          "NOT_FOUND"
+          "NOT_FOUND",
+          "PLAN_REQUIRED",
+          "MEMBER_LIMIT"
         ],
         "x-rate-limit-per-minute": 20,
         "responses": {
@@ -6041,6 +6044,16 @@
             }
           },
           "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
             "description": "Lỗi — xem `error.code`",
             "content": {
               "application/json": {
@@ -6659,7 +6672,7 @@
       },
       "post": {
         "operationId": "orgBranchesCreate",
-        "summary": "Tạo chi nhánh — vượt giới hạn của gói thì BRANCH_LIMIT",
+        "summary": "Tạo chi nhánh — vượt giới hạn của gói thì BRANCH_LIMIT, hết gói thì PLAN_REQUIRED",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -6705,7 +6718,8 @@
         },
         "x-permission": "branch:manage",
         "x-error-codes": [
-          "BRANCH_LIMIT"
+          "BRANCH_LIMIT",
+          "PLAN_REQUIRED"
         ],
         "responses": {
           "200": {
@@ -6822,7 +6836,7 @@
     "/v1/org/branches/{id}": {
       "patch": {
         "operationId": "orgBranchUpdate",
-        "summary": "Đổi tên, địa chỉ; lưu trữ (chưa ai gắn) hoặc dùng lại (trong giới hạn của gói)",
+        "summary": "Đổi tên, địa chỉ; lưu trữ (chưa ai gắn) hoặc dùng lại (trong giới hạn của gói; hết gói → PLAN_REQUIRED)",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -6879,7 +6893,8 @@
         "x-permission": "branch:manage",
         "x-error-codes": [
           "BRANCH_LIMIT",
-          "NOT_FOUND"
+          "NOT_FOUND",
+          "PLAN_REQUIRED"
         ],
         "responses": {
           "200": {
@@ -7050,7 +7065,8 @@
         ],
         "x-permission": "report:view",
         "x-error-codes": [
-          "NOT_FOUND"
+          "NOT_FOUND",
+          "PLAN_REQUIRED"
         ],
         "responses": {
           "200": {
@@ -7294,6 +7310,16 @@
               }
             }
           },
+          "402": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Lỗi — xem `error.code`",
             "content": {
@@ -7383,6 +7409,9 @@
           }
         ],
         "x-permission": "staff:manage",
+        "x-error-codes": [
+          "PLAN_REQUIRED"
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -7639,6 +7668,255 @@
               }
             }
           },
+          "402": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit": {
+      "get": {
+        "operationId": "auditList",
+        "summary": "Nhật ký thao tác của tổ chức, mới nhất trước — ai, lúc nào, làm gì, số cũ → số mới. Hết gói → PLAN_REQUIRED",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "x-permission": "staff:manage",
+        "x-entitlement": "audit:view",
+        "x-error-codes": [
+          "PLAN_REQUIRED"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "actor": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "entity": {
+                            "type": "string"
+                          },
+                          "entityId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "before": {
+                            "anyOf": [
+                              {},
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "after": {
+                            "anyOf": [
+                              {},
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "at",
+                          "actor",
+                          "action",
+                          "entity",
+                          "entityId",
+                          "before",
+                          "after"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entries",
+                    "cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Lỗi — xem `error.code`",
             "content": {
@@ -7764,6 +8042,50 @@
                           "lng": {
                             "type": "number"
                           },
+                          "prices": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "product": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 60
+                                },
+                                "price": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 1000000000
+                                },
+                                "unit": {
+                                  "default": "kg",
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 20
+                                }
+                              },
+                              "required": [
+                                "product",
+                                "price",
+                                "unit"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "pricesUpdatedAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -7786,6 +8108,8 @@
                           "description",
                           "lat",
                           "lng",
+                          "prices",
+                          "pricesUpdatedAt",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -7922,6 +8246,50 @@
                     "lng": {
                       "type": "number"
                     },
+                    "prices": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          "price": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000
+                          },
+                          "unit": {
+                            "default": "kg",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 20
+                          }
+                        },
+                        "required": [
+                          "product",
+                          "price",
+                          "unit"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "pricesUpdatedAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -7944,6 +8312,8 @@
                     "description",
                     "lat",
                     "lng",
+                    "prices",
+                    "pricesUpdatedAt",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -8081,6 +8451,50 @@
                           "lng": {
                             "type": "number"
                           },
+                          "prices": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "product": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 60
+                                },
+                                "price": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 1000000000
+                                },
+                                "unit": {
+                                  "default": "kg",
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 20
+                                }
+                              },
+                              "required": [
+                                "product",
+                                "price",
+                                "unit"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "pricesUpdatedAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -8103,6 +8517,8 @@
                           "description",
                           "lat",
                           "lng",
+                          "prices",
+                          "pricesUpdatedAt",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -8242,6 +8658,43 @@
                     "type": "number",
                     "minimum": 102,
                     "maximum": 118
+                  },
+                  "prices": {
+                    "anyOf": [
+                      {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "product": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "price": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000
+                            },
+                            "unit": {
+                              "default": "kg",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 20
+                            }
+                          },
+                          "required": [
+                            "product",
+                            "price"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -8255,6 +8708,9 @@
           }
         },
         "x-permission": "place:manage",
+        "x-error-codes": [
+          "PLAN_REQUIRED"
+        ],
         "x-rate-limit-per-minute": 30,
         "responses": {
           "200": {
@@ -8311,6 +8767,50 @@
                     "lng": {
                       "type": "number"
                     },
+                    "prices": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          "price": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000
+                          },
+                          "unit": {
+                            "default": "kg",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 20
+                          }
+                        },
+                        "required": [
+                          "product",
+                          "price",
+                          "unit"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "pricesUpdatedAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -8333,6 +8833,8 @@
                     "description",
                     "lat",
                     "lng",
+                    "prices",
+                    "pricesUpdatedAt",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -8342,6 +8844,16 @@
             }
           },
           "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
             "description": "Lỗi — xem `error.code`",
             "content": {
               "application/json": {
@@ -8473,6 +8985,43 @@
                     "type": "number",
                     "minimum": 102,
                     "maximum": 118
+                  },
+                  "prices": {
+                    "anyOf": [
+                      {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "product": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "price": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000
+                            },
+                            "unit": {
+                              "default": "kg",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 20
+                            }
+                          },
+                          "required": [
+                            "product",
+                            "price"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -8482,7 +9031,8 @@
         },
         "x-permission": "place:manage",
         "x-error-codes": [
-          "NOT_FOUND"
+          "NOT_FOUND",
+          "PLAN_REQUIRED"
         ],
         "responses": {
           "200": {
@@ -8539,6 +9089,50 @@
                     "lng": {
                       "type": "number"
                     },
+                    "prices": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          "price": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000
+                          },
+                          "unit": {
+                            "default": "kg",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 20
+                          }
+                        },
+                        "required": [
+                          "product",
+                          "price",
+                          "unit"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "pricesUpdatedAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -8561,6 +9155,8 @@
                     "description",
                     "lat",
                     "lng",
+                    "prices",
+                    "pricesUpdatedAt",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -8570,6 +9166,16 @@
             }
           },
           "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
             "description": "Lỗi — xem `error.code`",
             "content": {
               "application/json": {
@@ -11020,6 +11626,18 @@
                                   "enum": [
                                     "sync",
                                     "branches",
+                                    "members",
+                                    "attachments",
+                                    "quality",
+                                    "rubber",
+                                    "audit",
+                                    "statement",
+                                    "reports",
+                                    "tax",
+                                    "pay",
+                                    "analytics",
+                                    "map_prices",
+                                    "season",
                                     "other"
                                   ]
                                 }
@@ -11337,6 +11955,68 @@
                             "props"
                           ],
                           "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "anonId": {
+                              "type": "string",
+                              "minLength": 8,
+                              "maxLength": 64
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "web",
+                                "pwa",
+                                "twa"
+                              ]
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "orgType": {
+                              "type": "string",
+                              "enum": [
+                                "farmer",
+                                "trader",
+                                "enterprise"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "const": "locked_feature_viewed"
+                            },
+                            "props": {
+                              "type": "object",
+                              "properties": {
+                                "feature": {
+                                  "type": "string",
+                                  "enum": [
+                                    "zalo_oa"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "feature"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "anonId",
+                            "at",
+                            "platform",
+                            "name",
+                            "props"
+                          ],
+                          "additionalProperties": false
                         }
                       ]
                     }
@@ -11584,7 +12264,7 @@
     "/v1/attachments/upload-url": {
       "post": {
         "operationId": "attachmentsUploadUrl",
-        "summary": "URL có chữ ký để PUT một ảnh chứng từ thẳng lên Storage. Không ghi đè: PUT lại ảnh đã lên → 409, coi là xong",
+        "summary": "URL có chữ ký để PUT một ảnh chứng từ thẳng lên Storage. Không ghi đè: PUT lại ảnh đã lên → 409, coi là xong. Hết gói → PLAN_REQUIRED",
         "parameters": [
           {
             "name": "X-Organization-Id",
@@ -11633,6 +12313,10 @@
           }
         },
         "x-permission": "receipt:create",
+        "x-entitlement": "attachments",
+        "x-error-codes": [
+          "PLAN_REQUIRED"
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -11682,6 +12366,16 @@
             }
           },
           "401": {
+            "description": "Lỗi — xem `error.code`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
             "description": "Lỗi — xem `error.code`",
             "content": {
               "application/json": {
@@ -12401,6 +13095,32 @@
                                     "boolean",
                                     "null"
                                   ]
+                                },
+                                "rubberKind": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "greenRatio": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "exclusiveMinimum": 1,
+                                      "maximum": 20
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
@@ -12526,6 +13246,32 @@
                                   "type": [
                                     "boolean",
                                     "null"
+                                  ]
+                                },
+                                "rubberKind": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "greenRatio": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "exclusiveMinimum": 1,
+                                      "maximum": 20
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
                                   ]
                                 }
                               },
@@ -12676,6 +13422,54 @@
                                 },
                                 "active": {
                                   "type": "boolean"
+                                },
+                                "qualityMetric": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "bulkDensity",
+                                        "moisturePercent",
+                                        "impurityPercent",
+                                        "kor",
+                                        "qualityPercent"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "qualitySteps": {
+                                  "anyOf": [
+                                    {
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "from": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1000000000
+                                          },
+                                          "amountPerUnit": {
+                                            "type": "integer",
+                                            "minimum": -1000000000,
+                                            "maximum": 1000000000
+                                          }
+                                        },
+                                        "required": [
+                                          "from",
+                                          "amountPerUnit"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
@@ -12794,6 +13588,54 @@
                                 },
                                 "active": {
                                   "type": "boolean"
+                                },
+                                "qualityMetric": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "bulkDensity",
+                                        "moisturePercent",
+                                        "impurityPercent",
+                                        "kor",
+                                        "qualityPercent"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "qualitySteps": {
+                                  "anyOf": [
+                                    {
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "from": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1000000000
+                                          },
+                                          "amountPerUnit": {
+                                            "type": "integer",
+                                            "minimum": -1000000000,
+                                            "maximum": 1000000000
+                                          }
+                                        },
+                                        "required": [
+                                          "from",
+                                          "amountPerUnit"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "additionalProperties": false
@@ -13153,6 +13995,38 @@
                                       "qualityGrade": {
                                         "type": "string",
                                         "maxLength": 60
+                                      },
+                                      "rubberKind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "latex",
+                                          "cuplump"
+                                        ]
+                                      },
+                                      "bulkDensity": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "moisturePercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "impurityPercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "kor": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "greenRatio": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 1,
+                                        "maximum": 20
                                       }
                                     },
                                     "required": [
@@ -13446,6 +14320,38 @@
                                       "qualityGrade": {
                                         "type": "string",
                                         "maxLength": 60
+                                      },
+                                      "rubberKind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "latex",
+                                          "cuplump"
+                                        ]
+                                      },
+                                      "bulkDensity": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "moisturePercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "impurityPercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "kor": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "greenRatio": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 1,
+                                        "maximum": 20
                                       }
                                     },
                                     "required": [
@@ -13749,6 +14655,38 @@
                                       "qualityGrade": {
                                         "type": "string",
                                         "maxLength": 60
+                                      },
+                                      "rubberKind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "latex",
+                                          "cuplump"
+                                        ]
+                                      },
+                                      "bulkDensity": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "moisturePercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "impurityPercent": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "kor": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "greenRatio": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 1,
+                                        "maximum": 20
                                       }
                                     },
                                     "required": [
@@ -14063,6 +15001,20 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "method": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "cash",
+                                        "transfer"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
@@ -14104,6 +15056,310 @@
                             "entity": {
                               "type": "string",
                               "const": "payment"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "softDelete"
+                            }
+                          },
+                          "required": [
+                            "opId",
+                            "seq",
+                            "recordId",
+                            "entity",
+                            "kind"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "opId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "seq": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "recordId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "entity": {
+                              "type": "string",
+                              "const": "seasonContract"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "insert"
+                            },
+                            "data": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "purchase",
+                                    "sale"
+                                  ]
+                                },
+                                "counterpartyId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "counterpartyName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "productId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "productName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "unit": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 20
+                                },
+                                "quantity": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1000000000
+                                },
+                                "pricePerUnit": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "startDate": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "endDate": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "note": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "closed": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "counterpartyName",
+                                "productName",
+                                "quantity",
+                                "startDate",
+                                "endDate"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "opId",
+                            "seq",
+                            "recordId",
+                            "entity",
+                            "kind",
+                            "data"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "opId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "seq": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "recordId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "entity": {
+                              "type": "string",
+                              "const": "seasonContract"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "update"
+                            },
+                            "data": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "purchase",
+                                    "sale"
+                                  ]
+                                },
+                                "counterpartyId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "counterpartyName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "productId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "productName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "unit": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 20
+                                },
+                                "quantity": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1000000000
+                                },
+                                "pricePerUnit": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "startDate": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "endDate": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "note": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "closed": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "opId",
+                            "seq",
+                            "recordId",
+                            "entity",
+                            "kind",
+                            "data"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "opId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "seq": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "recordId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "entity": {
+                              "type": "string",
+                              "const": "seasonContract"
                             },
                             "kind": {
                               "type": "string",
@@ -14182,7 +15438,9 @@
                                   "PAYLOAD_TOO_LARGE",
                                   "RATE_LIMITED",
                                   "INTERNAL",
-                                  "EMAIL_UNAVAILABLE"
+                                  "EMAIL_UNAVAILABLE",
+                                  "PLAN_REQUIRED",
+                                  "MEMBER_LIMIT"
                                 ]
                               },
                               "message": {
@@ -14588,6 +15846,26 @@
                                   "boolean",
                                   "null"
                                 ]
+                              },
+                              "rubberKind": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "latex",
+                                      "cuplump"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "greenRatio": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
@@ -14605,7 +15883,9 @@
                               "lastPricePerUnit",
                               "group",
                               "qualityGrades",
-                              "trackInventory"
+                              "trackInventory",
+                              "rubberKind",
+                              "greenRatio"
                             ],
                             "additionalProperties": false
                           }
@@ -14696,6 +15976,49 @@
                               },
                               "active": {
                                 "type": "boolean"
+                              },
+                              "qualityMetric": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "bulkDensity",
+                                      "moisturePercent",
+                                      "impurityPercent",
+                                      "kor",
+                                      "qualityPercent"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "qualitySteps": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "from": {
+                                          "type": "number"
+                                        },
+                                        "amountPerUnit": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "from",
+                                        "amountPerUnit"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -14711,7 +16034,9 @@
                               "percentOfTotal",
                               "minWeightKg",
                               "appliesOnPickup",
-                              "active"
+                              "active",
+                              "qualityMetric",
+                              "qualitySteps"
                             ],
                             "additionalProperties": false
                           }
@@ -14932,6 +16257,38 @@
                                     "qualityGrade": {
                                       "type": "string",
                                       "maxLength": 60
+                                    },
+                                    "rubberKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    "bulkDensity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    "moisturePercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "impurityPercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "kor": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    "greenRatio": {
+                                      "type": "number",
+                                      "exclusiveMinimum": 1,
+                                      "maximum": 20
                                     }
                                   },
                                   "required": [
@@ -15193,6 +16550,38 @@
                                     "qualityGrade": {
                                       "type": "string",
                                       "maxLength": 60
+                                    },
+                                    "rubberKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "latex",
+                                        "cuplump"
+                                      ]
+                                    },
+                                    "bulkDensity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    "moisturePercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "impurityPercent": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "kor": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1000000000
+                                    },
+                                    "greenRatio": {
+                                      "type": "number",
+                                      "exclusiveMinimum": 1,
+                                      "maximum": 20
                                     }
                                   },
                                   "required": [
@@ -15385,6 +16774,20 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "method": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "cash",
+                                      "transfer"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -15396,7 +16799,125 @@
                               "transactionId",
                               "date",
                               "amount",
-                              "note"
+                              "note",
+                              "method"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "seasonContracts": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "createdBy": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              "deletedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "purchase",
+                                  "sale"
+                                ]
+                              },
+                              "counterpartyId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "counterpartyName": {
+                                "type": "string"
+                              },
+                              "productId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "productName": {
+                                "type": "string"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "pricePerUnit": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "startDate": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              "endDate": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              "note": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "closed": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "createdBy",
+                              "createdAt",
+                              "updatedAt",
+                              "deletedAt",
+                              "kind",
+                              "counterpartyId",
+                              "counterpartyName",
+                              "productId",
+                              "productName",
+                              "unit",
+                              "quantity",
+                              "pricePerUnit",
+                              "startDate",
+                              "endDate",
+                              "note",
+                              "closed"
                             ],
                             "additionalProperties": false
                           }
@@ -15410,7 +16931,8 @@
                         "notes",
                         "drafts",
                         "transactions",
-                        "payments"
+                        "payments",
+                        "seasonContracts"
                       ],
                       "additionalProperties": false
                     }
@@ -15512,7 +17034,9 @@
                   "PAYLOAD_TOO_LARGE",
                   "RATE_LIMITED",
                   "INTERNAL",
-                  "EMAIL_UNAVAILABLE"
+                  "EMAIL_UNAVAILABLE",
+                  "PLAN_REQUIRED",
+                  "MEMBER_LIMIT"
                 ]
               },
               "message": {

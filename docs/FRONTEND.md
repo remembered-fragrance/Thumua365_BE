@@ -171,8 +171,9 @@ Các hàm SDK đã có ở `v0.20.1` (giống `v0.20.0`):
 | `api.notifications.list()` · `.read({ ids })` | `/v1/notifications…` (BE5) | tổ chức | mục 5.8 |
 | `api.org.update({ name })` | `PATCH /v1/org` (`v0.12.0`) | tổ chức; chỉ chủ | mục 5.9 |
 | `api.org.members.list` · `.create` · `.update` · `.remove` · `api.org.branches.list` · `.create` · `.update` | `/v1/org/…` (BE7) | tổ chức + `staff:manage` / `branch:manage` | mục 5.9 |
-| `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view` | mục 5.9 |
-| `api.reports.members({ from, to })` | `GET /v1/reports/members` (`v0.13.0`) | tổ chức + `staff:manage` | mục 5.9 |
+| `api.reports.summary({ from, to, branchId })` | `GET /v1/reports/summary` (BE7) | tổ chức + `report:view`; vựa / DN cần gói `reports:org` (`v0.23.0`) | mục 5.9 |
+| `api.reports.members({ from, to })` | `GET /v1/reports/members` (`v0.13.0`) | tổ chức + `staff:manage` + gói `reports:org` (`v0.23.0`) | mục 5.9 |
+| `api.audit.list({ actor, from, to, cursor, limit })` | `GET /v1/audit` (`v0.23.0`) | tổ chức + `staff:manage` + gói `audit:view` | `{ entries, cursor }` — mới nhất trước; `action` là chuỗi, loại lạ thì hiện tên thô |
 | `api.places.inView({ bbox, kinds }, signal)` · `.get(id)` | `GET /v1/places…` (`v0.14.0`) | đăng nhập — mọi vai trò | mục 5.13 |
 | `api.places.mine()` · `.create(input)` · `.update(id, patch)` · `.remove(id)` | `/v1/org/places…` (`v0.14.0`) | tổ chức + `place:manage` | mục 5.13 |
 | `api.account.profile()` · `.updateProfile(patch)` · `.claimReferral({ code })` · `.delete()` | `/v1/me/profile`, `/v1/referrals/claim`, `DELETE /v1/me` (BE6) | đăng nhập | mục 5.10 |
@@ -229,6 +230,8 @@ mã của hợp đồng, còn hai trường hợp nữa:
 | `LINK_REQUIRED` | 403 | Báo "Cần kết nối trước" |
 | `PLAN_EXPIRED` | 402 | Dừng lượt sync, **không tính là một lần thử**, hiện màn gia hạn |
 | `BRANCH_LIMIT` | 402 | Báo "Gói hiện tại cho tối đa N chi nhánh" |
+| `PLAN_REQUIRED` | 402 | (`v0.21.0`) Hết gói, việc này cần gói — `details.entitlement` cho biết việc gì. Không thử lại; khoá nút, chủ thấy "Xem gói", người khác thấy "Báo chủ gia hạn". Hàng đợi ảnh gặp mã này: dừng lượt, **giữ** ảnh, không tính lần thử (như `PLAN_EXPIRED`). App tự biết trước bằng `entitlementsFor(orgType, plan.tier)` |
+| `MEMBER_LIMIT` | 402 | (`v0.21.0`) Đủ số người của gói (vựa: `STAFF_LIMIT.trader` = 3) — báo "Gói hiện tại cho tối đa N người cân" (`details.limit`) |
 | `VALIDATION_FAILED` | 422 | Không thử lại. `details.fields` = `{ "orgName": "…" }` (tên trường → câu lỗi), gắn câu lỗi vào đúng ô |
 | `PARENT_MISSING` | 409 | Thử lại theo lịch giãn cách |
 | `ORDER_STATE_CHANGED` | 409 | Tải lại đơn |
@@ -522,11 +525,11 @@ thành viên cùng thấy, cùng trạng thái đã đọc.
 
 ```ts
 const { members } = await api.org.members.list();              // chủ: staff:manage
-await api.org.members.create({ name, phone, password, role: 'staff', branchId });
+await api.org.members.create({ name, phone, password, role: 'staff', branchId }); // v0.21.0 — hết gói → PLAN_REQUIRED, đủ người → MEMBER_LIMIT
 await api.org.members.update(id, { role: 'manager', branchId });  // đổi chi nhánh → máy người đó resetRequired
 await api.org.members.remove(id);                                 // mất quyền ngay
 const { branches, limit, used } = await api.org.branches.list();  // branch:manage
-await api.org.branches.create({ name, address });                 // vượt gói → BRANCH_LIMIT (details.limit)
+await api.org.branches.create({ name, address });                 // vượt gói → BRANCH_LIMIT (details.limit); hết gói → PLAN_REQUIRED (v0.21.0)
 await api.org.branches.update(id, { archived: true });            // còn người gắn → VALIDATION_FAILED
 const report = await api.reports.summary({ from, to, branchId }); // report:view
 await api.org.update({ name: 'Vựa Tư Hùng 2' });                // v0.12.0 — chỉ chủ, người khác FORBIDDEN
@@ -663,6 +666,10 @@ await api.places.remove(id);                  // gỡ khỏi bản đồ (xoá m
 - `organizationName` là tên tổ chức chủ — server chỉ lộ tên, không lộ SĐT / địa chỉ của tổ chức. SĐT trên
   điểm là số tổ chức **tự** điền cho điểm đó.
 - Vị trí của người dùng ("Vị trí của tôi") chỉ dùng trong trình duyệt, **không** gửi lên server.
+- **Giá thu mua** (`v0.24.0`, V9): `create` / `update` nhận `prices: [{ product, price, unit }]` (tối đa 10). Gửi danh
+  sách có giá cần gói `map:prices` — hết gói → 402 `PLAN_REQUIRED`; `prices: null` / `[]` là gỡ giá, gói nào cũng
+  được. Mỗi lần gửi `prices` là đặt lại `pricesUpdatedAt` — app ghi "Giá hôm nay" khi trùng ngày. Chủ điểm hết gói thì
+  server trả `prices: []` cho mọi người (kể cả chính chủ); gia hạn là hiện lại.
 
 ### 5.14 Email khôi phục, quên mật khẩu (`v0.16.0` → `v0.20.0`; thư gửi được trên staging từ 17/10)
 
@@ -802,6 +809,14 @@ Dùng nó cùng `membership.permissions` để ẩn nút.
 | Sửa, xoá người bán / người mua | `partner:manage` | ❌ |
 | Sửa (không chỉ giá), xoá mặt hàng; mọi thao tác với quy tắc giá | `pricing:manage` | ❌ |
 
+**Giá theo chất lượng, mủ tạp (`v0.22.0`).** Chỉ thêm trường tuỳ chọn, không thêm giá trị enum (app cũ gặp giá trị lạ
+thì lượt kéo hỏng `CONTRACT_MISMATCH`):
+- Dòng phiếu: `rubberKind` (`latex` | `cuplump` — nhãn "độ TSC" hay "DRC", cùng công thức `rubberLatex`),
+  `bulkDensity`, `moisturePercent`, `impurityPercent`, `kor`. Không đổi tổng dòng.
+- Quy tắc giá có `qualityMetric` + `qualitySteps` là quy tắc theo chỉ tiêu: app gọi `suggestAdjustments` với các quy
+  tắc này, mỗi khoản ra một `PriceAdjustment` ghi lên phiếu như khoản tay. Máy chủ không tính lại khoản.
+- Quyền lợi `quality:pricing`, `rubber:grades` chỉ chặn ở app (`entitlementsFor`).
+
 ### 7.3 Đẩy lên: `sdk.sync.push({ deviceId, ops })`
 
 - Tối đa `SYNC_PUSH_MAX_OPS` (200) op **và** `SYNC_PUSH_MAX_BYTES` (700KB, đo thân đã mã hoá UTF-8) một lô
@@ -834,8 +849,12 @@ Dùng nó cùng `membership.permissions` để ẩn nút.
 ```jsonc
 { "cursor": "opaque", "hasMore": false, "resetRequired": false,
   "changes": { "suppliers": [], "buyers": [], "products": [], "pricingRules": [], "notes": [],
-               "drafts": [], "transactions": [], "payments": [] } }
+               "drafts": [], "transactions": [], "payments": [], "seasonContracts": [] } }
 ```
+
+- `seasonContracts` (`v0.24.0`, V15 hợp đồng mùa vụ) đi **sau** lần trả. Server bản cũ không có khoá này — schema mặc
+  định `[]`. Thêm / sửa / xoá hợp đồng cần `partner:manage` (người cân không có). Hợp đồng không gắn vào phiếu: đã giao
+  app tự cộng từ phiếu cùng người, cùng mặt hàng, trong `[startDate, endDate]`.
 
 - `cursor` do server cấp. Lưu **theo tổ chức**, gửi lại nguyên văn; lần đầu để trống. Không tự
   đọc, không dùng giờ máy làm mốc.

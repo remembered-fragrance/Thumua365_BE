@@ -76,6 +76,16 @@ describe('suggestAdjustments — theo mặt hàng', () => {
     const r = rule({ productId: 'prod-rubber' });
     expect(suggestAdjustments([r], ctx({ lines: [line({ productId: 'prod-rubber' })] }))).toHaveLength(1);
   });
+
+  it('ngưỡng kg và phần trăm chỉ tính trên dòng của mặt hàng đó', () => {
+    const r = rule({ productId: 'prod-coffee', fixedAmount: undefined, percentOfTotal: -1, minWeightKg: 500 });
+    const coffee = (kg: number) => line({ id: 'c', productId: 'prod-coffee', grossWeight: kg, pricePerUnit: 100_000 });
+    const pepper = line({ id: 'p', productId: 'prod-pepper', grossWeight: 300, pricePerUnit: 150_000 });
+    // 400 kg cà phê + 300 kg tiêu: cả phiếu 700 kg nhưng cà phê chưa tới 500 kg.
+    expect(suggestAdjustments([r], ctx({ lines: [coffee(400), pepper], totalKg: 700, totalAmount: 85_000_000 }))).toEqual([]);
+    // 600 kg cà phê = 60tr → bớt 600.000, không đụng 45tr tiền tiêu.
+    expect(suggestAdjustments([r], ctx({ lines: [coffee(600), pepper], totalKg: 900, totalAmount: 105_000_000 }))[0]?.amount).toBe(-600_000);
+  });
 });
 
 describe('suggestAdjustments — phần trăm của tổng phiếu', () => {

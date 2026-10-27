@@ -14,13 +14,15 @@ import { EventsController } from './analytics/events.controller';
 import { EventsService } from './analytics/events.service';
 import { AttachmentsController } from './attachments/attachments.controller';
 import { AttachmentsService } from './attachments/attachments.service';
+import { AuditController } from './audit/audit.controller';
+import { AuditService } from './audit/audit.service';
 import { AuthController } from './auth/auth.controller';
 import { BankWebhookService } from './billing/bank-webhook.service';
 import { BillingController } from './billing/billing.controller';
 import { BillingService } from './billing/billing.service';
 import { type Jwks, JWKS } from './auth/auth-user';
 import { ClientIpThrottlerGuard } from './auth/client-ip-throttler.guard';
-import { JwtAuthGuard, OrgContextGuard, PermissionGuard } from './auth/guards';
+import { EntitlementGuard, JwtAuthGuard, OrgContextGuard, PermissionGuard } from './auth/guards';
 import { MEMBERSHIP_LOOKUP, type MembershipLookup } from './auth/membership';
 import { SUPABASE_ADMIN, type SupabaseAdmin } from './auth/supabase-admin';
 import { SUPABASE_USERS, type SupabaseUsers } from './auth/supabase-users';
@@ -84,6 +86,7 @@ export class AppModule {
         LinksController,
         OrdersController,
         NotificationsController,
+        AuditController,
         OrgController,
         ReportsController,
         AccountController,
@@ -111,6 +114,7 @@ export class AppModule {
         LinksService,
         OrdersService,
         NotificationsService,
+        AuditService,
         NotificationsListener,
         MembersService,
         BranchesService,
@@ -133,6 +137,7 @@ export class AppModule {
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: OrgContextGuard },
         { provide: APP_GUARD, useClass: PermissionGuard },
+        { provide: APP_GUARD, useClass: EntitlementGuard },
         { provide: APP_INTERCEPTOR, useClass: ContractInterceptor },
       ],
     };
