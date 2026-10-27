@@ -45,7 +45,9 @@ release của repo này.
       Tài làm 18/10.
 - [ ] Render env: `BANK_WEBHOOK_SECRET` (≥ 24 ký tự ngẫu nhiên), `ADMIN_USER_IDS` (id tài khoản của
       người quản trị), `METRICS_TOKEN`, `CORS_ORIGINS` thêm domain preview của app web. `CORS_ORIGINS` đã có domain
-      app thật (app đang gọi được); ba biến còn lại chưa kiểm.
+      app thật (app đang gọi được). `BANK_WEBHOOK_SECRET`: Tài đặt 27/10 (gọi với khoá sai → 401 "Sai bí mật
+      webhook"). `ADMIN_USER_IDS` còn trống ⇒ chưa ai mở gói tay / hoàn tiền qua `/v1/admin/*` được.
+      `METRICS_TOKEN` chưa kiểm.
 - [x] 0.16.0 — gửi thư: tài khoản Brevo, xác minh sender (hoặc domain), Render env `BREVO_API_KEY`, `MAIL_FROM`
       (`MAIL_FROM_NAME`, `APP_URL` có sẵn trong `render.yaml`). Thư chạy: đã có email khôi phục được xác nhận qua
       link (17/10). Còn kiểm: Supabase Auth → **Minimum password length = 8** (`PASSWORD_MIN_LENGTH` của contracts
@@ -89,19 +91,32 @@ OTP **tạm ẩn** (quyết định 01/10/2026) — Phone provider để TẮT �
 
 ## 5. Thu tiền (BE6)
 
-Chưa thu tiền thật: 23/10 có 0 giao dịch ngân hàng; mọi gói đang là dùng thử.
+Đã thu tiền thật lần đầu 27/10 (tiền vào → gói tự mở) trên staging — project đang có người dùng thật.
 
-- [ ] Điền số tài khoản thật vào config của app web (`BANK_BIN`, `BANK_ACCOUNT_NUMBER`,
-      `BANK_ACCOUNT_NAME`, `BANK_NAME`); tự quét thử mã QR bằng app ngân hàng. Hiện `BANK_ACCOUNT_NUMBER` vẫn là
-      `'0000000000'`.
-- [ ] Casso / SePay: webhook `https://<api>/v1/webhooks/bank`, bí mật = `BANK_WEBHOOK_SECRET`
+- [x] Điền số tài khoản thật vào config của app web (`BANK_BIN`, `BANK_ACCOUNT_NUMBER`,
+      `BANK_ACCOUNT_NAME`, `BANK_NAME`); tự quét thử mã QR bằng app ngân hàng. VietinBank (BIN 970415), tài khoản
+      cá nhân của Tài — app PR #67; Tài quét thử QR 27/10, đúng ngân hàng / số / tên / số tiền.
+- [x] Casso / SePay: webhook `https://<api>/v1/webhooks/bank`, bí mật = `BANK_WEBHOOK_SECRET`
       SePay (đã chọn, 27/10 — gói FREE có webhook; tài khoản nhận là VietinBank cá nhân): Tích hợp → Webhooks →
       Thêm webhook. Sự kiện **Tiền vào**, Content-Type `application/json`, bật tự gửi lại; tài khoản: **Tất cả tài
-      khoản** (chỉ liên kết một tài khoản VietinBank; tài khoản cá nhân không có VA); **không** bật "bỏ qua giao dịch không có mã" (API tự dò `TM365` + 6 ký tự trong nội dung);
-      Bảo mật **API Key** = `BANK_WEBHOOK_SECRET`. Cần API ≥ 0.27.0 (body `{"success": true}`).
+      khoản** (chỉ liên kết một tài khoản VietinBank; tài khoản cá nhân không có VA); **tắt** "Dùng để xác thực thanh
+      toán" / "bỏ qua giao dịch không có mã" (API tự dò `TM365` + 6 ký tự trong nội dung);
+      Bảo mật **API Key** = `BANK_WEBHOOK_SECRET` (không chọn HMAC — API chưa kiểm chữ ký). Cần API ≥ 0.27.0 (body
+      `{"success": true}`). Cảnh báo: sau 3 lần lỗi liên tiếp. Test send 27/10 → HTTP 200.
       (Casso: header `secure-token`; SePay: `Authorization: Apikey …`).
+- 🔴 **VietinBank chỉ báo biến động số dư cho SePay khi nội dung chuyển khoản BẮT ĐẦU bằng `SEVQR`** (SePay ghi rõ
+  ở trang tài khoản VietinBank). Thiếu từ khoá thì tiền vẫn vào tài khoản nhưng SePay không thấy giao dịch nào ⇒
+  không có webhook ⇒ gói không mở; SePay vẫn hiện "Đã kết nối API", chỉ số dư trên SePay đứng yên. App ghi
+  `SEVQR TM365 XXXXXX` (`BANK_MEMO_PREFIX` trong `config.ts` của app, PR #68); API dò `TM365` ở bất kỳ đâu nên
+  không đổi gì. Đổi ngân hàng nhận tiền / bỏ SePay thì xem lại `BANK_MEMO_PREFIX`. Khách gõ tay mà bỏ `SEVQR`
+  ⇒ phải mở gói tay (cần `ADMIN_USER_IDS`).
 - [ ] VAN_HANH §7.3 trên production: một lần chuyển khoản thật mở gói; gọi lại webhook → không cộng
       thêm; một lần hoàn tiền thật.
+      **27/10 trên staging:** 149.000đ lúc 20:28, nội dung `…-SEVQR TM365 T6PGBX` (chuyển từ MoMo) →
+      `bank_transactions` 1 dòng `applied`, `payment_intents` → `paid`, gói `active` tới 26/12 (1 tháng cộng SAU
+      ngày hết dùng thử 26/11), 1 thông báo `plan.activated`; app hiện "Đã nhận". Trước đó 19:59 và 20:13 chuyển
+      hai lần với nội dung `TM365 T6PGBX` (chưa có `SEVQR`) → SePay không thấy, database không có dòng nào.
+      Còn thử: gọi lại webhook không cộng thêm, chuyển thiếu / thừa, gói năm, hoàn tiền thật.
 - [ ] Sau đó: gỡ Edge Function `payment-webhook` cũ khỏi project Supabase cũ (nếu còn).
 
 ## 6. Production (Render `thumua365-api`, Supabase `thumua365-prod`)
