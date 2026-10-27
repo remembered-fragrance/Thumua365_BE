@@ -95,6 +95,10 @@ Chưa thu tiền thật: 23/10 có 0 giao dịch ngân hàng; mọi gói đang l
       `BANK_ACCOUNT_NAME`, `BANK_NAME`); tự quét thử mã QR bằng app ngân hàng. Hiện `BANK_ACCOUNT_NUMBER` vẫn là
       `'0000000000'`.
 - [ ] Casso / SePay: webhook `https://<api>/v1/webhooks/bank`, bí mật = `BANK_WEBHOOK_SECRET`
+      SePay (đã chọn, 27/10 — gói FREE có webhook; tài khoản nhận là VietinBank cá nhân): Tích hợp → Webhooks →
+      Thêm webhook. Sự kiện **Tiền vào**, Content-Type `application/json`, bật tự gửi lại; tài khoản: **Tất cả tài
+      khoản** (chỉ liên kết một tài khoản VietinBank; tài khoản cá nhân không có VA); **không** bật "bỏ qua giao dịch không có mã" (API tự dò `TM365` + 6 ký tự trong nội dung);
+      Bảo mật **API Key** = `BANK_WEBHOOK_SECRET`. Cần API ≥ 0.27.0 (body `{"success": true}`).
       (Casso: header `secure-token`; SePay: `Authorization: Apikey …`).
 - [ ] VAN_HANH §7.3 trên production: một lần chuyển khoản thật mở gói; gọi lại webhook → không cộng
       thêm; một lần hoàn tiền thật.
