@@ -118,20 +118,28 @@ describe('#1 + #7 — tự đi hết, không ai can thiệp', () => {
 
     const view = SubscriptionView.parse((await owner.get('/v1/me/subscription').expect(200)).body);
     expect(view).toMatchObject({ selfServe: true, plan: { tier: 'free' } });
+    // 0.28.0: gói Vựa đứng trước — app cũ lấy dòng đầu theo số tháng và gửi `{ months }` (= mua Vựa).
     expect(view.prices).toEqual([
-      { months: 1, amount: 149_000 },
-      { months: 12, amount: 1_490_000 },
+      { plan: 'vua', months: 1, amount: 449_000 },
+      { plan: 'vua', months: 12, amount: 4_490_000 },
+      { plan: 'thuong_lai', months: 1, amount: 199_000 },
+      { plan: 'thuong_lai', months: 12, amount: 1_990_000 },
     ]);
+    expect(view.staffPrices).toEqual([
+      { months: 1, amount: 79_000 },
+      { months: 12, amount: 790_000 },
+    ]);
+    expect(view.staffTopUps).toEqual([]);
 
     const intent = PaymentIntentView.parse((await owner.post('/v1/billing/intents', { months: 1 }).expect(200)).body);
-    expect(intent).toMatchObject({ amount: 149_000, months: 1, status: 'pending' });
+    expect(intent).toMatchObject({ amount: 449_000, months: 1, kind: 'plan', plan: 'vua', extraStaff: 0, status: 'pending' });
     expect(intent.transferContent).toBe(`TM365 ${intent.code}`);
     // Bấm lại trong ngày → cùng mã, không sinh mã mới.
     const again = PaymentIntentView.parse((await owner.post('/v1/billing/intents', { months: 1 }).expect(200)).body);
     expect(again.id).toBe(intent.id);
 
     // Người dùng gõ nội dung kiểu ngân hàng hay làm: chữ thường, thêm chữ, mất dấu cách.
-    const res = await casso({ tid: 'FT26276001', amount: 149_000, description: `chuyen tien tm365${intent.code.toLowerCase()} cam on` }).expect(200);
+    const res = await casso({ tid: 'FT26276001', amount: 449_000, description: `chuyen tien tm365${intent.code.toLowerCase()} cam on` }).expect(200);
     expect(BankWebhookResult.parse(res.body)).toEqual({ success: true });
     expect(await outcomes()).toEqual([{ bank_tx_id: 'FT26276001', outcome: 'applied' }]);
 
@@ -151,7 +159,7 @@ describe('#1 + #7 — tự đi hết, không ai can thiệp', () => {
   it('gói năm: cộng 12 tháng NỐI TIẾP kỳ đang còn', async () => {
     await admin.query(`update subscriptions set status = 'active', current_period_end = now() + interval '10 days' where organization_id = $1`, [vua]);
     const intent = PaymentIntentView.parse((await (await as(vuaOwner, vua)).post('/v1/billing/intents', { months: 12 }).expect(200)).body);
-    await casso({ tid: 'FT-NAM', amount: 1_490_000, description: intent.transferContent }).expect(200);
+    await casso({ tid: 'FT-NAM', amount: 4_490_000, description: intent.transferContent }).expect(200);
     const days = daysFromNow((await planOf(vua))?.current_period_end);
     expect(days).toBeGreaterThanOrEqual(365 + 10 - 2);
     expect(days).toBeLessThanOrEqual(366 + 10 + 1);
@@ -160,7 +168,7 @@ describe('#1 + #7 — tự đi hết, không ai can thiệp', () => {
   it('trả tiền giữa kỳ dùng thử → kỳ trả tiền nối tiếp sau dùng thử, không mất ngày thử còn lại', async () => {
     await admin.query(`update subscriptions set trial_ends_at = now() + interval '10 days' where organization_id = $1`, [vua]);
     const intent = PaymentIntentView.parse((await (await as(vuaOwner, vua)).post('/v1/billing/intents', { months: 1 }).expect(200)).body);
-    await casso({ tid: 'FT-THU', amount: 149_000, description: intent.transferContent }).expect(200);
+    await casso({ tid: 'FT-THU', amount: 449_000, description: intent.transferContent }).expect(200);
     const plan = await planOf(vua);
     expect(plan?.status).toBe('active');
     expect(daysFromNow(plan?.current_period_end)).toBeGreaterThanOrEqual(10 + 28);
@@ -173,7 +181,7 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
 
   it('#2 gọi 3 lần (cả song song) cùng một mã giao dịch → gia hạn đúng một lần', async () => {
     const i = await intent();
-    const body = { tid: 'FT-TRUNG', amount: 149_000, description: i.transferContent };
+    const body = { tid: 'FT-TRUNG', amount: 449_000, description: i.transferContent };
     const results = await Promise.all([casso(body), casso(body), casso(body)]);
     expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
     expect(await outcomes()).toEqual([{ bank_tx_id: 'FT-TRUNG', outcome: 'applied' }]);
@@ -186,8 +194,8 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
   it('🔴 hai giao dịch KHÁC mã cùng trả một ý định, đến song song → gia hạn đúng một lần; giao dịch kia vẫn vào sổ đối soát', async () => {
     const i = await intent();
     const results = await Promise.all([
-      casso({ tid: 'FT-LAN1', amount: 149_000, description: i.transferContent }),
-      casso({ tid: 'FT-LAN2', amount: 149_000, description: i.transferContent }),
+      casso({ tid: 'FT-LAN1', amount: 449_000, description: i.transferContent }),
+      casso({ tid: 'FT-LAN2', amount: 449_000, description: i.transferContent }),
     ]);
     expect(results.map((r) => r.status)).toEqual([200, 200]);
     expect(daysFromNow((await planOf(vua))?.current_period_end)).toBeLessThanOrEqual(31);
@@ -198,8 +206,8 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
     ]);
 
     // Đến lần lượt cũng vậy; ngân hàng gọi lại giao dịch đã ghi → không ghi thêm dòng nào.
-    await casso({ tid: 'FT-LAN3', amount: 149_000, description: i.transferContent }).expect(200);
-    await casso({ tid: 'FT-LAN3', amount: 149_000, description: i.transferContent }).expect(200);
+    await casso({ tid: 'FT-LAN3', amount: 449_000, description: i.transferContent }).expect(200);
+    await casso({ tid: 'FT-LAN3', amount: 449_000, description: i.transferContent }).expect(200);
     const { rows: after } = await admin.query(`select count(*)::int as n from bank_transactions where outcome = 'intent_closed'`);
     expect(after[0]?.n).toBe(2);
   });
@@ -219,7 +227,7 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
 
   it('#3 không có bí mật, sai bí mật, bí mật SePay sai → 401, không đổi gì', async () => {
     const i = await intent();
-    const body = { tid: 'FT-GIA', amount: 149_000, description: i.transferContent };
+    const body = { tid: 'FT-GIA', amount: 449_000, description: i.transferContent };
     await casso(body, null).expect(401);
     await casso(body, 'sai').expect(401);
     await casso(body, `${SECRET}x`).expect(401);
@@ -234,10 +242,10 @@ describe('#2 #3 #4 — ba chốt của webhook', () => {
     const sepay = (body: object) =>
       request(app.getHttpServer()).post('/v1/webhooks/bank').set('authorization', `Apikey ${SECRET}`).send(body);
     // SePay chỉ tính là gửi được khi body ĐÚNG `{"success": true}` — so chuỗi, không chỉ so JSON.
-    const out = await sepay({ id: 77, transferType: 'out', transferAmount: 149_000, content: i.transferContent, referenceCode: 'OUT1' }).expect(200);
+    const out = await sepay({ id: 77, transferType: 'out', transferAmount: 449_000, content: i.transferContent, referenceCode: 'OUT1' }).expect(200);
     expect(out.text).toBe('{"success":true}');
     expect(await outcomes()).toEqual([]);
-    const ok = await sepay({ id: 78, transferType: 'in', transferAmount: 149_000, content: i.transferContent, referenceCode: 'IN1' }).expect(200);
+    const ok = await sepay({ id: 78, transferType: 'in', transferAmount: 449_000, content: i.transferContent, referenceCode: 'IN1' }).expect(200);
     expect(ok.text).toBe('{"success":true}');
     expect(await outcomes()).toEqual([{ bank_tx_id: '78', outcome: 'applied' }]);
     expect((await planOf(vua))?.status).toBe('active');
@@ -358,5 +366,28 @@ describe('#8 — luật ở database', () => {
     expect(await serviceError(asOwner, `update payment_intents set status = 'paid' where id = $1`, [intent.id])).toMatch(/đã trả/);
     expect(await serviceError(asOwner, `update payment_intents set amount = 1000 where id = $1`, [intent.id])).toMatch(/số tiền/);
     expect(await serviceError(asOwner, `insert into bank_transactions (bank_tx_id, amount) values ('X', 1)`)).toMatch(/permission denied/);
+  });
+
+  it('🔴 0.28.0: api_service không tự đổi gói / số người cân / kỳ, không sửa nội dung ý định', async () => {
+    const asOwner = { userId: vuaOwner, orgId: vua };
+    expect(await serviceError(asOwner, `update subscriptions set plan = 'thuong_lai'`)).toMatch(/webhook/);
+    expect(await serviceError(asOwner, `update subscriptions set extra_staff = 5`)).toMatch(/webhook/);
+    expect(await serviceError(asOwner, `update subscriptions set billing_months = 12`)).toMatch(/webhook/);
+
+    const intent = PaymentIntentView.parse(
+      (await (await as(vuaOwner, vua)).post('/v1/billing/intents', { kind: 'plan', plan: 'vua', months: 1, extraStaff: 0 }).expect(200)).body,
+    );
+    expect(await serviceError(asOwner, `update payment_intents set months = 12 where id = $1`, [intent.id])).toMatch(/nội dung/);
+    expect(await serviceError(asOwner, `update payment_intents set extra_staff = 5 where id = $1`, [intent.id])).toMatch(/nội dung/);
+    expect(await serviceError(asOwner, `update payment_intents set kind = 'staff', plan = null, months = null where id = $1`, [intent.id])).toMatch(
+      /nội dung/,
+    );
+  });
+
+  it('gói dùng thử tạo không kèm mã gói (bản API cũ trong lúc chuyển giao) → vựa là Vựa, doanh nghiệp không có mã', async () => {
+    expect((await admin.query('select plan from subscriptions where organization_id = $1', [vua])).rows).toEqual([{ plan: 'vua' }]);
+    const dn = await createOrg('enterprise', newId());
+    await admin.query(`insert into subscriptions (organization_id, status, trial_ends_at) values ($1, 'trialing', now() + interval '30 days')`, [dn]);
+    expect((await admin.query('select plan from subscriptions where organization_id = $1', [dn])).rows).toEqual([{ plan: null }]);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ENTITLEMENTS, STAFF_LIMIT, entitled, entitlementsFor } from '../src/entitlements';
-import { PlanTier } from '../src/me';
+import { ENTITLEMENTS, PLAN_EXCLUDES, entitled, entitlementsFor, staffLimit } from '../src/entitlements';
+import { PlanCode, PlanTier } from '../src/me';
 import { ORG_TYPES } from '../src/organization';
 import { routes } from '../src/routes';
 import type { RouteDef } from '../src/route-def';
@@ -21,26 +21,51 @@ describe('quyền lợi theo gói', () => {
     expect([...TIERS.filter((t) => t !== null)].sort()).toEqual([...PlanTier.options].sort());
   });
 
-  for (const type of ORG_TYPES) {
-    for (const entitlement of ENTITLEMENTS) {
-      it(`${type} · ${entitlement}`, () => {
-        expect(TIERS.map((tier) => entitled(type, tier, entitlement))).toEqual(HAS[type]);
-      });
+  // Không có mã gói (doanh nghiệp) và gói Vựa: đủ mọi quyền lợi ở bậc có gói.
+  for (const plan of [null, 'vua'] as const) {
+    for (const type of ORG_TYPES) {
+      for (const entitlement of ENTITLEMENTS) {
+        it(`${type} · ${plan ?? 'không mã gói'} · ${entitlement}`, () => {
+          expect(TIERS.map((tier) => entitled(type, tier, plan, entitlement))).toEqual(HAS[type]);
+        });
+      }
     }
   }
 
-  it('bậc có quyền lợi thì có đủ, không có bậc nào có một nửa', () => {
+  it('bậc có quyền lợi thì có đủ, không có bậc nào có một nửa (trừ phần gói Thương lái không có)', () => {
     for (const type of ORG_TYPES) {
       for (const tier of TIERS) {
-        expect([0, ENTITLEMENTS.length]).toContain(entitlementsFor(type, tier).length);
+        expect([0, ENTITLEMENTS.length]).toContain(entitlementsFor(type, tier, null).length);
+        expect([0, ENTITLEMENTS.length]).toContain(entitlementsFor(type, tier, 'vua').length);
       }
     }
   });
+});
 
-  it('vựa tối đa 3 người cân; doanh nghiệp và nông dân không giới hạn theo người', () => {
-    expect(STAFF_LIMIT).toEqual({ trader: 3 });
+describe('gói Thương lái (0.28.0, chốt 30/10/2026)', () => {
+  /** Chép tay từ TODO §3 — không đọc lại `PLAN_EXCLUDES` để một lần sửa nhầm bên kia bị bắt. */
+  const SOLO_LACKS = ['members:add', 'audit:view', 'reports:org'];
+
+  it('bảng loại trừ phủ đủ mọi mã gói', () => {
+    expect(Object.keys(PLAN_EXCLUDES).sort()).toEqual([...PlanCode.options].sort());
   });
 
+  for (const entitlement of ENTITLEMENTS) {
+    const has = !SOLO_LACKS.includes(entitlement);
+    it(`thương lái · ${entitlement} → ${has ? 'có' : 'không'} ở dùng thử / trả tiền / ân hạn`, () => {
+      expect(TIERS.map((tier) => entitled('trader', tier, 'thuong_lai', entitlement))).toEqual([has, has, has, false, false]);
+    });
+  }
+
+  it('người cân: Thương lái 0, Vựa 3 + số mua thêm, không mã gói (doanh nghiệp) không giới hạn', () => {
+    expect(staffLimit('thuong_lai', 0)).toBe(0);
+    expect(staffLimit('vua', 0)).toBe(3);
+    expect(staffLimit('vua', 5)).toBe(8);
+    expect(staffLimit(null, 0)).toBeNull();
+  });
+});
+
+describe('route và quyền lợi', () => {
   it('route gắn quyền lợi thì khai PLAN_REQUIRED và là route của tổ chức', () => {
     for (const [name, route] of Object.entries(routes) as [string, RouteDef][]) {
       if (!route.entitlement) continue;

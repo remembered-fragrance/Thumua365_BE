@@ -124,6 +124,12 @@ model Subscription {
   branchLimit        Int?      @map("branch_limit")
   /// Đã cộng tháng thưởng giới thiệu (cho tổ chức này và người mời) — chỉ một lần.
   referralRewardedAt DateTime? @map("referral_rewarded_at") @db.Timestamptz(6)
+  /// thuong_lai | vua — gói vựa đã chọn (0.28.0). Doanh nghiệp null.
+  plan               String?
+  /// Người cân mua thêm ngoài 3 người gói Vựa có sẵn (0–5).
+  extraStaff         Int       @default(0) @map("extra_staff") @db.SmallInt
+  /// Kỳ trả tiền gần nhất: 1 | 12 tháng — đơn giá ngày khi mua thêm người cân. null = coi là 1.
+  billingMonths      Int?      @map("billing_months") @db.SmallInt
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -644,6 +650,14 @@ model PaymentIntent {
   provider       String
   /// Mã 6 ký tự trong nội dung chuyển khoản.
   providerRef    String?   @map("provider_ref")
+  /// plan | staff (0.28.0) — mua / gia hạn gói, hay mua thêm người cân giữa kỳ.
+  kind           String    @default("plan")
+  /// thuong_lai | vua; null với staff và với ý định trước 0.28.0 (→ bảng giá cũ, gói Vựa).
+  plan           String?
+  /// 1 | 12; null với staff và với ý định trước 0.28.0.
+  months         Int?      @db.SmallInt
+  /// plan: người cân thêm trong kỳ mua; staff: số người mua thêm.
+  extraStaff     Int       @default(0) @map("extra_staff") @db.SmallInt
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)

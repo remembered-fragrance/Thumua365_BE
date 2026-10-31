@@ -16,7 +16,8 @@ import {
   type OrgMemberCreateInput,
   type OrgMemberPatch,
   type OrgType,
-  STAFF_LIMIT,
+  EXTRA_STAFF_MAX,
+  STAFF_INCLUDED,
 } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
@@ -27,6 +28,7 @@ import type { AuthUser } from '../auth/auth-user';
 import { internalEmailOf } from '../auth/login-email';
 import type { MembershipContext } from '../auth/membership';
 import { SUPABASE_ADMIN, type SupabaseAdmin } from '../auth/supabase-admin';
+import { planOf } from '../billing/plan-of';
 import { ApiException } from '../common/api-exception';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import { LOGGER } from '../events/domain-events';
@@ -100,17 +102,20 @@ const assertBranch = async (tx: Tx, m: MembershipContext, branchId: string | nul
 const lock = (tx: Tx, orgId: string) => tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${orgId}, 4))`;
 
 /**
- * Còn chỗ cho thêm một người theo gói không (vựa: 3 người cân — KE_HOACH_GOI_PRO §10 mục 2). Giữ khoá theo tổ
- * chức tới hết transaction: hai lần bấm "Thêm" cùng lúc không vượt được. Gọi trong CHÍNH transaction ghi membership.
- * Chặn theo gói hết hạn (PLAN_REQUIRED) đã nằm ở EntitlementGuard.
+ * Còn chỗ cho thêm một người theo gói không — tài khoản vựa: `staffLimit` (Thương lái 0, Vựa 3 + số mua thêm, 0.28.0).
+ * Doanh nghiệp không giới hạn theo người. Giữ khoá theo tổ chức tới hết transaction: hai lần bấm "Thêm" cùng lúc
+ * không vượt được. Gọi trong CHÍNH transaction ghi membership. Chặn theo gói hết hạn / gói Thương lái (PLAN_REQUIRED)
+ * đã nằm ở EntitlementGuard.
  */
 const assertStaffRoom = async (tx: Tx, m: MembershipContext): Promise<void> => {
-  const limit = STAFF_LIMIT[m.orgType];
-  if (limit === undefined) return;
+  if (m.orgType !== 'trader') return;
   await lock(tx, m.organizationId);
+  const plan = await planOf(tx, m.organizationId);
+  const limit = plan?.staffLimit ?? 0;
   const used = await tx.membership.count({ where: { organizationId: m.organizationId, status: 'active', role: { not: 'owner' } } });
   if (used >= limit) {
-    throw new ApiException('MEMBER_LIMIT', `Gói hiện tại cho tối đa ${limit} người cân`, { limit });
+    const more = plan?.plan === 'vua' && limit < STAFF_INCLUDED + EXTRA_STAFF_MAX ? ` — mua thêm người cân (tối đa ${STAFF_INCLUDED + EXTRA_STAFF_MAX})` : '';
+    throw new ApiException('MEMBER_LIMIT', `Gói hiện tại cho tối đa ${limit} người cân${more}`, { limit });
   }
 };
 

@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import type { PlanTier as PlanTierSchema } from './me.js';
+import type { PlanCode, PlanTier as PlanTierSchema } from './me.js';
 import { hasBook, type OrgType } from './organization.js';
 
 export const ENTITLEMENTS = [
@@ -61,15 +61,47 @@ type PlanTier = z.infer<typeof PlanTierSchema>;
 
 const PAID_TIERS: readonly PlanTier[] = ['trial', 'premium', 'grace'];
 
-/** Dùng thử, đang trả tiền, ân hạn: đủ quyền lợi. Hết gói, chưa có gói, nông dân: không có gì. */
-export const entitlementsFor = (type: OrgType, tier: PlanTier | null | undefined): readonly Entitlement[] =>
-  hasBook(type) && tier && PAID_TIERS.includes(tier) ? ENTITLEMENTS : [];
-
-export const entitled = (type: OrgType, tier: PlanTier | null | undefined, entitlement: Entitlement): boolean =>
-  entitlementsFor(type, tier).includes(entitlement);
+/**
+ * Quyền lợi gói vựa KHÔNG có (0.28.0, chốt 30/10/2026): Thương lái làm một mình — không người cân, không nhật ký,
+ * không báo cáo tổng. Áp cho cả dùng thử: chọn Thương lái lúc đăng ký thì 30 ngày thử cũng không có ba thứ này.
+ */
+export const PLAN_EXCLUDES: Readonly<Record<PlanCode, readonly Entitlement[]>> = {
+  thuong_lai: ['members:add', 'audit:view', 'reports:org'],
+  vua: [],
+};
 
 /**
- * Số người (không tính chủ) tối đa trong một tổ chức có gói. Vựa: 3 người cân (§10 mục 2, chốt 24/10/2026).
- * Doanh nghiệp không giới hạn số người — giới hạn theo chi nhánh (`branchLimit`).
+ * Dùng thử, đang trả tiền, ân hạn: đủ quyền lợi, trừ phần gói đã chọn không có (`PLAN_EXCLUDES`). Hết gói, chưa có
+ * gói, nông dân: không có gì. `plan` null (doanh nghiệp) = không bớt gì.
  */
-export const STAFF_LIMIT: Readonly<Partial<Record<OrgType, number>>> = { trader: 3 };
+export const entitlementsFor = (
+  type: OrgType,
+  tier: PlanTier | null | undefined,
+  plan: PlanCode | null | undefined,
+): readonly Entitlement[] => {
+  if (!hasBook(type) || !tier || !PAID_TIERS.includes(tier)) return [];
+  const excluded = plan ? PLAN_EXCLUDES[plan] : [];
+  return excluded.length === 0 ? ENTITLEMENTS : ENTITLEMENTS.filter((e) => !excluded.includes(e));
+};
+
+export const entitled = (
+  type: OrgType,
+  tier: PlanTier | null | undefined,
+  plan: PlanCode | null | undefined,
+  entitlement: Entitlement,
+): boolean => entitlementsFor(type, tier, plan).includes(entitlement);
+
+/** Người cân gói Vựa có sẵn (chốt 31/10/2026). */
+export const STAFF_INCLUDED = 3;
+/** Người cân mua thêm tối đa — tổng 8, giá vẫn dưới gói doanh nghiệp. */
+export const EXTRA_STAFF_MAX = 5;
+
+/**
+ * Số người (không tính chủ) tối đa theo gói: Thương lái 0, Vựa 3 + số mua thêm. `plan` null (doanh nghiệp) =
+ * không giới hạn theo người — doanh nghiệp giới hạn theo chi nhánh (`branchLimit`).
+ */
+export const staffLimit = (plan: PlanCode | null | undefined, extraStaff: number): number | null =>
+  plan === 'thuong_lai' ? 0 : plan === 'vua' ? STAFF_INCLUDED + extraStaff : null;
+
+/** @deprecated 0.28.0 — giới hạn theo gói: `staffLimit(plan, extraStaff)` hoặc `PlanSummary.staffLimit`. */
+export const STAFF_LIMIT: Readonly<Partial<Record<OrgType, number>>> = { trader: STAFF_INCLUDED };

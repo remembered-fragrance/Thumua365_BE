@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.27.0"
+    "version": "0.28.0"
   },
   "servers": [
     {
@@ -275,13 +275,47 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "plan": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "thuong_lai",
+                                          "vua"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "extraStaff": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "staffLimit": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": [
                                   "tier",
                                   "status",
                                   "periodEnd",
-                                  "branchLimit"
+                                  "branchLimit",
+                                  "plan",
+                                  "extraStaff",
+                                  "staffLimit"
                                 ],
                                 "additionalProperties": false
                               },
@@ -468,6 +502,13 @@
                   "username": {
                     "type": "string",
                     "pattern": "^[a-z0-9._]{3,32}$"
+                  },
+                  "plan": {
+                    "type": "string",
+                    "enum": [
+                      "thuong_lai",
+                      "vua"
+                    ]
                   }
                 },
                 "required": [
@@ -662,13 +703,47 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "plan": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "thuong_lai",
+                                          "vua"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "extraStaff": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "staffLimit": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": [
                                   "tier",
                                   "status",
                                   "periodEnd",
-                                  "branchLimit"
+                                  "branchLimit",
+                                  "plan",
+                                  "extraStaff",
+                                  "staffLimit"
                                 ],
                                 "additionalProperties": false
                               },
@@ -9909,13 +9984,47 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "plan": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "thuong_lai",
+                                    "vua"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "extraStaff": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "staffLimit": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
                             "tier",
                             "status",
                             "periodEnd",
-                            "branchLimit"
+                            "branchLimit",
+                            "plan",
+                            "extraStaff",
+                            "staffLimit"
                           ],
                           "additionalProperties": false
                         },
@@ -9956,6 +10065,37 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "plan": {
+                            "type": "string",
+                            "enum": [
+                              "thuong_lai",
+                              "vua"
+                            ]
+                          },
+                          "months": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "amount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "plan",
+                          "months",
+                          "amount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "staffPrices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
                           "months": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
@@ -9973,6 +10113,29 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "staffTopUps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "extraStaff": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "amount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "extraStaff",
+                          "amount"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -9980,7 +10143,9 @@
                     "trialEndsAt",
                     "currentPeriodEnd",
                     "selfServe",
-                    "prices"
+                    "prices",
+                    "staffPrices",
+                    "staffTopUps"
                   ],
                   "additionalProperties": false
                 }
@@ -10084,6 +10249,32 @@
                             "exclusiveMinimum": 0,
                             "maximum": 9007199254740991
                           },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "plan",
+                              "staff"
+                            ]
+                          },
+                          "plan": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "thuong_lai",
+                                  "vua"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "extraStaff": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
                           "code": {
                             "type": "string"
                           },
@@ -10109,6 +10300,9 @@
                           "id",
                           "amount",
                           "months",
+                          "kind",
+                          "plan",
+                          "extraStaff",
                           "code",
                           "transferContent",
                           "status",
@@ -10197,25 +10391,67 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "months": {
-                    "anyOf": [
-                      {
-                        "type": "number",
-                        "const": 1
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "staff"
                       },
-                      {
-                        "type": "number",
-                        "const": 12
+                      "extraStaff": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
                       }
-                    ]
+                    },
+                    "required": [
+                      "kind",
+                      "extraStaff"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "default": "plan",
+                        "type": "string",
+                        "const": "plan"
+                      },
+                      "plan": {
+                        "default": "vua",
+                        "type": "string",
+                        "enum": [
+                          "thuong_lai",
+                          "vua"
+                        ]
+                      },
+                      "months": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "const": 1
+                          },
+                          {
+                            "type": "number",
+                            "const": 12
+                          }
+                        ]
+                      },
+                      "extraStaff": {
+                        "default": 0,
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 5
+                      }
+                    },
+                    "required": [
+                      "months"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "required": [
-                  "months"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           }
@@ -10244,6 +10480,32 @@
                       "exclusiveMinimum": 0,
                       "maximum": 9007199254740991
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "plan",
+                        "staff"
+                      ]
+                    },
+                    "plan": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "thuong_lai",
+                            "vua"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "extraStaff": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "code": {
                       "type": "string"
                     },
@@ -10269,6 +10531,9 @@
                     "id",
                     "amount",
                     "months",
+                    "kind",
+                    "plan",
+                    "extraStaff",
                     "code",
                     "transferContent",
                     "status",
@@ -10555,6 +10820,18 @@
                       }
                     ]
                   },
+                  "plan": {
+                    "type": "string",
+                    "enum": [
+                      "thuong_lai",
+                      "vua"
+                    ]
+                  },
+                  "extraStaff": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
                   "approvedBy": {
                     "type": "string",
                     "minLength": 2,
@@ -10658,13 +10935,47 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "plan": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "thuong_lai",
+                                "vua"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "extraStaff": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "staffLimit": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
                         "tier",
                         "status",
                         "periodEnd",
-                        "branchLimit"
+                        "branchLimit",
+                        "plan",
+                        "extraStaff",
+                        "staffLimit"
                       ],
                       "additionalProperties": false
                     },
