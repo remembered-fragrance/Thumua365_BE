@@ -1,5 +1,5 @@
 import { planFor } from '@mambo/core/subscription';
-import { Feature, type MeMembership, MemberRole, OrgType, type PlanSummary, hasBook, permissionsOf } from '@mambo/contracts';
+import { Feature, type MeMembership, MemberRole, OrgType, PlanCode, type PlanSummary, hasBook, permissionsOf, staffLimit } from '@mambo/contracts';
 import { GRACE_DAYS } from '../config/plans';
 import type { Database } from '../db/database';
 import type { MembershipContext, MembershipLookup } from './membership';
@@ -12,7 +12,12 @@ interface SubscriptionRow {
   readonly trialEndsAt: Date | null;
   readonly currentPeriodEnd: Date | null;
   readonly branchLimit: number | null;
+  readonly plan: string | null;
+  readonly extraStaff: number;
 }
+
+/** Cột `plan` có CHECK hai giá trị; đọc qua zod để kiểu khớp hợp đồng. */
+export const planCodeOf = (raw: string | null): PlanCode | null => (raw === null ? null : PlanCode.parse(raw));
 
 /** Bậc gói suy từ ngày tháng bằng đúng hàm của frontend (`@mambo/core/subscription`). */
 export const planSummary = (sub: SubscriptionRow | undefined, now: Date): PlanSummary | null => {
@@ -23,7 +28,16 @@ export const planSummary = (sub: SubscriptionRow | undefined, now: Date): PlanSu
     now,
     GRACE_DAYS,
   );
-  return { tier: plan.tier, status, periodEnd: plan.endsAt ?? null, branchLimit: sub.branchLimit };
+  const code = planCodeOf(sub.plan);
+  return {
+    tier: plan.tier,
+    status,
+    periodEnd: plan.endsAt ?? null,
+    branchLimit: sub.branchLimit,
+    plan: code,
+    extraStaff: sub.extraStaff,
+    staffLimit: staffLimit(code, sub.extraStaff),
+  };
 };
 
 /**
@@ -70,7 +84,7 @@ export class PrismaMemberships implements MembershipLookup {
               name: true,
               subscriptions: {
                 where: { deletedAt: null },
-                select: { id: true, status: true, trialEndsAt: true, currentPeriodEnd: true, branchLimit: true },
+                select: { id: true, status: true, trialEndsAt: true, currentPeriodEnd: true, branchLimit: true, plan: true, extraStaff: true },
                 take: 1,
               },
               features: { select: { feature: true }, orderBy: { feature: 'asc' } },

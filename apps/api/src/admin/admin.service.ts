@@ -59,12 +59,19 @@ export class AdminService {
       if (org.type === 'farmer') {
         throw new ApiException('VALIDATION_FAILED', 'Nông dân dùng miễn phí — không có gói', { fields: { organizationId: 'Tổ chức nông dân' } });
       }
+      // Doanh nghiệp giữ như cũ (chốt 31/10): không có mã gói, không người cân thêm.
+      if (org.type !== 'trader' && (input.plan !== undefined || input.extraStaff !== undefined)) {
+        throw new ApiException('VALIDATION_FAILED', 'Chỉ tài khoản vựa có gói Thương lái / Vựa', { fields: { plan: 'Không áp cho doanh nghiệp' } });
+      }
+      if (input.plan === 'thuong_lai' && input.extraStaff) {
+        throw new ApiException('VALIDATION_FAILED', 'Gói Thương lái không có người cân thêm', { fields: { extraStaff: 'Chỉ gói Vựa' } });
+      }
       const now = new Date();
       const activated = await activatePlan(
         tx,
         {
           organizationId: org.id,
-          months: input.months,
+          purchase: { kind: 'plan', months: input.months, plan: input.plan, extraStaff: input.extraStaff },
           ...(input.branchLimit !== undefined ? { branchLimit: input.branchLimit } : {}),
           source: 'admin',
           bankTxId: input.bankTxId,

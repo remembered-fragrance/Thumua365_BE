@@ -8,6 +8,8 @@
  *      chuyện thường). Mã đã ghi mà CHƯA gia hạn (chuyển thiếu…) → quản trị viên mở gói bằng mã đó được.
  *   2. Gia hạn bằng `extendPeriod` của `@mambo/core` — cùng hàm app dùng để hiện ngày hết hạn. Ngày
  *      dùng thử còn lại được giữ: trả tiền giữa kỳ dùng thử thì kỳ trả tiền nối tiếp sau dùng thử.
+ *      Đổi gói (0.28.0, Thương lái ↔ Vựa): ngày ĐÃ TRẢ còn lại quy đổi theo giá (`convertDays`) rồi mới cộng tháng
+ *      vừa mua; ngày dùng thử của gói cũ không mang sang. Mua thêm người cân: chỉ cộng `extra_staff`, không đổi hạn.
  *   3. Thông báo + nhật ký — cùng transaction: gói đã mở thì chắc chắn có dấu vết.
  *   4. Lần trả ĐẦU của tổ chức có chủ được giới thiệu → thưởng 1 tháng cho tổ chức này và tổ chức có sổ
  *      của người mời, đúng một lần (`referral_rewarded_at`). Doanh nghiệp đang dùng nhiều chi nhánh hơn
@@ -16,15 +18,18 @@
  * chính rồi thấy mã đã có.
  */
 
-import { extendPeriod } from '@mambo/core/subscription';
-import { hasBook, type OrgType, type PlanSummary } from '@mambo/contracts';
-import { planSummary } from '../auth/prisma-memberships';
+import { daysBetween, extendPeriod } from '@mambo/core/subscription';
+import { EXTRA_STAFF_MAX, hasBook, type OrgType, type PlanCode, type PlanSummary } from '@mambo/contracts';
+import { planCodeOf, planSummary } from '../auth/prisma-memberships';
 import type { Tx } from '../db/database';
 import type { Subscription as Sub } from '../generated/prisma/client';
+import { billingMonthsOf, convertDays, type Purchase } from './pricing';
+
+const DAY_MS = 86_400_000;
 
 export interface Activation {
   readonly organizationId: string;
-  readonly months: number;
+  readonly purchase: Purchase;
   /** Doanh nghiệp: giới hạn chi nhánh mới; bỏ trống = giữ nguyên. */
   readonly branchLimit?: number | null;
   readonly source: 'webhook' | 'admin';
@@ -46,8 +51,16 @@ export const activatePlan = async (tx: Tx, a: Activation, now: Date): Promise<Pl
       where bank_transactions.outcome <> 'applied'`;
   if (ledger === 0) return null;
 
-  const limit = a.branchLimit !== undefined ? { branchLimit: a.branchLimit } : {};
-  let sub = await extend(tx, a.organizationId, a.months, now, limit);
+  const p = a.purchase;
+  let sub =
+    p.kind === 'staff'
+      ? await addStaff(tx, a.organizationId, p.extraStaff)
+      : await extend(tx, a.organizationId, p.months, now, {
+          ...(a.branchLimit !== undefined ? { branchLimit: a.branchLimit } : {}),
+          ...(p.plan !== undefined ? { plan: p.plan } : {}),
+          ...(p.extraStaff !== undefined ? { extraStaff: p.extraStaff } : {}),
+          billingMonths: billingMonthsOf(p.months),
+        });
 
   await tx.notification.create({
     data: { organizationId: a.organizationId, kind: 'plan.activated', payload: { periodEnd: iso(sub.currentPeriodEnd) } },
@@ -57,10 +70,18 @@ export const activatePlan = async (tx: Tx, a: Activation, now: Date): Promise<Pl
     data: {
       organizationId: a.organizationId,
       actorUserId: null,
-      action: 'plan.activated',
+      action: p.kind === 'staff' ? 'plan.staff_added' : 'plan.activated',
       entity: 'subscription',
       entityId: sub.id,
-      after: { months: a.months, periodEnd: iso(sub.currentPeriodEnd), source: a.source, bankTxId: a.bankTxId, amount: a.amount },
+      after: {
+        ...(p.kind === 'plan' ? { months: p.months } : {}),
+        plan: sub.plan,
+        extraStaff: sub.extraStaff,
+        periodEnd: iso(sub.currentPeriodEnd),
+        source: a.source,
+        bankTxId: a.bankTxId,
+        amount: a.amount,
+      },
     },
     select: { id: true },
   });
@@ -75,21 +96,65 @@ export const activatePlan = async (tx: Tx, a: Activation, now: Date): Promise<Pl
 
 const iso = (d: Date | null): string | null => d?.toISOString() ?? null;
 
-/** Cộng `months` vào gói của tổ chức (chưa có gói thì tạo) — `extendPeriod` giữ ngày dùng thử còn lại. */
-const extend = async (tx: Tx, orgId: string, months: number, now: Date, extra: { branchLimit?: number | null } = {}): Promise<Sub> => {
+interface PlanChange {
+  readonly branchLimit?: number | null;
+  readonly plan?: PlanCode;
+  readonly extraStaff?: number;
+  readonly billingMonths?: 1 | 12;
+}
+
+/** Khoá gói trước khi đọc: thưởng giới thiệu và mua người cân cũng ghi vào hàng này từ transaction khác. */
+const lockedSubscription = async (tx: Tx, orgId: string): Promise<Sub | null> => {
+  await tx.$executeRaw`select 1 from subscriptions where organization_id = ${orgId}::uuid and deleted_at is null for update`;
+  return tx.subscription.findFirst({ where: { organizationId: orgId, deletedAt: null }, orderBy: { createdAt: 'asc' } });
+};
+
+/**
+ * Đổi gói: ngày đã trả còn lại (chỉ khi đang `premium` — dùng thử, ân hạn không có ngày để quy đổi) đổi sang ngày gói
+ * mới theo giá, rồi cộng tháng vừa mua. 10/11, hạn Thương lái 1/12 (21 ngày) → 10 ngày Vựa → 20/11 + 1 tháng = 20/12.
+ */
+const switchedPeriodEnd = (current: Sub, from: PlanCode, to: PlanCode, months: number, now: Date): Date => {
+  const paidEnd = planSummary(current, now)?.tier === 'premium' ? current.currentPeriodEnd : null;
+  const paidDays = paidEnd ? daysBetween(now.getTime(), paidEnd.getTime()) : 0;
+  const base = new Date(now.getTime() + convertDays(paidDays, from, to) * DAY_MS);
+  return new Date(extendPeriod(base.toISOString(), now, months));
+};
+
+/**
+ * Cộng `months` vào gói của tổ chức (chưa có gói thì tạo) — `extendPeriod` giữ ngày dùng thử còn lại; đổi gói thì
+ * quy đổi ngày (`switchedPeriodEnd`). Gói Thương lái không có người cân thêm.
+ */
+const extend = async (tx: Tx, orgId: string, months: number, now: Date, change: PlanChange = {}): Promise<Sub> => {
   // Khoá gói trước khi đọc ngày hết hạn: thưởng giới thiệu cộng vào gói của NGƯỜI MỜI trong transaction của tổ chức
   // khác — người mời trả tiền cùng lúc thì hai bên đọc cùng một ngày cũ, bên ghi sau xoá mất tháng bên kia vừa cộng.
-  await tx.$executeRaw`select 1 from subscriptions where organization_id = ${orgId}::uuid and deleted_at is null for update`;
-  const current = await tx.subscription.findFirst({
-    where: { organizationId: orgId, deletedAt: null },
-    orderBy: { createdAt: 'asc' },
-  });
-  const periodEnd = new Date(
-    extendPeriod(current?.currentPeriodEnd?.toISOString(), now, months, current?.trialEndsAt?.toISOString()),
-  );
+  const current = await lockedSubscription(tx, orgId);
+  const from = current ? planCodeOf(current.plan) : null;
+  const periodEnd =
+    current && from && change.plan && change.plan !== from
+      ? switchedPeriodEnd(current, from, change.plan, months, now)
+      : new Date(extendPeriod(current?.currentPeriodEnd?.toISOString(), now, months, current?.trialEndsAt?.toISOString()));
+  const data = {
+    status: 'active',
+    currentPeriodEnd: periodEnd,
+    ...change,
+    ...((change.plan ?? from) === 'thuong_lai' ? { extraStaff: 0 } : {}),
+  };
   return current
-    ? tx.subscription.update({ where: { id: current.id }, data: { status: 'active', currentPeriodEnd: periodEnd, ...extra } })
-    : tx.subscription.create({ data: { organizationId: orgId, status: 'active', currentPeriodEnd: periodEnd, ...extra } });
+    ? tx.subscription.update({ where: { id: current.id }, data })
+    : tx.subscription.create({ data: { organizationId: orgId, ...data } });
+};
+
+/**
+ * Mua thêm người cân giữa kỳ: cộng `extra_staff`, hạn giữ nguyên. Hai lần mua cùng trả song song mà vượt 5 (mỗi lần
+ * báo giá đều hợp lệ lúc tạo) → giữ ở 5; tiền thừa đối soát tay qua nhật ký `plan.staff_added`.
+ */
+const addStaff = async (tx: Tx, orgId: string, extraStaff: number): Promise<Sub> => {
+  const current = await lockedSubscription(tx, orgId);
+  if (!current) throw new Error('Mua thêm người cân cho tổ chức chưa có gói');
+  return tx.subscription.update({
+    where: { id: current.id },
+    data: { extraStaff: Math.min(EXTRA_STAFF_MAX, current.extraStaff + extraStaff) },
+  });
 };
 
 const REFERRAL_MONTHS = 1;

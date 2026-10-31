@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { LINK_CODE_ALPHABET, LINK_CODE_LENGTH, LinkClaimInput, MeBootstrapInput, MeProfilePatch, ResolveIdentifierInput } from '../src/index.js';
+import {
+  LINK_CODE_ALPHABET,
+  LINK_CODE_LENGTH,
+  LinkClaimInput,
+  MeBootstrapInput,
+  MeProfilePatch,
+  PaymentIntentCreateInput,
+  ResolveIdentifierInput,
+} from '../src/index.js';
 
 describe('MeBootstrapInput', () => {
   it('chuẩn hoá: cắt khoảng trắng, tên đăng nhập về chữ thường', () => {
@@ -22,6 +30,34 @@ describe('MeBootstrapInput', () => {
     expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: '   ', name: 'x' }).success).toBe(false);
     expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: 'x', name: 'x', username: 'vựa' }).success).toBe(false);
     expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: 'x', name: 'x', username: 'a b' }).success).toBe(false);
+  });
+
+  it('0.28.0: chỉ tài khoản vựa chọn gói, và chỉ hai mã gói', () => {
+    expect(MeBootstrapInput.parse({ orgType: 'trader', orgName: 'x', name: 'x', plan: 'thuong_lai' }).plan).toBe('thuong_lai');
+    expect(MeBootstrapInput.parse({ orgType: 'trader', orgName: 'x', name: 'x' }).plan).toBeUndefined();
+    expect(MeBootstrapInput.safeParse({ orgType: 'trader', orgName: 'x', name: 'x', plan: 'doanh_nghiep' }).success).toBe(false);
+    expect(MeBootstrapInput.safeParse({ orgType: 'farmer', orgName: 'x', name: 'x', plan: 'vua' }).success).toBe(false);
+    expect(MeBootstrapInput.safeParse({ orgType: 'enterprise', orgName: 'x', name: 'x', plan: 'vua' }).success).toBe(false);
+  });
+});
+
+describe('PaymentIntentCreateInput (0.28.0)', () => {
+  it('app cũ gửi `{ months }` → mua gói Vựa, không người cân thêm', () => {
+    expect(PaymentIntentCreateInput.parse({ months: 12 })).toEqual({ kind: 'plan', plan: 'vua', months: 12, extraStaff: 0 });
+  });
+
+  it('gói Thương lái không mua người cân; Vựa tối đa thêm 5', () => {
+    expect(PaymentIntentCreateInput.parse({ kind: 'plan', plan: 'vua', months: 1, extraStaff: 5 })).toMatchObject({ extraStaff: 5 });
+    expect(PaymentIntentCreateInput.safeParse({ kind: 'plan', plan: 'vua', months: 1, extraStaff: 6 }).success).toBe(false);
+    expect(PaymentIntentCreateInput.safeParse({ kind: 'plan', plan: 'thuong_lai', months: 1, extraStaff: 1 }).success).toBe(false);
+    expect(PaymentIntentCreateInput.safeParse({ kind: 'plan', plan: 'vua', months: 3 }).success).toBe(false);
+  });
+
+  it('mua thêm người cân: 1–5 người, không kèm số tháng hay số tiền', () => {
+    expect(PaymentIntentCreateInput.parse({ kind: 'staff', extraStaff: 2 })).toEqual({ kind: 'staff', extraStaff: 2 });
+    expect(PaymentIntentCreateInput.safeParse({ kind: 'staff', extraStaff: 0 }).success).toBe(false);
+    expect(PaymentIntentCreateInput.safeParse({ kind: 'staff', extraStaff: 2, months: 1 }).success).toBe(false);
+    expect(PaymentIntentCreateInput.safeParse({ months: 1, amount: 1000 }).success).toBe(false);
   });
 });
 

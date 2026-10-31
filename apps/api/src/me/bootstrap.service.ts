@@ -136,8 +136,14 @@ export class BootstrapService {
           data: Feature.options.map((feature) => ({ organizationId, feature })),
         });
         if (hasBook(input.orgType)) {
+          // Gói chọn ở màn đăng ký (0.28.0): dùng thử có đúng tính năng gói đó. App cũ không gửi → Vựa, như trước.
           await tx.subscription.create({
-            data: { organizationId, status: 'trialing', trialEndsAt: new Date(Date.now() + TRIAL_DAYS * DAY_MS) },
+            data: {
+              organizationId,
+              status: 'trialing',
+              trialEndsAt: new Date(Date.now() + TRIAL_DAYS * DAY_MS),
+              plan: input.orgType === 'trader' ? (input.plan ?? 'vua') : null,
+            },
             select: { id: true },
           });
           // Mặt hàng mặc định của sổ, id do server sinh: `prod-rubber`… của core không phải

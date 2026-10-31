@@ -95,6 +95,24 @@ describe('POST /v1/me/bootstrap', () => {
     expect(days).toBeLessThanOrEqual(30);
   });
 
+  it('0.28.0: vựa chọn gói lúc đăng ký — dùng thử theo gói đó; không gửi → Vựa (app cũ)', async () => {
+    const solo = Me.parse((await bootstrap({ orgType: 'trader', orgName: 'Thương lái Hai', name: 'Hai', plan: 'thuong_lai' }).expect(200)).body);
+    expect(solo.memberships[0]?.plan).toMatchObject({ tier: 'trial', plan: 'thuong_lai', extraStaff: 0, staffLimit: 0 });
+
+    await truncateAll();
+    const vua = Me.parse((await bootstrap({ orgType: 'trader', orgName: 'Vựa Tư Hùng', name: 'Tư Hùng' }).expect(200)).body);
+    expect(vua.memberships[0]?.plan).toMatchObject({ tier: 'trial', plan: 'vua', extraStaff: 0, staffLimit: 3 });
+  });
+
+  it('0.28.0: nông dân / doanh nghiệp gửi `plan` → 422, không tạo gì; doanh nghiệp không có mã gói', async () => {
+    await bootstrap({ orgType: 'farmer', orgName: 'Hộ cô Mai', name: 'Mai', plan: 'vua' }).expect(422);
+    await bootstrap({ orgType: 'enterprise', orgName: 'Công ty', name: 'Nguyên', plan: 'thuong_lai' }).expect(422);
+    expect((await admin.query('select id from organizations')).rowCount).toBe(0);
+
+    const dn = Me.parse((await bootstrap({ orgType: 'enterprise', orgName: 'Công ty', name: 'Nguyên' }).expect(200)).body);
+    expect(dn.memberships[0]?.plan).toMatchObject({ tier: 'trial', plan: null, staffLimit: null });
+  });
+
   it('nông dân: không có gói, quyền của nông dân, đủ cờ tính năng', async () => {
     const res = await bootstrap({ orgType: 'farmer', orgName: 'Hộ cô Mai', name: 'Mai' }).expect(200);
     const [m] = Me.parse(res.body).memberships;

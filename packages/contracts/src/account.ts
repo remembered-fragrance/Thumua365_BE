@@ -1,9 +1,10 @@
 /**
  * Tài khoản, gói, thanh toán, quản trị — KH backend §1.7, §6, BE6.
  *
- * Thu tiền: chủ VỰA tự mua gói (149.000đ/tháng · 1.490.000đ/năm) bằng chuyển khoản kèm mã đối soát;
- * Casso / SePay báo biến động số dư về `/webhooks/bank` → gói tự gia hạn. Doanh nghiệp: gói theo số
- * chi nhánh, bán trực tiếp, quản trị viên kích hoạt. Nông dân: miễn phí, không có màn Gói.
+ * Thu tiền: chủ tài khoản vựa tự mua gói bằng chuyển khoản kèm mã đối soát — Thương lái 199.000đ/tháng, Vựa
+ * 449.000đ/tháng (năm = 10 tháng), Vựa mua thêm người cân 79.000đ/người/tháng (0.28.0; giá do máy chủ giữ, app đọc
+ * `prices`, `staffPrices`). Casso / SePay báo biến động số dư về `/webhooks/bank` → gói tự gia hạn. Doanh nghiệp: gói
+ * theo số chi nhánh, bán trực tiếp, quản trị viên kích hoạt. Nông dân: miễn phí, không có màn Gói.
  * KHÔNG có lệnh rút tiền — giữ tiền hộ rồi chi ra là trung gian thanh toán, cần giấy phép NHNN.
  *
  * Xoá tài khoản (`DELETE /v1/me`) là xoá THẬT: ảnh chứng từ → dữ liệu → tài khoản đăng nhập. Chủ tổ
@@ -11,7 +12,8 @@
  */
 
 import { z } from 'zod';
-import { PlanSummary, Username } from './me.js';
+import { EXTRA_STAFF_MAX } from './entitlements.js';
+import { PlanCode, PlanSummary, Username } from './me.js';
 import { OrgType } from './organization.js';
 import { Password } from './password.js';
 
@@ -87,8 +89,19 @@ export type ReferralClaimResult = z.infer<typeof ReferralClaimResult>;
 
 // ─── Gói ─────────────────────────────────────────────────────────────────────
 
-export const PlanPrice = z.object({ months: z.number().int().positive(), amount: Money });
+const Months = z.union([z.literal(1), z.literal(12)]);
+
+/** 0.28.0 thêm `plan`. Gói Vựa đứng trước: app cũ tìm giá theo `months` và lấy dòng đầu — mua theo mặc định là Vựa. */
+export const PlanPrice = z.object({ plan: PlanCode, months: z.number().int().positive(), amount: Money });
 export type PlanPrice = z.infer<typeof PlanPrice>;
+
+/** Giá một người cân thêm cho trọn một kỳ (tháng / năm) — gia hạn Vựa cộng `số người × amount`. */
+export const StaffPrice = z.object({ months: z.number().int().positive(), amount: Money });
+export type StaffPrice = z.infer<typeof StaffPrice>;
+
+/** Mua thêm `extraStaff` người cân giữa kỳ: máy chủ tính theo ngày còn lại tới hạn gói, hết hạn cùng gói. */
+export const StaffTopUp = z.object({ extraStaff: z.number().int().positive(), amount: Money });
+export type StaffTopUp = z.infer<typeof StaffTopUp>;
 
 export const SubscriptionView = z.object({
   /** null với nông dân. */
@@ -98,6 +111,13 @@ export const SubscriptionView = z.object({
   /** Vựa tự mua qua chuyển khoản; doanh nghiệp liên hệ để kích hoạt (false). */
   selfServe: z.boolean(),
   prices: z.array(PlanPrice),
+  /** 0.28.0 — rỗng khi không tự mua được. */
+  staffPrices: z.array(StaffPrice),
+  /**
+   * 0.28.0 — giá mua thêm 1, 2… người cân NGAY BÂY GIỜ (tính theo ngày còn lại). Chỉ có khi đang gói Vựa đã trả
+   * tiền, còn hạn và chưa đủ 8 người; rỗng = không có nút "Mua thêm người cân".
+   */
+  staffTopUps: z.array(StaffTopUp),
 });
 export type SubscriptionView = z.infer<typeof SubscriptionView>;
 
@@ -106,10 +126,24 @@ export type SubscriptionView = z.infer<typeof SubscriptionView>;
 export const PaymentIntentStatus = z.enum(['pending', 'paid', 'failed', 'expired']);
 export type PaymentIntentStatus = z.infer<typeof PaymentIntentStatus>;
 
+/** `plan` — mua / gia hạn gói; `staff` — mua thêm người cân giữa kỳ (không đổi hạn). */
+export const PaymentKind = z.enum(['plan', 'staff']);
+export type PaymentKind = z.infer<typeof PaymentKind>;
+
 export const PaymentIntentView = z.object({
   id: z.uuid(),
   amount: Money,
+  /**
+   * `kind: 'staff'` luôn 1 — người cân mua thêm hết hạn cùng gói, không có số tháng; giữ số dương vì SDK của app trước
+   * 0.28.0 kiểm phản hồi bằng schema cũ. Đọc `kind` trước khi đọc trường này.
+   */
   months: z.number().int().positive(),
+  /** 0.28.0. Ý định tạo trước 0.28.0 là `plan`. */
+  kind: PaymentKind,
+  /** 0.28.0 — gói mua; null với `staff`. Ý định cũ (149.000đ / 1.490.000đ) là `vua`. */
+  plan: PlanCode.nullable(),
+  /** 0.28.0 — `plan`: số người cân thêm trong kỳ mua; `staff`: số người mua thêm. */
+  extraStaff: z.number().int().nonnegative(),
   /** Mã 6 ký tự đối soát. */
   code: z.string(),
   /** Nội dung chuyển khoản phải ghi đúng — `TM365 <mã>`; app đưa vào mã QR. */
@@ -123,8 +157,33 @@ export type PaymentIntentView = z.infer<typeof PaymentIntentView>;
 export const PaymentIntentsList = z.object({ intents: z.array(PaymentIntentView) });
 export type PaymentIntentsList = z.infer<typeof PaymentIntentsList>;
 
-/** Gọi lại trong 24 giờ với cùng số tháng → trả lại ý định đang chờ, không sinh mã mới. */
-export const PaymentIntentCreateInput = z.strictObject({ months: z.union([z.literal(1), z.literal(12)]) });
+/**
+ * Mua / gia hạn gói. App trước 0.28.0 chỉ gửi `{ months }` → gói Vựa, không người cân thêm. `extraStaff` chỉ cho gói
+ * Vựa; gia hạn Vựa chọn lại số người cân thêm (ít hơn số người đang làm thì 422 — khoá bớt người cân trước).
+ */
+const PlanPurchase = z
+  .strictObject({
+    kind: z.literal('plan').default('plan'),
+    plan: PlanCode.default('vua'),
+    months: Months,
+    extraStaff: z.number().int().min(0).max(EXTRA_STAFF_MAX).default(0),
+  })
+  .refine((v) => v.plan === 'vua' || v.extraStaff === 0, {
+    message: 'Chỉ gói Vựa mua thêm người cân',
+    path: ['extraStaff'],
+  });
+
+/** Mua thêm người cân giữa kỳ — chỉ khi đang gói Vựa đã trả tiền và còn hạn. */
+const StaffPurchase = z.strictObject({
+  kind: z.literal('staff'),
+  extraStaff: z.number().int().min(1).max(EXTRA_STAFF_MAX),
+});
+
+/**
+ * Số tiền do máy chủ tính, app không gửi. Gọi lại trong 24 giờ với cùng nội dung và cùng số tiền → trả lại ý định
+ * đang chờ, không sinh mã mới.
+ */
+export const PaymentIntentCreateInput = z.union([StaffPurchase, PlanPurchase]);
 export type PaymentIntentCreateInput = z.input<typeof PaymentIntentCreateInput>;
 
 // ─── Webhook ngân hàng ───────────────────────────────────────────────────────
@@ -160,6 +219,10 @@ export const AdminActivatePlanInput = z
     bankTxId: z.string().trim().min(3).max(100),
     /** Doanh nghiệp: số chi nhánh tối đa; bỏ trống = giữ nguyên. */
     branchLimit: z.number().int().positive().nullable().optional(),
+    /** 0.28.0 — chỉ tài khoản vựa; bỏ trống = giữ gói đang có. Đổi Thương lái → Vựa thì quy đổi ngày còn lại như webhook. */
+    plan: PlanCode.optional(),
+    /** 0.28.0 — số người cân thêm (chỉ gói Vựa); bỏ trống = giữ nguyên. */
+    extraStaff: z.number().int().min(0).max(EXTRA_STAFF_MAX).optional(),
     ...Approval,
   })
   .refine((v) => Boolean(v.organizationId) !== Boolean(v.ownerPhone), {

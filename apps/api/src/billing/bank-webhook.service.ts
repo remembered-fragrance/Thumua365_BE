@@ -6,6 +6,9 @@
  *   2. CHỐNG TRÙNG theo mã giao dịch ngân hàng — ghi sổ đối soát TRƯỚC khi gia hạn (`activatePlan`).
  *   3. KHỚP SỐ TIỀN — chuyển thiếu thì không mở gói, để đường thủ công (`/v1/admin/plans/activate`).
  *
+ * Mua gì (gói, số tháng, số người cân) đọc TỪ Ý ĐỊNH (0.28.0), không suy từ số tiền: tiền người cân tính theo ngày
+ * nên không còn duy nhất. Ý định tạo trước 0.28.0 → bảng giá cũ, gói Vựa (`purchaseOf`).
+ *
  * Ý định thanh toán bị KHOÁ HÀNG (`for update`) trước khi xét: hai giao dịch khác mã cùng trả cho một
  * ý định mà đến song song thì giao dịch sau đợi, thấy ý định đã `paid` — không gia hạn hai lần.
  * Giao dịch có mã mà không gia hạn (ý định đã trả / hết hạn, chuyển thiếu, không khớp ý định nào)
@@ -21,11 +24,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Logger } from 'winston';
 import { ApiException } from '../common/api-exception';
 import { ENV, type Env } from '../config/env';
-import { monthsForAmount } from '../config/plans';
 import { PRIVILEGED_DATABASE, type PrivilegedDatabase, privileged } from '../db/privileged-database';
 import { DomainEvents, LOGGER } from '../events/domain-events';
 import type { Tx } from '../db/database';
 import { activatePlan } from './plan-activation';
+import { purchaseOf } from './pricing';
 
 interface BankTx {
   readonly bankTxId: string;
@@ -98,8 +101,10 @@ export class BankWebhookService {
         continue;
       }
       const done = await db.run(async (tx) => {
-        const [intent] = await tx.$queryRaw<{ id: string; organization_id: string; amount: bigint }[]>`
-          select id, organization_id, amount from payment_intents
+        const [intent] = await tx.$queryRaw<
+          { id: string; organization_id: string; amount: bigint; kind: string; plan: string | null; months: number | null; extra_staff: number }[]
+        >`
+          select id, organization_id, amount, kind, plan, months, extra_staff from payment_intents
           where provider_ref = ${code} and status = 'pending' and deleted_at is null
           for update`;
         if (!intent) {
@@ -117,12 +122,18 @@ export class BankWebhookService {
           return null;
         }
 
-        const months = monthsForAmount(Number(intent.amount)) ?? 1;
+        const purchase = purchaseOf({
+          kind: intent.kind,
+          plan: intent.plan,
+          months: intent.months,
+          extraStaff: intent.extra_staff,
+          amount: Number(intent.amount),
+        });
         const plan = await activatePlan(
           tx,
           {
             organizationId: intent.organization_id,
-            months,
+            purchase,
             source: 'webhook',
             bankTxId: bank.bankTxId,
             amount: bank.amount,
@@ -133,12 +144,13 @@ export class BankWebhookService {
         );
         if (!plan) return null;
         await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'paid' }, select: { id: true } });
-        return { organizationId: intent.organization_id, months };
+        return { organizationId: intent.organization_id, months: purchase.kind === 'plan' ? purchase.months : null };
       });
 
       if (done) {
         handled.push(bank.bankTxId);
-        this.events.emit('plan.activated', { ...done, source: 'webhook' });
+        // Đo lường `plan_activated` chỉ cho lần mua / gia hạn gói; mua thêm người cân không có số tháng.
+        if (done.months !== null) this.events.emit('plan.activated', { organizationId: done.organizationId, months: done.months, source: 'webhook' });
       } else {
         skipped.push(bank.bankTxId);
       }

@@ -3,6 +3,41 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.28.0 — 31/10/2026 (gói theo quy mô: Thương lái · Vựa + người cân thêm)
+
+Migration `20261101000000_goi_theo_quy_mo` — chỉ thêm cột + thay hàm trigger, bản API 0.27.0 vẫn chạy được trên nó.
+**Chạy migration trước, deploy API 0.28.0 ngay sau, rồi mới nâng app.** App 0.26.0 vẫn mua được trong lúc chờ: gửi
+`{ months }` → gói Vựa 449.000đ, và bảng `prices` để gói Vựa lên đầu nên số app cũ hiện khớp số phải chuyển.
+
+- `subscriptions`: `plan` (`thuong_lai | vua`, doanh nghiệp NULL), `extra_staff` (0–5), `billing_months` (1 | 12).
+  Backfill: mọi tài khoản vựa đang có (đã trả tiền **và** đang dùng thử) → `vua`; `billing_months` theo khoản tiền gần
+  nhất đã mở gói. Trigger `subscriptions_default_plan` điền `vua` cho gói vựa tạo không kèm mã gói (bản API cũ).
+- `payment_intents`: `kind` (`plan | staff`), `plan`, `months`, `extra_staff`. Webhook đọc gói / số tháng / số người
+  cân TỪ Ý ĐỊNH, thôi suy từ số tiền; ý định trước 0.28.0 (149.000đ / 1.490.000đ) → gói Vựa.
+- `billing_guard`: api_service không đổi được `plan` / `extra_staff` / `billing_months` của gói, không tạo gói dùng thử
+  kèm người cân thêm, không sửa `kind` / `plan` / `months` / `extra_staff` của ý định.
+- `PlanCode` = `thuong_lai | vua`. `PlanSummary` thêm `plan`, `extraStaff`, `staffLimit` (null = không giới hạn theo
+  người — doanh nghiệp).
+- **Đổi chữ ký** `entitlementsFor(type, tier, plan)`, `entitled(type, tier, plan, entitlement)` — thêm `plan` ở vị trí
+  thứ ba. `PLAN_EXCLUDES.thuong_lai` = `members:add`, `audit:view`, `reports:org` (cả lúc dùng thử). `plan` null = không
+  bớt gì.
+- `STAFF_INCLUDED` = 3, `EXTRA_STAFF_MAX` = 5, `staffLimit(plan, extraStaff)`: Thương lái 0, Vựa 3 + số mua thêm.
+  `STAFF_LIMIT` **deprecated** — dùng `staffLimit` / `PlanSummary.staffLimit`.
+- `MeBootstrapInput.plan?` — chỉ khi `orgType = 'trader'` (khác → 422); bỏ trống → `vua`.
+- `PlanPrice` thêm `plan`; `SubscriptionView` thêm `staffPrices` (79.000đ / 790.000đ một người một kỳ) và `staffTopUps`
+  (giá mua thêm 1…n người ngay lúc này, theo ngày còn lại; rỗng = không mua thêm được).
+- `PaymentIntentCreateInput` = `{ kind?: 'plan', plan?: PlanCode = 'vua', months, extraStaff?: 0..5 }` (người cân thêm
+  chỉ gói Vựa) | `{ kind: 'staff', extraStaff: 1..5 }`. Số tiền máy chủ tính. 422 `details.reason`:
+  `STAFF_NOT_AVAILABLE` (mua người cân khi không phải Vựa đã trả còn hạn), `EXTRA_STAFF_MAX`, `DOWNGRADE_LOCKED` (Vựa
+  còn hạn mua Thương lái), `STAFF_IN_USE` (gói / số người mới ít chỗ hơn số người đang làm).
+- `PaymentIntentView` thêm `kind`, `plan`, `extraStaff`; `months` của `staff` luôn 1 (đọc `kind` trước).
+- `AdminActivatePlanInput` thêm `plan?`, `extraStaff?` (chỉ tài khoản vựa).
+- `PLAN_REQUIRED` vì gói thấp (Thương lái còn hạn) có thêm `details.requiredPlan: 'vua'`. `MEMBER_LIMIT` khi gói Vựa
+  còn chỗ mua thêm thì câu báo gợi ý mua thêm người cân.
+- Đổi gói Thương lái → Vựa giữa kỳ: ngày đã trả còn lại quy đổi `⌈ngày × 199/449⌉` rồi cộng tháng vừa mua; dùng thử /
+  ân hạn không có ngày để quy đổi. Mua thêm người cân giữa kỳ: `⌊số người × đơn giá ngày × ngày còn lại⌋` làm tròn
+  xuống 1.000đ, hết hạn cùng gói.
+
 ## 0.27.0 — 27/10/2026 (webhook ngân hàng trả đúng `{"success": true}` cho SePay)
 
 Không có migration. App không cần nâng (app không gọi webhook).

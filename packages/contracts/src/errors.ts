@@ -26,7 +26,10 @@ export const ERROR_CODES = [
   'INTERNAL',
   /** 0.16.0 — API chưa cấu hình dịch vụ gửi thư, hoặc dịch vụ đang hỏng. Liên hệ kỹ thuật viên. */
   'EMAIL_UNAVAILABLE',
-  /** 0.21.0 — gói hiện tại không có quyền lợi này (`details.entitlement`). Hết gói / chưa có gói. */
+  /**
+   * 0.21.0 — gói hiện tại không có quyền lợi này (`details.entitlement`). Hết gói / chưa có gói. 0.28.0: gói còn hạn
+   * nhưng gói Thương lái không có (người cân, nhật ký, báo cáo tổng) → thêm `details.requiredPlan: 'vua'`.
+   */
   'PLAN_REQUIRED',
   /** 0.21.0 — đã đủ số người gói cho phép (`details.limit`). */
   'MEMBER_LIMIT',

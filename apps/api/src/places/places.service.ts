@@ -60,10 +60,19 @@ interface PlaceRow {
 const pricesShown = (row: PlaceRow): boolean => {
   if (!row.prices || row.prices.length === 0 || !row.sub_id || !row.sub_status) return false;
   const plan = planSummary(
-    { id: row.sub_id, status: row.sub_status, trialEndsAt: row.trial_ends_at, currentPeriodEnd: row.current_period_end, branchLimit: null },
+    {
+      id: row.sub_id,
+      status: row.sub_status,
+      trialEndsAt: row.trial_ends_at,
+      currentPeriodEnd: row.current_period_end,
+      branchLimit: null,
+      plan: null,
+      extraStaff: 0,
+    },
     new Date(),
   );
-  return entitled(row.kind, plan?.tier, 'map:prices');
+  // `map:prices` có ở mọi gói (Thương lái lẫn Vựa) — không cần đọc mã gói của chủ điểm.
+  return entitled(row.kind, plan?.tier, null, 'map:prices');
 };
 
 const toPlace = (row: PlaceRow): Place => {

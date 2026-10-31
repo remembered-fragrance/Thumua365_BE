@@ -12,7 +12,7 @@ import type { Tx } from '../db/database';
 export const planOf = async (tx: Tx, orgId: string): Promise<PlanSummary | null> => {
   const sub = await tx.subscription.findFirst({
     where: { organizationId: orgId, deletedAt: null },
-    select: { id: true, status: true, trialEndsAt: true, currentPeriodEnd: true, branchLimit: true },
+    select: { id: true, status: true, trialEndsAt: true, currentPeriodEnd: true, branchLimit: true, plan: true, extraStaff: true },
   });
   return planSummary(sub ?? undefined, new Date());
 };
@@ -39,9 +39,23 @@ const REASON: Readonly<Record<Entitlement, string>> = {
   'map:prices': 'Gói đã hết hạn — điểm trên bản đồ vẫn hiện, gia hạn để khai và hiện giá thu mua',
 };
 
+/**
+ * Gói còn hạn nhưng gói Thương lái không có quyền lợi này (0.28.0) — câu khác câu "hết hạn": gia hạn không giúp gì,
+ * phải lên gói Vựa. Chỉ ba mã trong `PLAN_EXCLUDES.thuong_lai`.
+ */
+const SOLO_REASON: Readonly<Partial<Record<Entitlement, string>>> = {
+  'members:add': 'Gói Thương lái làm một mình — nâng lên gói Vựa để thêm người cân',
+  'audit:view': 'Gói Thương lái chưa có nhật ký thao tác — nâng lên gói Vựa để xem',
+  'reports:org': 'Gói Thương lái chưa có báo cáo tổng — nâng lên gói Vựa để xem',
+};
+
+/** `details.requiredPlan` có khi bị chặn vì gói thấp (không phải hết hạn) — app mời nâng gói thay vì gia hạn. */
 export const assertEntitlement = async (tx: Tx, m: MembershipContext, entitlement: Entitlement): Promise<void> => {
   const plan = await planOf(tx, m.organizationId);
-  if (!entitled(m.orgType, plan?.tier, entitlement)) {
-    throw new ApiException('PLAN_REQUIRED', REASON[entitlement], { entitlement });
+  if (entitled(m.orgType, plan?.tier, plan?.plan, entitlement)) return;
+  // Bỏ mã gói ra mà có → gói còn hạn, chỉ thiếu vì gói thấp.
+  if (entitled(m.orgType, plan?.tier, null, entitlement)) {
+    throw new ApiException('PLAN_REQUIRED', SOLO_REASON[entitlement] ?? REASON[entitlement], { entitlement, requiredPlan: 'vua' });
   }
+  throw new ApiException('PLAN_REQUIRED', REASON[entitlement], { entitlement });
 };
