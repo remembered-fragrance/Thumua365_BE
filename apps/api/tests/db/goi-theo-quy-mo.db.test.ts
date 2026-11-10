@@ -3,7 +3,8 @@
  *   - webhook mở đúng gói / số tháng / số người cân đọc TỪ Ý ĐỊNH; ý định cũ 149k / 1.490k vẫn mở gói Vựa
  *   - đổi gói giữa kỳ: Thương lái → Vựa quy đổi ngày còn lại; hạ Vựa → Thương lái chỉ khi hết hạn
  *   - người cân: Vựa 3 + mua thêm (tối đa 5), mua giữa kỳ theo ngày còn lại, gia hạn chọn lại số người
- *   - gói Thương lái (kể cả dùng thử) không thêm người, không xem nhật ký — câu báo mời lên gói Vựa
+ *   - gói Thương lái (kể cả dùng thử) thêm được 1 người (0.30.0), không xem nhật ký — câu báo mời lên gói Vựa
+ *   - 0.30.0: Thương lái 6 tháng 1.074.600đ, năm 2.030.400đ; Vựa không có kỳ 6 tháng
  * Chỉ Supabase Auth Admin là giả.
  */
 
@@ -134,7 +135,9 @@ beforeEach(async () => {
 describe('webhook mở đúng gói từ ý định', () => {
   const cases = [
     { plan: 'thuong_lai', months: 1, amount: 199_000 },
-    { plan: 'thuong_lai', months: 12, amount: 1_990_000 },
+    // 0.30.0 — bảng giá Giai đoạn 1: 6 tháng −10%, năm −15%.
+    { plan: 'thuong_lai', months: 6, amount: 1_074_600 },
+    { plan: 'thuong_lai', months: 12, amount: 2_030_400 },
     { plan: 'vua', months: 1, amount: 449_000 },
     { plan: 'vua', months: 12, amount: 4_490_000 },
   ] as const;
@@ -146,10 +149,25 @@ describe('webhook mở đúng gói từ ý định', () => {
       await pay(intent);
 
       const sub = await subOf();
-      expect(sub).toMatchObject({ status: 'active', plan: c.plan, extra_staff: 0, billing_months: c.months });
+      // Kỳ người cân chỉ 1 | 12 (đơn giá ngày gói Vựa): 6 tháng ghi 1.
+      expect(sub).toMatchObject({ status: 'active', plan: c.plan, extra_staff: 0, billing_months: c.months === 6 ? 1 : c.months });
       closeTo(sub?.current_period_end, new Date(extendPeriod(undefined, new Date(), c.months)));
     });
   }
+
+  it('kỳ 6 tháng chỉ gói Thương lái: Vựa 6 tháng, app cũ `{ months: 6 }` → từ chối, không tạo ý định', async () => {
+    const vua6 = await buy({ kind: 'plan', plan: 'vua', months: 6 }, 422);
+    expect(errorOf(vua6).code).toBe('VALIDATION_FAILED');
+    await buy({ months: 6 }, 422);
+    expect((await admin.query('select id from payment_intents where organization_id = $1', [vua])).rowCount).toBe(0);
+    expect((await offer()).prices).toEqual([
+      { plan: 'vua', months: 1, amount: 449_000 },
+      { plan: 'vua', months: 12, amount: 4_490_000 },
+      { plan: 'thuong_lai', months: 1, amount: 199_000 },
+      { plan: 'thuong_lai', months: 6, amount: 1_074_600 },
+      { plan: 'thuong_lai', months: 12, amount: 2_030_400 },
+    ]);
+  });
 
   it('ý định tạo trước 0.28.0 (149.000đ / 1.490.000đ, không có cột gói) vẫn mở được — thành gói Vựa', async () => {
     await setPlan('thuong_lai', -40);
@@ -227,11 +245,13 @@ describe('đổi gói', () => {
     closeTo(sub?.current_period_end, new Date(extendPeriod(undefined, new Date(), 1)));
   });
 
-  it('hạ xuống Thương lái lúc hết hạn mà còn người cân → khoá bớt người cân trước', async () => {
+  it('hạ xuống Thương lái lúc hết hạn mà còn hơn 1 người → khoá bớt người cân trước; còn 1 thì được', async () => {
     await setPlan('vua', -2);
-    await addStaff(1);
+    await addStaff(2);
     const res = await buy({ kind: 'plan', plan: 'thuong_lai', months: 1 }, 422);
-    expect(errorOf(res)).toMatchObject({ details: { reason: 'STAFF_IN_USE', used: 1, limit: 0 } });
+    expect(errorOf(res)).toMatchObject({ details: { reason: 'STAFF_IN_USE', used: 2, limit: 1 } });
+    await admin.query(`update memberships set status = 'removed' where organization_id = $1 and role = 'staff' and id = (select id from memberships where organization_id = $1 and role = 'staff' limit 1)`, [vua]);
+    await buy({ kind: 'plan', plan: 'thuong_lai', months: 1 }, 200);
   });
 });
 
@@ -328,11 +348,12 @@ describe('người cân', () => {
 });
 
 describe('gói Thương lái — quyền lợi', () => {
-  it('đang dùng thử Thương lái: không thêm người, không xem nhật ký — câu báo mời lên Vựa', async () => {
+  it('đang dùng thử Thương lái: thêm được 1 người (0.30.0), người thứ 2 MEMBER_LIMIT mời lên Vựa; không xem nhật ký', async () => {
     await setPlan('thuong_lai', null);
     const api = await as(owner, vua);
+    await api.post('/v1/org/members', staffInput()).expect(200);
     const add = await api.post('/v1/org/members', staffInput()).expect(402);
-    expect(errorOf(add)).toMatchObject({ code: 'PLAN_REQUIRED', details: { entitlement: 'members:add', requiredPlan: 'vua' } });
+    expect(errorOf(add)).toMatchObject({ code: 'MEMBER_LIMIT', details: { limit: 1 } });
     expect(errorOf(add).message).toContain('gói Vựa');
     const audit = await api.get('/v1/audit').expect(402);
     expect(errorOf(audit)).toMatchObject({ code: 'PLAN_REQUIRED', details: { entitlement: 'audit:view', requiredPlan: 'vua' } });

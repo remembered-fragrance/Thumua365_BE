@@ -199,6 +199,9 @@ const purgeOrganization = async (tx: Tx, orgId: string, actorUserId: string): Pr
   // Hệ thống của tổ chức.
   await tx.notification.deleteMany({ where });
   await tx.paymentIntent.deleteMany({ where });
+  // Mã sáng lập đã gắn (0.29.0): xoá hẳn — mã một tài khoản, không trả về kho cho người khác hay cho chính họ đăng ký
+  // lại. Danh sách mã đã phát nằm ngoài database. Sau ý định (khoá ngoại `promo_code`), trước tổ chức.
+  await tx.promoCode.deleteMany({ where });
   await tx.subscription.deleteMany({ where });
   await tx.organizationFeature.deleteMany({ where });
   await tx.membership.deleteMany({ where });

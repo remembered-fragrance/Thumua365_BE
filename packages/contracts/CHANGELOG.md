@@ -3,6 +3,50 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.30.0 — 12/11/2026 (bảng giá Giai đoạn 1)
+
+Bảng giá Giai đoạn 1 đã duyệt (chốt 10/11/2026). Migration `20261112000000_bang_gia_gd1` — chỉ nới ràng buộc, API 0.29.0
+vẫn chạy được trên nó. **Chạy migration trước, deploy API 0.30.0 ngay sau, rồi mới nâng app.** App cũ vẫn chạy: dòng giá
+6 tháng là dòng thêm trong `prices`, app cũ không vẽ.
+
+- Dùng thử **60 ngày** (trước 30) cho tổ chức đăng ký từ bản này; ai đang dùng thử giữ hạn cũ.
+- Gói Thương lái có **kỳ 6 tháng**: `PaymentIntentCreateInput` nhận `months: 6` chỉ với `plan: 'thuong_lai'` (Vựa / app cũ
+  gửi `{ months: 6 }` → 422). `payment_intents.months` ∈ (1, 6, 12); `subscriptions.billing_months` vẫn 1 | 12 (6 tháng
+  ghi 1 — chỉ dùng cho đơn giá ngày người cân gói Vựa). Sự kiện `checkout_started.months` nhận 6.
+- Giá Thương lái: tháng 199.000đ, **6 tháng 1.074.600đ** (−10%), **năm 2.030.400đ** (−15%; trước 1.990.000đ). Vựa và
+  người cân thêm giữ nguyên (1 | 12 tháng). `prices` thêm dòng `{ plan: 'thuong_lai', months: 6 }`.
+- Mã sáng lập: 6 tháng = 6 × `monthlyAmount` (894.000đ), trừ 6 kỳ, chỉ khi còn ≥ 6 kỳ; không thì giá niêm yết. Ý định
+  `promo_periods` nhận 6.
+- Gói Thương lái **thêm được 1 người** (chủ + 1): `staffLimit('thuong_lai')` = 1 (`THUONG_LAI_STAFF`), bỏ `members:add`
+  khỏi `PLAN_EXCLUDES.thuong_lai`. Người thứ 2 → 402 `MEMBER_LIMIT` (`details.limit` = 1, câu mời lên gói Vựa). Hạ Vựa →
+  Thương lái khi còn hơn 1 người → `STAFF_IN_USE` (`limit` 1).
+
+## 0.29.0 — 11/11/2026 (mã Khách hàng sáng lập)
+
+Migration `20261111000000_ma_sang_lap` — chỉ thêm bảng / cột + thay hàm trigger, API 0.28.0 vẫn chạy được trên nó.
+**Chạy migration trước, deploy API 0.29.0 ngay sau, rồi mới nâng app.** Mã không nằm trong repo: quản trị chèn bằng SQL
+(`insert into promo_codes (code, monthly_amount, periods, note) values (…, 149000, 12, …)`).
+
+- Bảng `promo_codes`: `code` (chữ hoa, số, gạch ngang), `plan` (mặc định `thuong_lai`), `monthly_amount`, `periods`,
+  `periods_used`, `organization_id` (một mã một tổ chức, một tổ chức một mã), `redeemed_by`, `redeemed_at`, `note`.
+  api_service chỉ đọc mã đã gắn với tổ chức đang làm việc; gắn mã qua hàm `redeem_promo_code(code)` (chỉ chủ đang hoạt
+  động của tài khoản vựa, tổ chức chưa có mã).
+- `payment_intents`: `promo_code`, `promo_periods` (tháng 1, năm 12). Tiền vào (webhook) trừ `periods_used`, đúng một
+  lần theo sổ đối soát. Quản trị kích hoạt tay **không** trừ kỳ. Kỳ còn lại kiểm **lúc tiền vào**: ý định giá mã tạo
+  lúc còn kỳ mà trả khi đã hết kỳ (vd. tạo sẵn ý định năm 1.788.000đ, trả tháng rồi mới trả năm) → số phải trả là giá
+  niêm yết; chuyển thiếu so với giá đó → `underpaid` (đường thủ công), đủ → mở gói, không trừ kỳ.
+- `billing_guard`: api_service chỉ tạo ý định dùng mã đã gắn với chính tổ chức đó và còn đủ kỳ; không sửa mã / số kỳ
+  của ý định đã tạo.
+- Xoá tài khoản (`DELETE /v1/me`) xoá luôn mã đã gắn với tổ chức bị xoá — mã không trả về kho cho người khác hay cho
+  chính họ đăng ký lại.
+- `POST /v1/billing/promo-codes` `{ code }` (`billing:manage`, 10 lần/phút) → `SubscriptionView`. 422 `details.reason`:
+  `PROMO_INVALID` (mã sai **hoặc** đã có người dùng — cùng câu báo), `PROMO_ALREADY_APPLIED`, `PROMO_PLAN_LOCKED`
+  (gói Vựa đã trả còn hạn — chưa mua Thương lái được nên không nhận mã; `details.periodEnd`). Doanh nghiệp, nông dân → 403.
+  SDK: `billing.redeemPromo`.
+- `SubscriptionView.promo` (`PromoView | null`): `code`, `plan`, `monthlyAmount`, `periods`, `periodsLeft`. `prices` đã là
+  giá sau mã: Thương lái tháng 149.000đ khi còn kỳ; năm 12 × 149.000 = 1.788.000đ chỉ khi còn đủ 12 kỳ, không thì
+  1.990.000đ. Gói khác gói của mã giữ giá niêm yết.
+
 ## 0.28.0 — 31/10/2026 (gói theo quy mô: Thương lái · Vựa + người cân thêm)
 
 Migration `20261101000000_goi_theo_quy_mo` — chỉ thêm cột + thay hàm trigger, bản API 0.27.0 vẫn chạy được trên nó.

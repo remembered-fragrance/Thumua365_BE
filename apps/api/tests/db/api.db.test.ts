@@ -79,7 +79,7 @@ const bootstrap = (body: Record<string, unknown>) =>
   http().post('/v1/me/bootstrap').set('authorization', `Bearer ${token}`).send(body);
 
 describe('POST /v1/me/bootstrap', () => {
-  it('vựa: tổ chức + chủ + gói dùng thử 30 ngày, đúng ma trận quyền', async () => {
+  it('vựa: tổ chức + chủ + gói dùng thử 60 ngày (0.30.0), đúng ma trận quyền', async () => {
     const res = await bootstrap({ orgType: 'trader', orgName: 'Vựa Tư Hùng', name: 'Tư Hùng' }).expect(200);
     const me = Me.parse(res.body);
 
@@ -91,13 +91,13 @@ describe('POST /v1/me/bootstrap', () => {
     expect(m?.plan).toMatchObject({ tier: 'trial', status: 'trialing', branchLimit: null });
     expect(m?.features).toEqual(['links', 'orders']);
     const days = (new Date(m?.plan?.periodEnd ?? 0).getTime() - Date.now()) / 86_400_000;
-    expect(days).toBeGreaterThan(29.9);
-    expect(days).toBeLessThanOrEqual(30);
+    expect(days).toBeGreaterThan(59.9);
+    expect(days).toBeLessThanOrEqual(60);
   });
 
   it('0.28.0: vựa chọn gói lúc đăng ký — dùng thử theo gói đó; không gửi → Vựa (app cũ)', async () => {
     const solo = Me.parse((await bootstrap({ orgType: 'trader', orgName: 'Thương lái Hai', name: 'Hai', plan: 'thuong_lai' }).expect(200)).body);
-    expect(solo.memberships[0]?.plan).toMatchObject({ tier: 'trial', plan: 'thuong_lai', extraStaff: 0, staffLimit: 0 });
+    expect(solo.memberships[0]?.plan).toMatchObject({ tier: 'trial', plan: 'thuong_lai', extraStaff: 0, staffLimit: 1 });
 
     await truncateAll();
     const vua = Me.parse((await bootstrap({ orgType: 'trader', orgName: 'Vựa Tư Hùng', name: 'Tư Hùng' }).expect(200)).body);

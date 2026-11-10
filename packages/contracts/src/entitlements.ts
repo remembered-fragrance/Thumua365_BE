@@ -62,11 +62,12 @@ type PlanTier = z.infer<typeof PlanTierSchema>;
 const PAID_TIERS: readonly PlanTier[] = ['trial', 'premium', 'grace'];
 
 /**
- * Quyền lợi gói vựa KHÔNG có (0.28.0, chốt 30/10/2026): Thương lái làm một mình — không người cân, không nhật ký,
- * không báo cáo tổng. Áp cho cả dùng thử: chọn Thương lái lúc đăng ký thì 30 ngày thử cũng không có ba thứ này.
+ * Quyền lợi gói vựa KHÔNG có: Thương lái không nhật ký, không báo cáo tổng (0.28.0, chốt 30/10/2026). Thêm người
+ * được (0.30.0) nhưng chỉ 1 người — `staffLimit`. Áp cho cả dùng thử: chọn Thương lái lúc đăng ký thì thời gian dùng
+ * thử cũng không có hai thứ này.
  */
 export const PLAN_EXCLUDES: Readonly<Record<PlanCode, readonly Entitlement[]>> = {
-  thuong_lai: ['members:add', 'audit:view', 'reports:org'],
+  thuong_lai: ['audit:view', 'reports:org'],
   vua: [],
 };
 
@@ -93,15 +94,17 @@ export const entitled = (
 
 /** Người cân gói Vựa có sẵn (chốt 31/10/2026). */
 export const STAFF_INCLUDED = 3;
+/** Người gói Thương lái thêm được ngoài chủ — bảng giá Giai đoạn 1 "tối đa 2 người dùng" (0.30.0, chốt 10/11/2026). */
+export const THUONG_LAI_STAFF = 1;
 /** Người cân mua thêm tối đa — tổng 8, giá vẫn dưới gói doanh nghiệp. */
 export const EXTRA_STAFF_MAX = 5;
 
 /**
- * Số người (không tính chủ) tối đa theo gói: Thương lái 0, Vựa 3 + số mua thêm. `plan` null (doanh nghiệp) =
- * không giới hạn theo người — doanh nghiệp giới hạn theo chi nhánh (`branchLimit`).
+ * Số người (không tính chủ) tối đa theo gói: Thương lái 1 (0.30.0; trước là 0), Vựa 3 + số mua thêm. `plan` null
+ * (doanh nghiệp) = không giới hạn theo người — doanh nghiệp giới hạn theo chi nhánh (`branchLimit`).
  */
 export const staffLimit = (plan: PlanCode | null | undefined, extraStaff: number): number | null =>
-  plan === 'thuong_lai' ? 0 : plan === 'vua' ? STAFF_INCLUDED + extraStaff : null;
+  plan === 'thuong_lai' ? THUONG_LAI_STAFF : plan === 'vua' ? STAFF_INCLUDED + extraStaff : null;
 
 /** @deprecated 0.28.0 — giới hạn theo gói: `staffLimit(plan, extraStaff)` hoặc `PlanSummary.staffLimit`. */
 export const STAFF_LIMIT: Readonly<Partial<Record<OrgType, number>>> = { trader: STAFF_INCLUDED };

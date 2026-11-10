@@ -81,7 +81,7 @@ export type Me = z.infer<typeof Me>;
 /**
  * `POST /v1/me/bootstrap` — bước "Bạn là ai?" ngay sau khi đăng ký (KH §6).
  *
- * Tạo hồ sơ + tổ chức + membership `owner` (+ gói dùng thử 30 ngày cho vựa và
+ * Tạo hồ sơ + tổ chức + membership `owner` (+ gói dùng thử 60 ngày cho vựa và
  * doanh nghiệp) trong MỘT transaction. Idempotent: người đã có tổ chức gọi lại
  * nhận về `Me` hiện tại, không tạo tổ chức thứ hai.
  */
@@ -112,7 +112,7 @@ export const MeBootstrapInput = z
     /** Tên đăng nhập tuỳ chọn — xem `Username`. */
     username: Username.optional(),
     /**
-     * 0.28.0 — gói đã chọn ở màn đăng ký, chỉ cho `trader`. Dùng thử 30 ngày có đúng tính năng của gói này
+     * 0.28.0 — gói đã chọn ở màn đăng ký, chỉ cho `trader`. Dùng thử 60 ngày có đúng tính năng của gói này
      * (Thương lái: không thêm người cân). Bỏ trống → `vua` (app cũ chưa gửi trường này).
      */
     plan: PlanCode.optional(),

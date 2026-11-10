@@ -89,7 +89,8 @@ export type ReferralClaimResult = z.infer<typeof ReferralClaimResult>;
 
 // ─── Gói ─────────────────────────────────────────────────────────────────────
 
-const Months = z.union([z.literal(1), z.literal(12)]);
+/** Kỳ trả một lần. 6 tháng chỉ gói Thương lái (0.30.0). */
+const Months = z.union([z.literal(1), z.literal(6), z.literal(12)]);
 
 /** 0.28.0 thêm `plan`. Gói Vựa đứng trước: app cũ tìm giá theo `months` và lấy dòng đầu — mua theo mặc định là Vựa. */
 export const PlanPrice = z.object({ plan: PlanCode, months: z.number().int().positive(), amount: Money });
@@ -102,6 +103,31 @@ export type StaffPrice = z.infer<typeof StaffPrice>;
 /** Mua thêm `extraStaff` người cân giữa kỳ: máy chủ tính theo ngày còn lại tới hạn gói, hết hạn cùng gói. */
 export const StaffTopUp = z.object({ extraStaff: z.number().int().positive(), amount: Money });
 export type StaffTopUp = z.infer<typeof StaffTopUp>;
+
+/**
+ * 0.29.0 — mã Khách hàng sáng lập đã gắn với tổ chức. Gói `plan` mua theo tháng giá `monthlyAmount`; trả năm một lần
+ * `periods × monthlyAmount` khi chưa dùng kỳ nào. `periodsLeft` = 0 thì về giá niêm yết. `prices` đã là giá sau mã.
+ */
+export const PromoView = z.object({
+  code: z.string(),
+  plan: PlanCode,
+  monthlyAmount: Money,
+  periods: z.number().int().positive(),
+  periodsLeft: z.number().int().nonnegative(),
+});
+export type PromoView = z.infer<typeof PromoView>;
+
+/** Mã chữ số và gạch ngang, không phân biệt hoa thường. */
+export const PromoRedeemInput = z.strictObject({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(4, 'Mã ngắn quá — kiểm lại mã được tặng')
+    .max(32, 'Mã dài quá — kiểm lại mã được tặng')
+    .regex(/^[A-Z0-9-]+$/, 'Mã chỉ gồm chữ, số và dấu gạch ngang'),
+});
+export type PromoRedeemInput = z.input<typeof PromoRedeemInput>;
 
 export const SubscriptionView = z.object({
   /** null với nông dân. */
@@ -118,6 +144,8 @@ export const SubscriptionView = z.object({
    * tiền, còn hạn và chưa đủ 8 người; rỗng = không có nút "Mua thêm người cân".
    */
   staffTopUps: z.array(StaffTopUp),
+  /** 0.29.0 — mã sáng lập đã gắn; null khi chưa có (máy chủ trước 0.29.0 không gửi → null). */
+  promo: PromoView.nullable().default(null),
 });
 export type SubscriptionView = z.infer<typeof SubscriptionView>;
 
@@ -171,6 +199,10 @@ const PlanPurchase = z
   .refine((v) => v.plan === 'vua' || v.extraStaff === 0, {
     message: 'Chỉ gói Vựa mua thêm người cân',
     path: ['extraStaff'],
+  })
+  .refine((v) => v.plan === 'thuong_lai' || v.months !== 6, {
+    message: 'Kỳ 6 tháng chỉ có ở gói Thương lái',
+    path: ['months'],
   });
 
 /** Mua thêm người cân giữa kỳ — chỉ khi đang gói Vựa đã trả tiền và còn hạn. */

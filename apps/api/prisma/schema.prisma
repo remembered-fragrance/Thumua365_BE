@@ -55,6 +55,7 @@ model Organization {
   notes          Note[]
   seasonContracts SeasonContract[]
   paymentIntents PaymentIntent[]
+  promoCode      PromoCode?
   notifications  Notification[]
   syncOps        SyncOp[]
   ownedLinks     PartnerLink[]         @relation("LinkOwner")
@@ -658,15 +659,42 @@ model PaymentIntent {
   months         Int?      @db.SmallInt
   /// plan: người cân thêm trong kỳ mua; staff: số người mua thêm.
   extraStaff     Int       @default(0) @map("extra_staff") @db.SmallInt
+  /// Mã sáng lập dùng cho ý định này (0.29.0); null = giá niêm yết.
+  promoCode      String?   @map("promo_code")
+  /// Số kỳ giá mã trừ khi tiền vào: tháng 1, năm 12; 0 khi không dùng mã.
+  promoPeriods   Int       @default(0) @map("promo_periods") @db.SmallInt
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization  @relation(fields: [organizationId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  /// NO ACTION như SQL: SET NULL (mặc định của Prisma) sẽ vi phạm `payment_intents_promo_check`.
+  promo        PromoCode?    @relation(fields: [promoCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@map("payment_intents")
+}
+
+/// Mã Khách hàng sáng lập (0.29.0) — giá tháng riêng trong `periods` kỳ đã trả. Gắn một tổ chức qua `redeem_promo_code()`.
+model PromoCode {
+  code           String    @id
+  /// thuong_lai | vua — gói được giá mã.
+  plan           String    @default("thuong_lai")
+  monthlyAmount  Int       @map("monthly_amount")
+  periods        Int       @db.SmallInt
+  periodsUsed    Int       @default(0) @map("periods_used") @db.SmallInt
+  organizationId String?   @unique @map("organization_id") @db.Uuid
+  redeemedBy     String?   @map("redeemed_by") @db.Uuid
+  redeemedAt     DateTime? @map("redeemed_at") @db.Timestamptz(6)
+  note           String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// NO ACTION như SQL: SET NULL sẽ vi phạm `promo_codes_redeemed_check` — xoá tổ chức thì xoá mã trước (xoá tài khoản).
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paymentIntents PaymentIntent[]
+
+  @@map("promo_codes")
 }
 
 /// Quản trị viên chạm dữ liệu người dùng — bắt buộc người duyệt. Chỉ api_privileged.
