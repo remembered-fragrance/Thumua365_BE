@@ -207,6 +207,17 @@ describe('xoá tài khoản', () => {
       [vua, owner],
     );
     await admin.query(`insert into bank_transactions (bank_tx_id, organization_id, amount, source) values ('FT-CU', $1, 149000, 'webhook')`, [vua]);
+    // Mã sáng lập đã gắn + ý định dùng mã (0.29.0) — khoá ngoại tới tổ chức, phải đi theo tổ chức.
+    await admin.query(
+      `insert into promo_codes (code, monthly_amount, periods, periods_used, organization_id, redeemed_by, redeemed_at)
+       values ('SL149-XOA001', 149000, 12, 1, $1, $2, now())`,
+      [vua, owner],
+    );
+    await admin.query(
+      `insert into payment_intents (organization_id, created_by, amount, status, provider, provider_ref, kind, plan, months, promo_code, promo_periods)
+       values ($1, $2, 149000, 'pending', 'vietqr', 'P8Q2R4', 'plan', 'thuong_lai', 1, 'SL149-XOA001', 1)`,
+      [vua, owner],
+    );
     await admin.query(`insert into feedback (organization_id, user_id, rating, comment, platform) values ($1, $2, 4, 'Bàn phím to dễ bấm', 'pwa')`, [
       vua,
       owner,
@@ -230,6 +241,8 @@ describe('xoá tài khoản', () => {
     expect(await count('orders')).toBe(0);
     expect(await count('order_events')).toBe(0);
     expect(await count('partner_links')).toBe(0);
+    // Mã sáng lập đi theo tổ chức: xoá hẳn, không trả về kho để người khác (hay chính họ đăng ký lại) dùng tiếp.
+    expect(await count(`promo_codes where code = 'SL149-XOA001'`)).toBe(0);
     // Giữ lại: sổ đối soát ngân hàng, nhật ký xoá tài khoản.
     expect(await count(`bank_transactions where bank_tx_id = 'FT-CU'`)).toBe(1);
     expect(await count(`audit_log where action = 'account.deleted' and actor_user_id = $1`, [owner])).toBe(1);

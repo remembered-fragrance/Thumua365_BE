@@ -37,6 +37,8 @@ Migration `20261111000000_ma_sang_lap` — chỉ thêm bảng / cột + thay hà
   niêm yết; chuyển thiếu so với giá đó → `underpaid` (đường thủ công), đủ → mở gói, không trừ kỳ.
 - `billing_guard`: api_service chỉ tạo ý định dùng mã đã gắn với chính tổ chức đó và còn đủ kỳ; không sửa mã / số kỳ
   của ý định đã tạo.
+- Xoá tài khoản (`DELETE /v1/me`) xoá luôn mã đã gắn với tổ chức bị xoá — mã không trả về kho cho người khác hay cho
+  chính họ đăng ký lại.
 - `POST /v1/billing/promo-codes` `{ code }` (`billing:manage`, 10 lần/phút) → `SubscriptionView`. 422 `details.reason`:
   `PROMO_INVALID` (mã sai **hoặc** đã có người dùng — cùng câu báo), `PROMO_ALREADY_APPLIED`, `PROMO_PLAN_LOCKED`
   (gói Vựa đã trả còn hạn — chưa mua Thương lái được nên không nhận mã; `details.periodEnd`). Doanh nghiệp, nông dân → 403.
