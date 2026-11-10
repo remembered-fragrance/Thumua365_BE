@@ -669,7 +669,8 @@ model PaymentIntent {
 
   organization Organization  @relation(fields: [organizationId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
-  promo        PromoCode?    @relation(fields: [promoCode], references: [code])
+  /// NO ACTION như SQL: SET NULL (mặc định của Prisma) sẽ vi phạm `payment_intents_promo_check`.
+  promo        PromoCode?    @relation(fields: [promoCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@map("payment_intents")
@@ -689,7 +690,8 @@ model PromoCode {
   note           String?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  organization   Organization?   @relation(fields: [organizationId], references: [id])
+  /// NO ACTION như SQL: SET NULL sẽ vi phạm `promo_codes_redeemed_check` — xoá tổ chức thì xoá mã trước (xoá tài khoản).
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   paymentIntents PaymentIntent[]
 
   @@map("promo_codes")
