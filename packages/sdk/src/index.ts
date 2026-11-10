@@ -278,6 +278,11 @@ export const createClient = (options: ClientOptions) => {
       intents: () => call('billingIntentsList'),
       /** Chủ vựa định chuyển khoản: trả mã đối soát + nội dung chuyển khoản cho mã QR. */
       createIntent: (input: RouteBody<'billingIntentsCreate'>) => send('billingIntentsCreate', input),
+      /**
+       * Nhập mã Khách hàng sáng lập (0.29.0) — trả gói kèm giá sau mã. `VALIDATION_FAILED` với `details.reason`
+       * `PROMO_INVALID` (mã sai hoặc đã có người dùng) / `PROMO_ALREADY_APPLIED` (tổ chức đã có mã) / `PROMO_PLAN_LOCKED` (gói Vựa đã trả còn hạn).
+       */
+      redeemPromo: (input: RouteBody<'billingPromoRedeem'>) => send('billingPromoRedeem', input),
     },
     /** Tổ chức đang làm việc, nhân viên và chi nhánh (BE7) — phần lớn là màn của chủ vựa / doanh nghiệp. */
     org: {

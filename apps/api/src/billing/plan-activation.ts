@@ -37,6 +37,8 @@ export interface Activation {
   readonly amount: number;
   readonly paymentIntentId?: string | null;
   readonly description?: string | null;
+  /** Ý định dùng giá mã sáng lập (0.29.0) — trừ `periods` kỳ của mã. Quản trị kích hoạt tay không trừ. */
+  readonly promo?: { readonly code: string; readonly periods: number } | null;
 }
 
 /** Gói sau khi gia hạn; `null` khi mã giao dịch ngân hàng ĐÃ được xử lý trước đó. */
@@ -50,6 +52,14 @@ export const activatePlan = async (tx: Tx, a: Activation, now: Date): Promise<Pl
           description = coalesce(excluded.description, bank_transactions.description)
       where bank_transactions.outcome <> 'applied'`;
   if (ledger === 0) return null;
+
+  // Sau sổ đối soát: mã giao dịch đã xử lý thì đã dừng ở trên, không trừ kỳ hai lần. Hai ý định giá mã cùng chờ rồi
+  // cùng trả → kẹp ở `periods` (kỳ dư hưởng giá mã — chênh tối đa một lần mua, chấp nhận).
+  if (a.promo) {
+    await tx.$executeRaw`
+      update promo_codes set periods_used = least(periods, periods_used + ${a.promo.periods})
+      where code = ${a.promo.code} and organization_id = ${a.organizationId}::uuid`;
+  }
 
   const p = a.purchase;
   let sub =
@@ -81,6 +91,7 @@ export const activatePlan = async (tx: Tx, a: Activation, now: Date): Promise<Pl
         source: a.source,
         bankTxId: a.bankTxId,
         amount: a.amount,
+        ...(a.promo ? { promoCode: a.promo.code, promoPeriods: a.promo.periods } : {}),
       },
     },
     select: { id: true },

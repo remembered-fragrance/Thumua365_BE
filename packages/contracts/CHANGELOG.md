@@ -3,6 +3,30 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.29.0 — 11/11/2026 (mã Khách hàng sáng lập)
+
+Migration `20261111000000_ma_sang_lap` — chỉ thêm bảng / cột + thay hàm trigger, API 0.28.0 vẫn chạy được trên nó.
+**Chạy migration trước, deploy API 0.29.0 ngay sau, rồi mới nâng app.** Mã không nằm trong repo: quản trị chèn bằng SQL
+(`insert into promo_codes (code, monthly_amount, periods, note) values (…, 149000, 12, …)`).
+
+- Bảng `promo_codes`: `code` (chữ hoa, số, gạch ngang), `plan` (mặc định `thuong_lai`), `monthly_amount`, `periods`,
+  `periods_used`, `organization_id` (một mã một tổ chức, một tổ chức một mã), `redeemed_by`, `redeemed_at`, `note`.
+  api_service chỉ đọc mã đã gắn với tổ chức đang làm việc; gắn mã qua hàm `redeem_promo_code(code)` (chỉ chủ đang hoạt
+  động của tài khoản vựa, tổ chức chưa có mã).
+- `payment_intents`: `promo_code`, `promo_periods` (tháng 1, năm 12). Tiền vào (webhook) trừ `periods_used`, đúng một
+  lần theo sổ đối soát. Quản trị kích hoạt tay **không** trừ kỳ. Kỳ còn lại kiểm **lúc tiền vào**: ý định giá mã tạo
+  lúc còn kỳ mà trả khi đã hết kỳ (vd. tạo sẵn ý định năm 1.788.000đ, trả tháng rồi mới trả năm) → số phải trả là giá
+  niêm yết; chuyển thiếu so với giá đó → `underpaid` (đường thủ công), đủ → mở gói, không trừ kỳ.
+- `billing_guard`: api_service chỉ tạo ý định dùng mã đã gắn với chính tổ chức đó và còn đủ kỳ; không sửa mã / số kỳ
+  của ý định đã tạo.
+- `POST /v1/billing/promo-codes` `{ code }` (`billing:manage`, 10 lần/phút) → `SubscriptionView`. 422 `details.reason`:
+  `PROMO_INVALID` (mã sai **hoặc** đã có người dùng — cùng câu báo), `PROMO_ALREADY_APPLIED`, `PROMO_PLAN_LOCKED`
+  (gói Vựa đã trả còn hạn — chưa mua Thương lái được nên không nhận mã; `details.periodEnd`). Doanh nghiệp, nông dân → 403.
+  SDK: `billing.redeemPromo`.
+- `SubscriptionView.promo` (`PromoView | null`): `code`, `plan`, `monthlyAmount`, `periods`, `periodsLeft`. `prices` đã là
+  giá sau mã: Thương lái tháng 149.000đ khi còn kỳ; năm 12 × 149.000 = 1.788.000đ chỉ khi còn đủ 12 kỳ, không thì
+  1.990.000đ. Gói khác gói của mã giữ giá niêm yết.
+
 ## 0.28.0 — 31/10/2026 (gói theo quy mô: Thương lái · Vựa + người cân thêm)
 
 Migration `20261101000000_goi_theo_quy_mo` — chỉ thêm cột + thay hàm trigger, bản API 0.27.0 vẫn chạy được trên nó.

@@ -3,6 +3,7 @@ import {
   PaymentIntentCreateInput,
   type PaymentIntentsList,
   type PaymentIntentView,
+  PromoRedeemInput,
   routes,
   type SubscriptionView,
 } from '@mambo/contracts';
@@ -44,6 +45,15 @@ export class BillingController {
     @Body() input: z.output<typeof PaymentIntentCreateInput>,
   ): Promise<PaymentIntentView> {
     return this.billing.createIntent(user, m, input);
+  }
+
+  @Endpoint(routes.billingPromoRedeem)
+  redeemPromo(
+    @CurrentUser() user: AuthUser,
+    @CurrentMembership() m: MembershipContext,
+    @Body() input: z.output<typeof PromoRedeemInput>,
+  ): Promise<SubscriptionView> {
+    return this.billing.redeemPromo(user, m, input);
   }
 
   @Endpoint(routes.webhooksBank)

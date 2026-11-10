@@ -31,6 +31,31 @@ const staffPriceOf = (months: 1 | 12): number => {
 export const planAmount = (plan: PlanCode, months: 1 | 12, extraStaff: number): number =>
   priceOf(plan, months) + extraStaff * staffPriceOf(months);
 
+/** Mã sáng lập đã gắn với tổ chức (0.29.0). */
+export interface PromoRow {
+  readonly code: string;
+  readonly plan: string;
+  readonly monthlyAmount: number;
+  readonly periods: number;
+  readonly periodsUsed: number;
+}
+
+/**
+ * Giá gói khi tổ chức có mã sáng lập; `null` = giá niêm yết (mã của gói khác, đã hết kỳ). Tháng: `monthlyAmount`, trừ
+ * 1 kỳ. Năm: 12 × `monthlyAmount`, trừ 12 kỳ — chỉ khi còn đủ 12 kỳ (chốt 10/11: 12 × 149.000 = 1.788.000đ).
+ */
+export const promoQuote = (
+  promo: PromoRow | null,
+  plan: PlanCode,
+  months: 1 | 12,
+  extraStaff: number,
+): { readonly amount: number; readonly periods: number } | null => {
+  if (!promo || promo.plan !== plan) return null;
+  const left = promo.periods - promo.periodsUsed;
+  if (left < months) return null;
+  return { amount: promo.monthlyAmount * months + extraStaff * staffPriceOf(months), periods: months };
+};
+
 /**
  * Mua thêm người cân giữa kỳ: trả theo ngày còn lại tới hạn gói, làm tròn XUỐNG tới 1.000đ (lợi khách, dễ chuyển
  * khoản). Đơn giá ngày theo kỳ đang dùng: tháng 79.000/30, năm 790.000/365. Còn 20 ngày (kỳ tháng), thêm 2 người →

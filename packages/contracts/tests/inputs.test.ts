@@ -6,7 +6,9 @@ import {
   MeBootstrapInput,
   MeProfilePatch,
   PaymentIntentCreateInput,
+  PromoRedeemInput,
   ResolveIdentifierInput,
+  SubscriptionView,
 } from '../src/index.js';
 
 describe('MeBootstrapInput', () => {
@@ -58,6 +60,29 @@ describe('PaymentIntentCreateInput (0.28.0)', () => {
     expect(PaymentIntentCreateInput.safeParse({ kind: 'staff', extraStaff: 0 }).success).toBe(false);
     expect(PaymentIntentCreateInput.safeParse({ kind: 'staff', extraStaff: 2, months: 1 }).success).toBe(false);
     expect(PaymentIntentCreateInput.safeParse({ months: 1, amount: 1000 }).success).toBe(false);
+  });
+});
+
+describe('Mã sáng lập (0.29.0)', () => {
+  it('bỏ khoảng trắng, đổi chữ hoa; chỉ chữ, số, gạch ngang 4–32 ký tự', () => {
+    expect(PromoRedeemInput.parse({ code: '  sl149-ab12cd ' })).toEqual({ code: 'SL149-AB12CD' });
+    expect(PromoRedeemInput.safeParse({ code: 'ab c' }).success).toBe(false);
+    expect(PromoRedeemInput.safeParse({ code: 'abc' }).success).toBe(false);
+    expect(PromoRedeemInput.safeParse({ code: 'A'.repeat(200) }).error?.issues[0]?.message).toMatch(/dài quá/);
+    expect(PromoRedeemInput.safeParse({ code: 'SL149-AB12CD', org: 'x' }).success).toBe(false);
+  });
+
+  it('máy chủ trước 0.29.0 không gửi `promo` → null', () => {
+    const view = SubscriptionView.parse({
+      plan: null,
+      trialEndsAt: null,
+      currentPeriodEnd: null,
+      selfServe: true,
+      prices: [],
+      staffPrices: [],
+      staffTopUps: [],
+    });
+    expect(view.promo).toBeNull();
   });
 });
 

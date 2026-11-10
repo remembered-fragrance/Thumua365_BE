@@ -15,6 +15,7 @@ import {
   PaymentIntentCreateInput,
   PaymentIntentsList,
   PaymentIntentView,
+  PromoRedeemInput,
   ReferralClaimInput,
   RecoveryEmailConfirmInput,
   RecoveryEmailConfirmResult,
@@ -101,6 +102,17 @@ export const accountRoutes = {
     permission: 'billing:manage',
     body: PaymentIntentCreateInput,
     response: PaymentIntentView,
+  },
+  billingPromoRedeem: {
+    method: 'POST',
+    path: '/v1/billing/promo-codes',
+    summary:
+      'Chủ tài khoản vựa nhập mã Khách hàng sáng lập — gắn mã với tổ chức, trả gói kèm giá sau mã. Mã sai / đã có người dùng → 422 PROMO_INVALID (không nói lý do nào); tổ chức đã có mã → 422 PROMO_ALREADY_APPLIED; gói Vựa đã trả còn hạn → 422 PROMO_PLAN_LOCKED (`details.periodEnd`); doanh nghiệp, nông dân → 403',
+    auth: 'org',
+    permission: 'billing:manage',
+    body: PromoRedeemInput,
+    response: SubscriptionView,
+    rateLimitPerMinute: 10,
   },
   referralsClaim: {
     method: 'POST',

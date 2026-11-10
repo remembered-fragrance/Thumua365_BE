@@ -28,7 +28,7 @@ import { PRIVILEGED_DATABASE, type PrivilegedDatabase, privileged } from '../db/
 import { DomainEvents, LOGGER } from '../events/domain-events';
 import type { Tx } from '../db/database';
 import { activatePlan } from './plan-activation';
-import { purchaseOf } from './pricing';
+import { planAmount, purchaseOf } from './pricing';
 
 interface BankTx {
   readonly bankTxId: string;
@@ -102,9 +102,19 @@ export class BankWebhookService {
       }
       const done = await db.run(async (tx) => {
         const [intent] = await tx.$queryRaw<
-          { id: string; organization_id: string; amount: bigint; kind: string; plan: string | null; months: number | null; extra_staff: number }[]
+          {
+            id: string;
+            organization_id: string;
+            amount: bigint;
+            kind: string;
+            plan: string | null;
+            months: number | null;
+            extra_staff: number;
+            promo_code: string | null;
+            promo_periods: number;
+          }[]
         >`
-          select id, organization_id, amount, kind, plan, months, extra_staff from payment_intents
+          select id, organization_id, amount, kind, plan, months, extra_staff, promo_code, promo_periods from payment_intents
           where provider_ref = ${code} and status = 'pending' and deleted_at is null
           for update`;
         if (!intent) {
@@ -129,6 +139,23 @@ export class BankWebhookService {
           extraStaff: intent.extra_staff,
           amount: Number(intent.amount),
         });
+
+        // Ý định giá mã sáng lập: kỳ còn lại kiểm LÚC TIỀN VÀO, không chỉ lúc tạo ý định — tạo sẵn ý định năm 1.788.000đ,
+        // trả tháng cho hết kỳ rồi mới trả ý định năm thì không còn giá mã. Hết kỳ: số phải trả là giá niêm yết; chuyển
+        // thiếu so với giá đó → đường thủ công như mọi lần chuyển thiếu, đủ → mở gói, không trừ kỳ. Khoá dòng mã: hai
+        // giao dịch cùng mã về song song thì lần sau thấy số kỳ lần trước đã trừ.
+        let promo: { code: string; periods: number } | null = null;
+        if (intent.promo_code && purchase.kind === 'plan') {
+          const [row] = await tx.$queryRaw<{ remaining: number }[]>`
+            select periods - periods_used as remaining from promo_codes where code = ${intent.promo_code} for update`;
+          if ((row?.remaining ?? 0) >= intent.promo_periods) {
+            promo = { code: intent.promo_code, periods: intent.promo_periods };
+          } else if (bank.amount < planAmount(purchase.plan ?? 'thuong_lai', purchase.months === 12 ? 12 : 1, purchase.extraStaff)) {
+            await recordUnapplied(tx, bank, 'underpaid', { id: intent.id, organizationId: intent.organization_id });
+            return null;
+          }
+        }
+
         const plan = await activatePlan(
           tx,
           {
@@ -139,6 +166,7 @@ export class BankWebhookService {
             amount: bank.amount,
             paymentIntentId: intent.id,
             description: bank.description,
+            promo,
           },
           new Date(),
         );
