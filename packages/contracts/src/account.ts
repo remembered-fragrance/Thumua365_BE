@@ -89,7 +89,8 @@ export type ReferralClaimResult = z.infer<typeof ReferralClaimResult>;
 
 // ─── Gói ─────────────────────────────────────────────────────────────────────
 
-const Months = z.union([z.literal(1), z.literal(12)]);
+/** Kỳ trả một lần. 6 tháng chỉ gói Thương lái (0.30.0). */
+const Months = z.union([z.literal(1), z.literal(6), z.literal(12)]);
 
 /** 0.28.0 thêm `plan`. Gói Vựa đứng trước: app cũ tìm giá theo `months` và lấy dòng đầu — mua theo mặc định là Vựa. */
 export const PlanPrice = z.object({ plan: PlanCode, months: z.number().int().positive(), amount: Money });
@@ -198,6 +199,10 @@ const PlanPurchase = z
   .refine((v) => v.plan === 'vua' || v.extraStaff === 0, {
     message: 'Chỉ gói Vựa mua thêm người cân',
     path: ['extraStaff'],
+  })
+  .refine((v) => v.plan === 'thuong_lai' || v.months !== 6, {
+    message: 'Kỳ 6 tháng chỉ có ở gói Thương lái',
+    path: ['months'],
   });
 
 /** Mua thêm người cân giữa kỳ — chỉ khi đang gói Vựa đã trả tiền và còn hạn. */

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.29.0"
+    "version": "0.30.0"
   },
   "servers": [
     {
@@ -10482,6 +10482,10 @@
                           },
                           {
                             "type": "number",
+                            "const": 6
+                          },
+                          {
+                            "type": "number",
                             "const": 12
                           }
                         ]
@@ -12515,6 +12519,10 @@
                                     {
                                       "type": "number",
                                       "const": 1
+                                    },
+                                    {
+                                      "type": "number",
+                                      "const": 6
                                     },
                                     {
                                       "type": "number",

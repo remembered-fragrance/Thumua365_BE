@@ -28,7 +28,7 @@ import { PRIVILEGED_DATABASE, type PrivilegedDatabase, privileged } from '../db/
 import { DomainEvents, LOGGER } from '../events/domain-events';
 import type { Tx } from '../db/database';
 import { activatePlan } from './plan-activation';
-import { planAmount, purchaseOf } from './pricing';
+import { planAmount, pricedMonths, purchaseOf } from './pricing';
 
 interface BankTx {
   readonly bankTxId: string;
@@ -150,7 +150,7 @@ export class BankWebhookService {
             select periods - periods_used as remaining from promo_codes where code = ${intent.promo_code} for update`;
           if ((row?.remaining ?? 0) >= intent.promo_periods) {
             promo = { code: intent.promo_code, periods: intent.promo_periods };
-          } else if (bank.amount < planAmount(purchase.plan ?? 'thuong_lai', purchase.months === 12 ? 12 : 1, purchase.extraStaff)) {
+          } else if (bank.amount < planAmount(purchase.plan ?? 'thuong_lai', pricedMonths(purchase.months), purchase.extraStaff)) {
             await recordUnapplied(tx, bank, 'underpaid', { id: intent.id, organizationId: intent.organization_id });
             return null;
           }

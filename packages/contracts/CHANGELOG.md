@@ -3,6 +3,24 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.30.0 — 12/11/2026 (bảng giá Giai đoạn 1)
+
+Bảng giá Giai đoạn 1 đã duyệt (chốt 10/11/2026). Migration `20261112000000_bang_gia_gd1` — chỉ nới ràng buộc, API 0.29.0
+vẫn chạy được trên nó. **Chạy migration trước, deploy API 0.30.0 ngay sau, rồi mới nâng app.** App cũ vẫn chạy: dòng giá
+6 tháng là dòng thêm trong `prices`, app cũ không vẽ.
+
+- Dùng thử **60 ngày** (trước 30) cho tổ chức đăng ký từ bản này; ai đang dùng thử giữ hạn cũ.
+- Gói Thương lái có **kỳ 6 tháng**: `PaymentIntentCreateInput` nhận `months: 6` chỉ với `plan: 'thuong_lai'` (Vựa / app cũ
+  gửi `{ months: 6 }` → 422). `payment_intents.months` ∈ (1, 6, 12); `subscriptions.billing_months` vẫn 1 | 12 (6 tháng
+  ghi 1 — chỉ dùng cho đơn giá ngày người cân gói Vựa). Sự kiện `checkout_started.months` nhận 6.
+- Giá Thương lái: tháng 199.000đ, **6 tháng 1.074.600đ** (−10%), **năm 2.030.400đ** (−15%; trước 1.990.000đ). Vựa và
+  người cân thêm giữ nguyên (1 | 12 tháng). `prices` thêm dòng `{ plan: 'thuong_lai', months: 6 }`.
+- Mã sáng lập: 6 tháng = 6 × `monthlyAmount` (894.000đ), trừ 6 kỳ, chỉ khi còn ≥ 6 kỳ; không thì giá niêm yết. Ý định
+  `promo_periods` nhận 6.
+- Gói Thương lái **thêm được 1 người** (chủ + 1): `staffLimit('thuong_lai')` = 1 (`THUONG_LAI_STAFF`), bỏ `members:add`
+  khỏi `PLAN_EXCLUDES.thuong_lai`. Người thứ 2 → 402 `MEMBER_LIMIT` (`details.limit` = 1, câu mời lên gói Vựa). Hạ Vựa →
+  Thương lái khi còn hơn 1 người → `STAFF_IN_USE` (`limit` 1).
+
 ## 0.29.0 — 11/11/2026 (mã Khách hàng sáng lập)
 
 Migration `20261111000000_ma_sang_lap` — chỉ thêm bảng / cột + thay hàm trigger, API 0.28.0 vẫn chạy được trên nó.

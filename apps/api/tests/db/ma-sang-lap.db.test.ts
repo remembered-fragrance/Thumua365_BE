@@ -112,7 +112,7 @@ describe('nhập mã', () => {
     const view = await offer();
     expect(view.promo).toBeNull();
     expect(priceOf(view, 'thuong_lai', 1)).toBe(199_000);
-    expect(priceOf(view, 'thuong_lai', 12)).toBe(1_990_000);
+    expect(priceOf(view, 'thuong_lai', 12)).toBe(2_030_400);
   });
 
   it('nhập mã (chữ thường, có khoảng trắng) → gắn với tổ chức, giá Thương lái sau mã, Vựa giữ nguyên', async () => {
@@ -216,13 +216,13 @@ describe('mua và trừ kỳ', () => {
     expect((await buy({ kind: 'plan', plan: 'thuong_lai', months: 1 })).amount).toBe(199_000);
   });
 
-  it('đã dùng 1 kỳ → năm về 1.990.000đ, tháng vẫn 149.000đ', async () => {
+  it('đã dùng 1 kỳ → năm về 2.030.400đ, tháng vẫn 149.000đ', async () => {
     await redeem(CODE, 200);
     await admin.query('update promo_codes set periods_used = 1 where code = $1', [CODE]);
     const view = await offer();
-    expect(priceOf(view, 'thuong_lai', 12)).toBe(1_990_000);
+    expect(priceOf(view, 'thuong_lai', 12)).toBe(2_030_400);
     expect(priceOf(view, 'thuong_lai', 1)).toBe(149_000);
-    expect((await buy({ kind: 'plan', plan: 'thuong_lai', months: 12 })).amount).toBe(1_990_000);
+    expect((await buy({ kind: 'plan', plan: 'thuong_lai', months: 12 })).amount).toBe(2_030_400);
   });
 
   it('ý định năm tạo sẵn lúc còn 12 kỳ, trả sau khi đã dùng kỳ → không còn giá mã: 1.788.000đ là chuyển thiếu', async () => {
@@ -252,6 +252,37 @@ describe('mua và trừ kỳ', () => {
     const intents = (await admin.query<{ status: string }>('select status from payment_intents where organization_id = $1', [vua])).rows;
     expect(intents.map((r) => r.status)).toEqual(['paid']);
     expect((await codeRow())?.periods_used).toBe(12);
+  });
+
+  it('6 tháng 6 × 149.000 = 894.000đ trừ 6 kỳ (0.30.0); hai lần 6 tháng hết 12 kỳ → về 1.074.600đ', async () => {
+    await redeem(CODE, 200);
+    expect(priceOf(await offer(), 'thuong_lai', 6)).toBe(894_000);
+    const first = await buy({ kind: 'plan', plan: 'thuong_lai', months: 6 });
+    expect(first.amount).toBe(894_000);
+    await pay(first);
+    expect((await codeRow())?.periods_used).toBe(6);
+
+    const view = await offer();
+    expect(priceOf(view, 'thuong_lai', 6)).toBe(894_000);
+    expect(priceOf(view, 'thuong_lai', 12)).toBe(2_030_400);
+    await pay(await buy({ kind: 'plan', plan: 'thuong_lai', months: 6 }));
+    expect((await codeRow())?.periods_used).toBe(12);
+    expect(priceOf(await offer(), 'thuong_lai', 6)).toBe(1_074_600);
+  });
+
+  it('còn 5 kỳ → 6 tháng giá thường 1.074.600đ; ý định 894.000đ tạo sẵn lúc còn 6 kỳ thành chuyển thiếu', async () => {
+    await redeem(CODE, 200);
+    await admin.query('update promo_codes set periods_used = 6 where code = $1', [CODE]);
+    const half = await buy({ kind: 'plan', plan: 'thuong_lai', months: 6 });
+    expect(half.amount).toBe(894_000);
+    await pay(await buy({ kind: 'plan', plan: 'thuong_lai', months: 1 }));
+    expect((await codeRow())?.periods_used).toBe(7);
+    expect(priceOf(await offer(), 'thuong_lai', 6)).toBe(1_074_600);
+
+    await pay(half);
+    const outcome = (await admin.query<{ outcome: string }>('select outcome from bank_transactions where bank_tx_id = $1', [`FT-SL-${tid}`])).rows[0];
+    expect(outcome?.outcome).toBe('underpaid');
+    expect((await codeRow())?.periods_used).toBe(7);
   });
 
   it('mua gói Vựa khi có mã → giá Vựa thường, không trừ kỳ', async () => {

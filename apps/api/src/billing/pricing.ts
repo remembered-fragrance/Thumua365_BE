@@ -5,7 +5,7 @@
 
 import { daysBetween } from '@mambo/core/subscription';
 import type { PlanCode } from '@mambo/contracts';
-import { LEGACY_PRICES, PLAN_PRICES, STAFF_PRICES } from '../config/plans';
+import { LEGACY_PRICES, PLAN_PRICES, type PlanMonths, STAFF_PRICES } from '../config/plans';
 
 /**
  * Thứ một lần trả tiền mở ra. `plan` / `extraStaff` bỏ trống (chỉ quản trị viên) = giữ như gói đang có; `months` của
@@ -15,21 +15,28 @@ export type Purchase =
   | { readonly kind: 'plan'; readonly months: number; readonly plan?: PlanCode | undefined; readonly extraStaff?: number | undefined }
   | { readonly kind: 'staff'; readonly extraStaff: number };
 
-const priceOf = (plan: PlanCode, months: 1 | 12): number => {
+const priceOf = (plan: PlanCode, months: PlanMonths): number => {
   const row = PLAN_PRICES.find((p) => p.plan === plan && p.months === months);
   if (!row) throw new Error(`Thiếu giá gói ${plan} ${months} tháng`);
   return row.amount;
 };
 
-const staffPriceOf = (months: 1 | 12): number => {
+const staffPriceOf = (months: PlanMonths): number => {
   const row = STAFF_PRICES.find((p) => p.months === months);
   if (!row) throw new Error(`Thiếu giá người cân ${months} tháng`);
   return row.amount;
 };
 
+/** Người cân thêm cho trọn kỳ. Chỉ gói Vựa có (kỳ 1 | 12); không người thêm thì 0 — Thương lái 6 tháng không tra giá. */
+const staffAmount = (months: PlanMonths, extraStaff: number): number =>
+  extraStaff === 0 ? 0 : extraStaff * staffPriceOf(months);
+
 /** Gói cho trọn kỳ, kể cả người cân thêm: Vựa 1 tháng + 2 người = 449.000 + 2 × 79.000 = 607.000đ. */
-export const planAmount = (plan: PlanCode, months: 1 | 12, extraStaff: number): number =>
-  priceOf(plan, months) + extraStaff * staffPriceOf(months);
+export const planAmount = (plan: PlanCode, months: PlanMonths, extraStaff: number): number =>
+  priceOf(plan, months) + staffAmount(months, extraStaff);
+
+/** Số tháng của một ý định / lần mua → kỳ có giá (6 → 6, từ 12 → 12, còn lại 1). */
+export const pricedMonths = (months: number): PlanMonths => (months >= 12 ? 12 : months === 6 ? 6 : 1);
 
 /** Mã sáng lập đã gắn với tổ chức (0.29.0). */
 export interface PromoRow {
@@ -41,19 +48,21 @@ export interface PromoRow {
 }
 
 /**
- * Giá gói khi tổ chức có mã sáng lập; `null` = giá niêm yết (mã của gói khác, đã hết kỳ). Tháng: `monthlyAmount`, trừ
- * 1 kỳ. Năm: 12 × `monthlyAmount`, trừ 12 kỳ — chỉ khi còn đủ 12 kỳ (chốt 10/11: 12 × 149.000 = 1.788.000đ).
+ * Giá gói khi tổ chức có mã sáng lập; `null` = giá niêm yết (mã của gói khác, đã hết kỳ). Mỗi tháng của kỳ trả là một
+ * kỳ mã: tháng `monthlyAmount`, trừ 1 kỳ; 6 tháng 6 × `monthlyAmount`, trừ 6 kỳ; năm 12 × `monthlyAmount`, trừ 12 kỳ —
+ * chỉ khi còn đủ số kỳ đó (chốt 10/11: năm 12 × 149.000 = 1.788.000đ, 6 tháng 6 × 149.000 = 894.000đ). Không giảm
+ * thêm theo kỳ trả trước.
  */
 export const promoQuote = (
   promo: PromoRow | null,
   plan: PlanCode,
-  months: 1 | 12,
+  months: PlanMonths,
   extraStaff: number,
 ): { readonly amount: number; readonly periods: number } | null => {
   if (!promo || promo.plan !== plan) return null;
   const left = promo.periods - promo.periodsUsed;
   if (left < months) return null;
-  return { amount: promo.monthlyAmount * months + extraStaff * staffPriceOf(months), periods: months };
+  return { amount: promo.monthlyAmount * months + staffAmount(months, extraStaff), periods: months };
 };
 
 /**
@@ -74,7 +83,7 @@ export const staffTopUpAmount = (extraStaff: number, billingMonths: 1 | 12, peri
 export const convertDays = (days: number, from: PlanCode, to: PlanCode): number =>
   Math.ceil((days * priceOf(from, 1)) / priceOf(to, 1));
 
-/** Kỳ của một số tháng — đơn giá ngày người cân: từ 12 tháng trở lên tính giá năm. */
+/** Kỳ của một số tháng — đơn giá ngày người cân (chỉ gói Vựa): từ 12 tháng trở lên tính giá năm, còn lại giá tháng. */
 export const billingMonthsOf = (months: number): 1 | 12 => (months >= 12 ? 12 : 1);
 
 interface IntentRow {

@@ -25,7 +25,7 @@ import type { AuthUser } from '../auth/auth-user';
 import type { MembershipContext } from '../auth/membership';
 import { planSummary } from '../auth/prisma-memberships';
 import { ApiException } from '../common/api-exception';
-import { PLAN_PRICES, STAFF_PRICES } from '../config/plans';
+import { PLAN_PRICES, type PlanMonths, STAFF_PRICES } from '../config/plans';
 import { DATABASE, type Database, type Tx } from '../db/database';
 import { Prisma, type PaymentIntent, type PromoCode, type Subscription } from '../generated/prisma/client';
 import { planAmount, promoQuote, purchaseOf, staffTopUpAmount } from './pricing';
@@ -42,7 +42,7 @@ interface Quote {
   readonly amount: number;
   readonly kind: 'plan' | 'staff';
   readonly plan: PlanCode | null;
-  readonly months: 1 | 12 | null;
+  readonly months: PlanMonths | null;
   readonly extraStaff: number;
   /** Mã sáng lập dùng cho lần mua này và số kỳ trừ khi tiền vào; null / 0 = giá niêm yết. */
   readonly promoCode: string | null;

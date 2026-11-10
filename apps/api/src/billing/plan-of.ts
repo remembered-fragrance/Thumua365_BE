@@ -41,10 +41,9 @@ const REASON: Readonly<Record<Entitlement, string>> = {
 
 /**
  * Gói còn hạn nhưng gói Thương lái không có quyền lợi này (0.28.0) — câu khác câu "hết hạn": gia hạn không giúp gì,
- * phải lên gói Vựa. Chỉ ba mã trong `PLAN_EXCLUDES.thuong_lai`.
+ * phải lên gói Vựa. Chỉ các mã trong `PLAN_EXCLUDES.thuong_lai`.
  */
 const SOLO_REASON: Readonly<Partial<Record<Entitlement, string>>> = {
-  'members:add': 'Gói Thương lái làm một mình — nâng lên gói Vựa để thêm người cân',
   'audit:view': 'Gói Thương lái chưa có nhật ký thao tác — nâng lên gói Vựa để xem',
   'reports:org': 'Gói Thương lái chưa có báo cáo tổng — nâng lên gói Vựa để xem',
 };

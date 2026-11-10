@@ -102,10 +102,10 @@ const assertBranch = async (tx: Tx, m: MembershipContext, branchId: string | nul
 const lock = (tx: Tx, orgId: string) => tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${orgId}, 4))`;
 
 /**
- * Còn chỗ cho thêm một người theo gói không — tài khoản vựa: `staffLimit` (Thương lái 0, Vựa 3 + số mua thêm, 0.28.0).
- * Doanh nghiệp không giới hạn theo người. Giữ khoá theo tổ chức tới hết transaction: hai lần bấm "Thêm" cùng lúc
- * không vượt được. Gọi trong CHÍNH transaction ghi membership. Chặn theo gói hết hạn / gói Thương lái (PLAN_REQUIRED)
- * đã nằm ở EntitlementGuard.
+ * Còn chỗ cho thêm một người theo gói không — tài khoản vựa: `staffLimit` (Thương lái 1 từ 0.30.0, Vựa 3 + số mua
+ * thêm). Doanh nghiệp không giới hạn theo người. Giữ khoá theo tổ chức tới hết transaction: hai lần bấm "Thêm" cùng
+ * lúc không vượt được. Gọi trong CHÍNH transaction ghi membership. Chặn theo gói hết hạn (PLAN_REQUIRED) đã nằm ở
+ * EntitlementGuard.
  */
 const assertStaffRoom = async (tx: Tx, m: MembershipContext): Promise<void> => {
   if (m.orgType !== 'trader') return;
@@ -114,7 +114,12 @@ const assertStaffRoom = async (tx: Tx, m: MembershipContext): Promise<void> => {
   const limit = plan?.staffLimit ?? 0;
   const used = await tx.membership.count({ where: { organizationId: m.organizationId, status: 'active', role: { not: 'owner' } } });
   if (used >= limit) {
-    const more = plan?.plan === 'vua' && limit < STAFF_INCLUDED + EXTRA_STAFF_MAX ? ` — mua thêm người cân (tối đa ${STAFF_INCLUDED + EXTRA_STAFF_MAX})` : '';
+    const more =
+      plan?.plan === 'vua' && limit < STAFF_INCLUDED + EXTRA_STAFF_MAX
+        ? ` — mua thêm người cân (tối đa ${STAFF_INCLUDED + EXTRA_STAFF_MAX})`
+        : plan?.plan === 'thuong_lai'
+          ? ' — nâng lên gói Vựa để thêm người'
+          : '';
     throw new ApiException('MEMBER_LIMIT', `Gói hiện tại cho tối đa ${limit} người cân${more}`, { limit });
   }
 };

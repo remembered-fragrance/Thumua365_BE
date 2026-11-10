@@ -42,9 +42,9 @@ describe('quyền lợi theo gói', () => {
   });
 });
 
-describe('gói Thương lái (0.28.0, chốt 30/10/2026)', () => {
+describe('gói Thương lái (0.28.0, chốt 30/10/2026; thêm 1 người từ 0.30.0)', () => {
   /** Chép tay từ TODO §3 — không đọc lại `PLAN_EXCLUDES` để một lần sửa nhầm bên kia bị bắt. */
-  const SOLO_LACKS = ['members:add', 'audit:view', 'reports:org'];
+  const SOLO_LACKS = ['audit:view', 'reports:org'];
 
   it('bảng loại trừ phủ đủ mọi mã gói', () => {
     expect(Object.keys(PLAN_EXCLUDES).sort()).toEqual([...PlanCode.options].sort());
@@ -57,8 +57,8 @@ describe('gói Thương lái (0.28.0, chốt 30/10/2026)', () => {
     });
   }
 
-  it('người cân: Thương lái 0, Vựa 3 + số mua thêm, không mã gói (doanh nghiệp) không giới hạn', () => {
-    expect(staffLimit('thuong_lai', 0)).toBe(0);
+  it('người cân: Thương lái 1, Vựa 3 + số mua thêm, không mã gói (doanh nghiệp) không giới hạn', () => {
+    expect(staffLimit('thuong_lai', 0)).toBe(1);
     expect(staffLimit('vua', 0)).toBe(3);
     expect(staffLimit('vua', 5)).toBe(8);
     expect(staffLimit(null, 0)).toBeNull();

@@ -53,6 +53,10 @@ describe('PaymentIntentCreateInput (0.28.0)', () => {
     expect(PaymentIntentCreateInput.safeParse({ kind: 'plan', plan: 'vua', months: 1, extraStaff: 6 }).success).toBe(false);
     expect(PaymentIntentCreateInput.safeParse({ kind: 'plan', plan: 'thuong_lai', months: 1, extraStaff: 1 }).success).toBe(false);
     expect(PaymentIntentCreateInput.safeParse({ kind: 'plan', plan: 'vua', months: 3 }).success).toBe(false);
+    // 0.30.0 — kỳ 6 tháng chỉ gói Thương lái; app cũ gửi `{ months: 6 }` là Vựa → từ chối.
+    expect(PaymentIntentCreateInput.parse({ kind: 'plan', plan: 'thuong_lai', months: 6 })).toMatchObject({ months: 6 });
+    expect(PaymentIntentCreateInput.safeParse({ kind: 'plan', plan: 'vua', months: 6 }).success).toBe(false);
+    expect(PaymentIntentCreateInput.safeParse({ months: 6 }).success).toBe(false);
   });
 
   it('mua thêm người cân: 1–5 người, không kèm số tháng hay số tiền', () => {

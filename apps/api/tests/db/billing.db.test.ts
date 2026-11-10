@@ -123,7 +123,8 @@ describe('#1 + #7 — tự đi hết, không ai can thiệp', () => {
       { plan: 'vua', months: 1, amount: 449_000 },
       { plan: 'vua', months: 12, amount: 4_490_000 },
       { plan: 'thuong_lai', months: 1, amount: 199_000 },
-      { plan: 'thuong_lai', months: 12, amount: 1_990_000 },
+      { plan: 'thuong_lai', months: 6, amount: 1_074_600 },
+      { plan: 'thuong_lai', months: 12, amount: 2_030_400 },
     ]);
     expect(view.staffPrices).toEqual([
       { months: 1, amount: 79_000 },
