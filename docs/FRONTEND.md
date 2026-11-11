@@ -717,6 +717,22 @@ await api.feedback.create({ rating: 4, comment: 'Bàn phím to dễ bấm', plat
 - App không đọc lại được góp ý (api_service chỉ có INSERT). Quản trị xem bảng `feedback` trên Supabase. Xoá tài khoản
   xoá luôn góp ý của người đó.
 
+### 5.16 Quản trị xem giao dịch (`v0.31.0`)
+
+Màn quản trị của app: mọi lần định chuyển khoản mua gói và mọi khoản tiền vào sổ đối soát, mới nhất trước.
+Route `auth: 'admin'` — chỉ id trong `ADMIN_USER_IDS` của API; người khác (kể cả chủ vựa) nhận 403 `FORBIDDEN`.
+
+```ts
+const { rows } = await api.admin.payments({ from: '2026-10-01T00:00:00+07:00', to: new Date().toISOString() });
+// rows[i]: { at, organization: { id, name, type } | null, intent: { id, amount, code, status, createdAt } | null,
+//            bank: { bankTxId, amount, source: 'webhook' | 'admin', outcome, createdAt } | null }
+```
+
+- `bank` null = định chuyển khoản mà chưa có tiền vào; `intent` null = quản trị viên mở gói bằng tay; `organization`
+  null = tổ chức đã xoá tài khoản (sổ đối soát vẫn giữ). Chỉ `outcome: 'applied'` là đã gia hạn gói.
+- Tối đa `ADMIN_PAYMENTS_MAX` = 500 dòng — chạm trần thì thu hẹp khoảng ngày.
+- Mỗi lần xem ghi một dòng `admin_access_log` (`list-payments`).
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu, mọi form
