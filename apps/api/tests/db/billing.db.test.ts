@@ -13,6 +13,7 @@
 
 import {
   AdminActivatePlanResult,
+  AdminPayments,
   BankWebhookResult,
   ErrorBody,
   PaymentIntentsList,
@@ -308,6 +309,36 @@ describe('#5 — quản trị viên mở gói bằng tay', () => {
     await adminApi.post('/v1/admin/plans/activate', { ...base, organizationId: farm, bankTxId: 'BT-1' }).expect(422);
     await adminApi.post('/v1/admin/plans/activate', { ...base, ownerPhone: '0901 234 567', bankTxId: 'BT-2' }).expect(404);
     await adminApi.post('/v1/admin/plans/activate', { ...base, organizationId: farm, ownerPhone: '0905112233', bankTxId: 'BT-3' }).expect(422);
+  });
+});
+
+describe('quản trị viên xem giao dịch', () => {
+  it('đã trả, chưa trả, mở bằng tay — mới nhất trước; ngoài khoảng ngày không hiện; ghi nhật ký; người thường → 403', async () => {
+    const owner = await as(vuaOwner, vua);
+    const paid = PaymentIntentView.parse((await owner.post('/v1/billing/intents', { months: 1 }).expect(200)).body);
+    await casso({ tid: 'FT-DATRA', amount: 449_000, description: paid.transferContent }).expect(200);
+    const pending = PaymentIntentView.parse((await owner.post('/v1/billing/intents', { months: 12 }).expect(200)).body);
+    const adminApi = await as(ADMIN_ID);
+    await adminApi.post('/v1/admin/plans/activate', { organizationId: vua, months: 1, amount: 149_000, bankTxId: 'FT-TAY', approvedBy: 'Tài' }).expect(200);
+
+    const range = { from: '2026-01-01T00:00:00Z', to: new Date(Date.now() + 60_000).toISOString() };
+    const list = AdminPayments.parse((await adminApi.get('/v1/admin/payments').query(range).expect(200)).body);
+    const org = { id: vua, name: 'Vựa Tư Hùng', type: 'trader' };
+    expect(list.rows).toMatchObject([
+      { organization: org, intent: null, bank: { bankTxId: 'FT-TAY', amount: 149_000, source: 'admin', outcome: 'applied' } },
+      { organization: org, intent: { id: pending.id, amount: 4_490_000, code: pending.code, status: 'pending' }, bank: null },
+      {
+        organization: org,
+        intent: { id: paid.id, amount: 449_000, code: paid.code, status: 'paid' },
+        bank: { bankTxId: 'FT-DATRA', amount: 449_000, source: 'webhook', outcome: 'applied' },
+      },
+    ]);
+
+    const later = AdminPayments.parse((await adminApi.get('/v1/admin/payments').query({ from: range.to, to: '2027-01-01T00:00:00Z' }).expect(200)).body);
+    expect(later.rows).toEqual([]);
+    await (await as(vuaOwner, vua)).get('/v1/admin/payments').query(range).expect(403);
+    const { rows: log } = await admin.query(`select operator from admin_access_log where action = 'list-payments'`);
+    expect(log).toEqual([{ operator: ADMIN_ID }, { operator: ADMIN_ID }]);
   });
 });
 

@@ -5,6 +5,8 @@ import {
   AdminActivatePlanInput,
   AdminActivatePlanResult,
   AdminDoneResult,
+  AdminPayments,
+  AdminPaymentsQuery,
   AdminResetPasswordInput,
   BankWebhookBody,
   BankWebhookResult,
@@ -150,5 +152,13 @@ export const accountRoutes = {
     body: AdminResetPasswordInput,
     response: AdminDoneResult,
     errors: ['NOT_FOUND'],
+  },
+  adminPayments: {
+    method: 'GET',
+    path: '/v1/admin/payments',
+    summary: 'Quản trị viên xem mọi lần định chuyển khoản và tiền vào sổ đối soát trong khoảng thời gian, mới nhất trước',
+    auth: 'admin',
+    query: AdminPaymentsQuery,
+    response: AdminPayments,
   },
 } as const satisfies Record<string, RouteDef>;

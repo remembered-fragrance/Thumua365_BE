@@ -3,6 +3,17 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.31.0 — 11/11/2026 (quản trị xem giao dịch mua gói)
+
+Không có migration. Chỉ thêm — deploy API trước hay nâng app trước đều được (app mới gọi API cũ thì màn quản trị
+báo 404).
+
+- Route mới `adminPayments` — `GET /v1/admin/payments?from&to` (`auth: 'admin'`): `AdminPayments`
+  `{ from, to, rows: AdminPaymentRow[] }`, mới nhất trước, tối đa `ADMIN_PAYMENTS_MAX` = 500. Mỗi dòng nối ý định chuyển
+  khoản với sổ đối soát ngân hàng: `{ at, organization | null, intent | null, bank | null }`. `BankTxOutcome` =
+  `applied | intent_closed | underpaid | no_intent`.
+- Mỗi lần xem ghi `admin_access_log` (`list-payments`, operator = id quản trị viên).
+- SDK: `api.admin.payments({ from, to })`.
 ## 0.30.0 — 12/11/2026 (bảng giá Giai đoạn 1)
 
 Bảng giá Giai đoạn 1 đã duyệt (chốt 10/11/2026). Migration `20261112000000_bang_gia_gd1` — chỉ nới ràng buộc, API 0.29.0

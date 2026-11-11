@@ -285,6 +285,35 @@ export type AdminResetPasswordInput = z.input<typeof AdminResetPasswordInput>;
 export const AdminDoneResult = z.object({ ok: z.literal(true) });
 export type AdminDoneResult = z.infer<typeof AdminDoneResult>;
 
+export const AdminPaymentsQuery = z.strictObject({ from: Time, to: Time });
+export type AdminPaymentsQuery = z.output<typeof AdminPaymentsQuery>;
+
+/** Kết quả trong sổ đối soát — chỉ `applied` là đã gia hạn gói. */
+export const BankTxOutcome = z.enum(['applied', 'intent_closed', 'underpaid', 'no_intent']);
+export type BankTxOutcome = z.infer<typeof BankTxOutcome>;
+
+/**
+ * Một lần định chuyển khoản và/hoặc một khoản tiền vào sổ đối soát (0.31.0). Định mà chưa trả → `bank` null; quản trị
+ * viên mở gói bằng tay → `intent` null; tổ chức đã xoá tài khoản → `organization` null (sổ đối soát vẫn giữ).
+ */
+export const AdminPaymentRow = z.object({
+  /** Lúc tiền vào; chưa có tiền thì lúc định chuyển khoản. */
+  at: Time,
+  organization: z.object({ id: z.uuid(), name: z.string(), type: OrgType }).nullable(),
+  intent: z
+    .object({ id: z.uuid(), amount: Money, code: z.string().nullable(), status: PaymentIntentStatus, createdAt: Time })
+    .nullable(),
+  bank: z
+    .object({ bankTxId: z.string(), amount: Money, source: z.enum(['webhook', 'admin']), outcome: BankTxOutcome, createdAt: Time })
+    .nullable(),
+});
+export type AdminPaymentRow = z.infer<typeof AdminPaymentRow>;
+
+/** Mới nhất trước, tối đa `ADMIN_PAYMENTS_MAX` dòng — thu hẹp khoảng ngày nếu chạm trần. */
+export const ADMIN_PAYMENTS_MAX = 500;
+export const AdminPayments = z.object({ from: Time, to: Time, rows: z.array(AdminPaymentRow).max(ADMIN_PAYMENTS_MAX) });
+export type AdminPayments = z.infer<typeof AdminPayments>;
+
 // ─── Xoá tài khoản ───────────────────────────────────────────────────────────
 
 export const AccountDeleteResult = z.object({

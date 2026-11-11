@@ -237,6 +237,11 @@ export const createClient = (options: ClientOptions) => {
     feedback: {
       create: (input: RouteBody<'feedbackCreate'>) => send('feedbackCreate', input),
     },
+    /** Quản trị (0.31.0) — chỉ id trong `ADMIN_USER_IDS` của API; người khác nhận `FORBIDDEN`. */
+    admin: {
+      /** Giao dịch mua gói trong khoảng [from, to), mới nhất trước. */
+      payments: (query: RouteQueryInput<'adminPayments'>) => call('adminPayments', undefined, query),
+    },
     /** Ảnh chứng từ (BE8) — ảnh đi thẳng giữa app và Storage, API chỉ ký URL. */
     attachments: {
       uploadUrl: (input: RouteBody<'attachmentsUploadUrl'>) => send('attachmentsUploadUrl', input),

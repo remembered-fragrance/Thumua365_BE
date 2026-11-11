@@ -4,6 +4,8 @@ import {
   type AdminDoneResult,
   type AdminFunnel,
   type AdminFunnelQuery,
+  type AdminPayments,
+  type AdminPaymentsQuery,
   AdminResetPasswordInput,
   routes,
 } from '@mambo/contracts';
@@ -32,6 +34,11 @@ export class AdminController {
   @Endpoint(routes.adminFunnel)
   funnel(@ContractQuery() query: AdminFunnelQuery): Promise<AdminFunnel> {
     return this.admin.funnel(query);
+  }
+
+  @Endpoint(routes.adminPayments)
+  payments(@CurrentUser() user: AuthUser, @ContractQuery() query: AdminPaymentsQuery): Promise<AdminPayments> {
+    return this.admin.payments(user, query);
   }
 
   @Endpoint(routes.adminResetPassword)
