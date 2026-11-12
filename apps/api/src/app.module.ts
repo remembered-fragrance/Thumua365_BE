@@ -7,6 +7,8 @@ import { AccountController } from './account/account.controller';
 import { AccountDeletionService } from './account/account-deletion.service';
 import { ProfileService } from './account/profile.service';
 import { RecoveryMailService } from './account/recovery-mail.service';
+import { AdminConsoleController } from './admin/admin-console.controller';
+import { AdminConsoleService } from './admin/admin-console.service';
 import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
 import { AnalyticsListener } from './analytics/analytics.listener';
@@ -94,6 +96,7 @@ export class AppModule {
         AccountController,
         BillingController,
         AdminController,
+        AdminConsoleController,
         AttachmentsController,
         EventsController,
         FeedbackController,
@@ -129,6 +132,7 @@ export class AppModule {
         BillingService,
         BankWebhookService,
         AdminService,
+        AdminConsoleService,
         AttachmentsService,
         EventsService,
         FeedbackService,

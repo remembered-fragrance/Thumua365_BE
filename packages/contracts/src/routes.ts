@@ -28,6 +28,7 @@ import {
 import { Me, MeBootstrapInput } from './me.js';
 import type { RouteDef } from './route-def.js';
 import { accountRoutes } from './routes-account.js';
+import { adminRoutes } from './routes-admin.js';
 import { orderRoutes } from './routes-orders.js';
 import { orgRoutes } from './routes-org.js';
 import { placeRoutes } from './routes-places.js';
@@ -149,6 +150,7 @@ export const routes = {
   ...orgRoutes,
   ...placeRoutes,
   ...accountRoutes,
+  ...adminRoutes,
   eventsTrack: {
     method: 'POST',
     path: '/v1/events',

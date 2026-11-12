@@ -1486,6 +1486,19 @@ Commit `b949471` thiếu dòng trống sau tiêu đề nên `git log --oneline` 
 | Tag (SAU khi merge) | `v0.20.1` gắn trên `acdf75f`; workflow Release dựng đủ 3 tgz |
 | App | Không nâng — hợp đồng không đổi, app `v0.20.0` chạy với API `0.20.1`; app không ẩn gì theo cờ |
 
+## Trang quản trị đầy đủ · `v0.32.0` · 12/11/2026 · chưa phát hành
+
+Nhánh `feat/quan-tri-day-du`, làm tiếp trên phần quản trị của Tài (0.31.0). Không migration, chỉ thêm 10 route `auth: 'admin'`
+(`packages/contracts/src/admin.ts`, `routes-admin.ts`; `apps/api/src/admin/admin-console.*`): tổng quan, danh sách / chi
+tiết tổ chức, bật tắt cờ `organization_features`, xem / thêm / xoá mã sáng lập chưa dùng, tìm người dùng, phản hồi, đọc
+`admin_access_log`. Danh sách giao dịch tách thành `admin/payment-rows.ts` để trang chi tiết tổ chức dùng chung.
+
+- Ghi nhật ký: xem tổ chức / người dùng / phản hồi ghi `admin_access_log` (operator = id); việc đổi dữ liệu bắt buộc
+  `approvedBy` (operator = "người duyệt · qua id"). `overview` và `access-log` không ghi.
+- SDK: `api.admin.*` đủ mọi route quản trị (thêm cả `activatePlan`, `resetPassword`, `funnel`).
+- Test: `tests/db/admin.db.test.ts` (8 ca). `npm run verify` xanh; `npm run test:db` 20 file / 313 test.
+- Thứ tự phát hành: merge → Render deploy API 0.32.0 → tag `v0.32.0` → app nâng `@mambo/*`.
+
 ---
 
 ## Ba số phải giữ trong tầm
