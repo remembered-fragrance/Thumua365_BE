@@ -241,6 +241,21 @@ export const createClient = (options: ClientOptions) => {
     admin: {
       /** Giao dịch mua gói trong khoảng [from, to), mới nhất trước. */
       payments: (query: RouteQueryInput<'adminPayments'>) => call('adminPayments', undefined, query),
+      /** 0.32.0 — mở gói bằng tay, đặt lại mật khẩu, phễu (route có từ trước, nay có trong SDK). */
+      activatePlan: (input: RouteBody<'adminActivatePlan'>) => send('adminActivatePlan', input),
+      resetPassword: (input: RouteBody<'adminResetPassword'>) => send('adminResetPassword', input),
+      funnel: (query: RouteQueryInput<'adminFunnel'>) => call('adminFunnel', undefined, query),
+      /** 0.32.0 — trang quản trị đầy đủ. */
+      overview: () => call('adminOverview'),
+      organizations: (query: RouteQueryInput<'adminOrganizations'> = {}) => call('adminOrganizations', undefined, query),
+      organization: (id: string) => call('adminOrganization', undefined, undefined, { id }),
+      setFeature: (id: string, input: RouteBody<'adminOrganizationFeature'>) => call('adminOrganizationFeature', input, undefined, { id }),
+      promoCodes: () => call('adminPromoCodes'),
+      createPromo: (input: RouteBody<'adminPromoCreate'>) => send('adminPromoCreate', input),
+      deletePromo: (code: string, query: RouteQueryInput<'adminPromoDelete'>) => call('adminPromoDelete', undefined, query, { code }),
+      users: (query: RouteQueryInput<'adminUsers'>) => call('adminUsers', undefined, query),
+      feedback: (query: RouteQueryInput<'adminFeedback'>) => call('adminFeedback', undefined, query),
+      accessLog: () => call('adminAccessLog'),
     },
     /** Ảnh chứng từ (BE8) — ảnh đi thẳng giữa app và Storage, API chỉ ký URL. */
     attachments: {

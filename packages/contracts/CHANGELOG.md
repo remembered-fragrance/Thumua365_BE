@@ -3,6 +3,31 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.32.0 — 12/11/2026 (trang quản trị đầy đủ)
+
+Không có migration. Chỉ thêm — deploy API trước hay nâng app trước đều được (app mới gọi API cũ thì các phần mới của màn
+quản trị báo 404). Mọi route `auth: 'admin'`; người khác (kể cả chủ vựa) nhận 403 `FORBIDDEN`.
+
+- `adminOverview` — `GET /v1/admin/overview`: `AdminOverview` — tổ chức theo loại, tổ chức mới 7 / 30 ngày, tổ chức mới
+  theo ngày (30 ngày, giờ Việt Nam), số người dùng, vựa + doanh nghiệp theo bậc gói, đang trả tiền theo gói, sắp hết hạn
+  (7 ngày), doanh thu đã mở gói (tổng / 30 ngày / theo tháng), tiền kẹt cần xem, ý định còn chờ, phản hồi. Không ghi nhật ký.
+- `adminOrganizations` — `GET /v1/admin/organizations?q&type`: tìm theo tên tổ chức, tên / số của chủ; tối đa
+  `ADMIN_ORGANIZATIONS_MAX` = 500, mới tạo trước. Mỗi dòng kèm chủ, số người, `PlanSummary | null`, cờ tính năng.
+- `adminOrganization` — `GET /v1/admin/organizations/:id`: `AdminOrganizationDetail` — hàng gói, thành viên (cả đã gỡ),
+  cờ, mã sáng lập, mức dùng sổ, `ADMIN_ORGANIZATION_PAYMENTS` = 50 giao dịch gần nhất (`AdminPaymentRow`). 404 nếu không có.
+- `adminOrganizationFeature` — `PATCH /v1/admin/organizations/:id/features` `{ feature, enabled, approvedBy, reason? }`
+  → `{ features }`. Gọi lại an toàn.
+- `adminPromoCodes` / `adminPromoCreate` / `adminPromoDelete` — xem mọi mã sáng lập; thêm mã
+  (`{ code, plan, monthlyAmount, periods, note?, approvedBy, reason? }`, trùng → 422 `details.reason = 'PROMO_EXISTS'`);
+  xoá mã CHƯA ai dùng (`DELETE /v1/admin/promo-codes/:code?approvedBy&reason`, đã dùng → 422 `PROMO_REDEEMED`).
+- `adminUsers` — `GET /v1/admin/users?q` (≥ 2 ký tự): số điện thoại gõ kiểu nào cũng được, tên đăng nhập, một phần tên;
+  tối đa `ADMIN_USERS_MAX` = 50. Kèm `hasVerifiedRecoveryEmail` (có thì quản trị viên không đặt lại mật khẩu hộ) và tổ chức.
+- `adminFeedback` — `GET /v1/admin/feedback?from&to`: tối đa `ADMIN_FEEDBACK_MAX` = 500, mới nhất trước.
+- `adminAccessLog` — `GET /v1/admin/access-log`: `ADMIN_ACCESS_LOG_MAX` = 300 dòng `admin_access_log` mới nhất.
+- Nhật ký quản trị ghi thêm: `list-organizations`, `view-organization`, `set-feature`, `create-promo`, `delete-promo`,
+  `search-users`, `list-feedback`. Việc đổi dữ liệu ghi `operator = "<người duyệt> · qua <id>"` như mở gói tay.
+- SDK: `api.admin.*` đủ mọi route quản trị (thêm cả `activatePlan`, `resetPassword`, `funnel` vốn chỉ có ở contracts).
+
 ## 0.31.0 — 11/11/2026 (quản trị xem giao dịch mua gói)
 
 Không có migration. Chỉ thêm — deploy API trước hay nâng app trước đều được (app mới gọi API cũ thì màn quản trị

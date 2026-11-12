@@ -733,6 +733,27 @@ const { rows } = await api.admin.payments({ from: '2026-10-01T00:00:00+07:00', t
 - Tối đa `ADMIN_PAYMENTS_MAX` = 500 dòng — chạm trần thì thu hẹp khoảng ngày.
 - Mỗi lần xem ghi một dòng `admin_access_log` (`list-payments`).
 
+### 5.17 Trang quản trị đầy đủ (`v0.32.0`)
+
+Cùng luật quyền như 5.16. Các lời gọi (CHANGELOG `0.32.0` có hình dạng đủ):
+
+```ts
+await api.admin.overview();                                   // số liệu chung — không ghi nhật ký
+await api.admin.organizations({ q: '0905', type: 'trader' }); // danh sách, mới tạo trước
+await api.admin.organization(id);                             // chi tiết: gói, thành viên, cờ, mã, mức dùng, giao dịch
+await api.admin.setFeature(id, { feature: 'orders', enabled: false, approvedBy: 'Tài' });
+await api.admin.promoCodes();
+await api.admin.createPromo({ code: 'SL-001', plan: 'thuong_lai', monthlyAmount: 149000, periods: 12, approvedBy: 'Tài' });
+await api.admin.deletePromo('SL-001', { approvedBy: 'Tài', reason: 'Gõ sai' });
+await api.admin.users({ q: '0905 112 233' });
+await api.admin.feedback({ from, to });
+await api.admin.accessLog();
+```
+
+- Việc đổi dữ liệu (`setFeature`, `createPromo`, `deletePromo`) bắt buộc `approvedBy` (người duyệt, gõ tay) — như mở gói tay.
+- Xem danh sách tổ chức, chi tiết tổ chức, tìm người dùng, phản hồi đều ghi `admin_access_log`; gọi khi người quản trị
+  bấm, đừng gọi ngầm. `overview` và `accessLog` không ghi.
+
 ### 5.7 Đăng xuất
 
 - Gọi `supabase.auth.signOut()`, rồi xoá tổ chức đang chọn, bản `/v1/me` đã lưu, mọi form

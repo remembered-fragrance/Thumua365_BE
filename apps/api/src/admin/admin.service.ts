@@ -15,7 +15,7 @@ import type {
   AdminPaymentsQuery,
   AdminResetPasswordInput,
 } from '@mambo/contracts';
-import { ADMIN_PAYMENTS_MAX, BankTxOutcome, OrgType, PaymentIntentStatus } from '@mambo/contracts';
+import { ADMIN_PAYMENTS_MAX, OrgType } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth-user';
@@ -26,6 +26,7 @@ import { ApiException } from '../common/api-exception';
 import type { Tx } from '../db/database';
 import { PRIVILEGED_DATABASE, type PrivilegedDatabase, privileged } from '../db/privileged-database';
 import { DomainEvents } from '../events/domain-events';
+import { paymentRows } from './payment-rows';
 
 type ActivateInput = z.output<typeof AdminActivatePlanInput>;
 type ResetInput = z.output<typeof AdminResetPasswordInput>;
@@ -40,7 +41,7 @@ const userByPhone = async (tx: Tx, phone: string): Promise<string | null> =>
   (await tx.$queryRaw<{ id: string | null }[]>`select public.find_login_user(${phone}) as id`)[0]?.id ?? null;
 
 /** Người duyệt + tài khoản quản trị đã bấm — cả hai vào nhật ký. */
-const operatorOf = (admin: AuthUser, approvedBy: string): string => `${approvedBy} · qua ${admin.id}`;
+export const operatorOf = (admin: AuthUser, approvedBy: string): string => `${approvedBy} · qua ${admin.id}`;
 
 @Injectable()
 export class AdminService {
@@ -144,66 +145,12 @@ export class AdminService {
     const from = new Date(query.from);
     const to = new Date(query.to);
     return privileged(this.db).run(async (tx) => {
-      const rows = await tx.$queryRaw<
-        {
-          at: Date;
-          org_id: string | null;
-          org_name: string | null;
-          org_type: string | null;
-          intent_id: string | null;
-          intent_amount: bigint | null;
-          provider_ref: string | null;
-          intent_status: string | null;
-          intent_at: Date | null;
-          bank_tx_id: string | null;
-          paid: bigint | null;
-          source: string | null;
-          outcome: string | null;
-          paid_at: Date | null;
-        }[]
-      >`
-        select coalesce(bt.created_at, pi.created_at) as at,
-               o.id as org_id, o.name as org_name, o.type as org_type,
-               pi.id as intent_id, pi.amount as intent_amount, pi.provider_ref, pi.status as intent_status, pi.created_at as intent_at,
-               bt.bank_tx_id, bt.amount as paid, bt.source, bt.outcome, bt.created_at as paid_at
-        from (select * from payment_intents where deleted_at is null) pi
-        full join bank_transactions bt on bt.payment_intent_id = pi.id
-        left join organizations o on o.id = coalesce(pi.organization_id, bt.organization_id)
-        where coalesce(bt.created_at, pi.created_at) >= ${from} and coalesce(bt.created_at, pi.created_at) < ${to}
-        order by coalesce(bt.created_at, pi.created_at) desc
-        limit ${ADMIN_PAYMENTS_MAX}`;
+      const rows = await paymentRows(tx, { from, to, limit: ADMIN_PAYMENTS_MAX });
       await tx.adminAccessLog.create({
         data: { organizationId: null, userId: null, action: 'list-payments', operator: admin.id, reason: `${query.from} → ${query.to}` },
         select: { id: true },
       });
-      return {
-        from: from.toISOString(),
-        to: to.toISOString(),
-        rows: rows.map((r) => ({
-          at: r.at.toISOString(),
-          organization: r.org_id && r.org_name && r.org_type ? { id: r.org_id, name: r.org_name, type: OrgType.parse(r.org_type) } : null,
-          intent:
-            r.intent_id && r.intent_amount !== null && r.intent_at
-              ? {
-                  id: r.intent_id,
-                  amount: Number(r.intent_amount),
-                  code: r.provider_ref,
-                  status: PaymentIntentStatus.parse(r.intent_status),
-                  createdAt: r.intent_at.toISOString(),
-                }
-              : null,
-          bank:
-            r.bank_tx_id && r.paid !== null && r.paid_at
-              ? {
-                  bankTxId: r.bank_tx_id,
-                  amount: Number(r.paid),
-                  source: r.source === 'admin' ? 'admin' : 'webhook',
-                  outcome: BankTxOutcome.parse(r.outcome),
-                  createdAt: r.paid_at.toISOString(),
-                }
-              : null,
-        })),
-      };
+      return { from: from.toISOString(), to: to.toISOString(), rows };
     });
   }
 
