@@ -75,6 +75,11 @@ export const Me = z.object({
   memberships: z.array(MeMembership),
   /** Số lời mời kết nối đang chờ người này đồng ý. */
   pendingLinks: z.number().int().nonnegative(),
+  /**
+   * 0.33.0 — người này là quản trị viên (id nằm trong `ADMIN_USER_IDS` của API): app đưa vào trang quản trị. Chỉ để
+   * chọn màn hình — mọi route quản trị vẫn tự kiểm quyền. API cũ không gửi → coi là `false`.
+   */
+  isAdmin: z.boolean().optional(),
 });
 export type Me = z.infer<typeof Me>;
 

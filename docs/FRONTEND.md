@@ -369,6 +369,8 @@ if (error) showError('Tài khoản hoặc mật khẩu không đúng');       //
   theo), `null` khi chưa có — email nội bộ `84…@id.thumua365.vn` luôn bị giấu.
   `user.phone` có dạng `+84…`; hiển thị bằng `formatPhoneVn` của `@mambo/core/identifier`.
 - `pendingLinks` là số lời mời kết nối đang chờ (hiện chấm đỏ).
+- `isAdmin` (0.33.0) `true` khi tài khoản là quản trị viên (`ADMIN_USER_IDS`) — app đưa thẳng vào `/quan-tri`. Không có
+  (API cũ) = `false`. Chỉ để chọn màn hình; route quản trị vẫn tự kiểm quyền.
 - Gọi `/v1/me` khi: mở app lúc có mạng, sau khi đăng nhập, sau bootstrap, sau OTP, sau
   `NOT_A_MEMBER`. Lưu bản mới nhất vào IndexedDB (khoá theo `user.id`), để mở app lúc offline
   vẫn biết vỏ và quyền.

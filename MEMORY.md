@@ -1499,6 +1499,12 @@ tiết tổ chức, bật tắt cờ `organization_features`, xem / thêm / xoá
 - Test: `tests/db/admin.db.test.ts` (8 ca). `npm run verify` xanh; `npm run test:db` 20 file / 313 test.
 - Thứ tự phát hành: merge → Render deploy API 0.32.0 → tag `v0.32.0` → app nâng `@mambo/*`.
 
+## `/v1/me` báo quản trị viên · `v0.33.0` · 12/11/2026
+
+`Me.isAdmin?: boolean` — `true` khi id nằm trong `ADMIN_USER_IDS` (cùng danh sách `PermissionGuard`). App dùng để đưa
+tài khoản quản trị thẳng vào `/quan-tri` (trước đó đăng nhập Admin là vào trang chủ nông dân của "Hộ Admin"). Không
+migration; optional nên app cũ / API cũ không vỡ. Test: `app.e2e.test.ts`. `verify` xanh; `test:db` 20 file / 313 test.
+
 ---
 
 ## Ba số phải giữ trong tầm

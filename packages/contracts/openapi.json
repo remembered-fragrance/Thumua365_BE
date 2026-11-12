@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "THUMUA365 API",
-    "version": "0.32.0"
+    "version": "0.33.0"
   },
   "servers": [
     {
@@ -350,6 +350,9 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "isAdmin": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -778,6 +781,9 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "isAdmin": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
