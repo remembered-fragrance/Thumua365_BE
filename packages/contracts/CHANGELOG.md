@@ -3,6 +3,15 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.33.1 — 12/11/2026 (số liệu quản trị không tính tài khoản quản trị)
+
+Không đổi hợp đồng, không migration.
+
+- `GET /v1/admin/overview` không tính tài khoản trong `ADMIN_USER_IDS` và tổ chức họ là thành viên (vd. "Hộ Admin" — tổ chức
+  nông dân để tài khoản quản trị qua cổng của app): số tổ chức, tổ chức mới, số người dùng, bậc gói.
+- `GET /v1/admin/funnel` bỏ sự kiện của các tổ chức đó; sự kiện chưa đăng nhập vẫn tính.
+- Danh sách / chi tiết tổ chức vẫn hiện đủ (để quản trị viên tìm được tổ chức của chính mình).
+
 ## 0.33.0 — 12/11/2026 (app biết ai là quản trị viên)
 
 Không có migration. Chỉ thêm — deploy API trước rồi mới nâng app.

@@ -1505,6 +1505,12 @@ tiết tổ chức, bật tắt cờ `organization_features`, xem / thêm / xoá
 tài khoản quản trị thẳng vào `/quan-tri` (trước đó đăng nhập Admin là vào trang chủ nông dân của "Hộ Admin"). Không
 migration; optional nên app cũ / API cũ không vỡ. Test: `app.e2e.test.ts`. `verify` xanh; `test:db` 20 file / 313 test.
 
+## Số liệu quản trị không tính tài khoản quản trị · `v0.33.1` · 12/11/2026
+
+`/v1/admin/overview` và `/v1/admin/funnel` bỏ tài khoản trong `ADMIN_USER_IDS` và tổ chức họ là thành viên ("Hộ Admin" —
+tổ chức nông dân để tài khoản Admin qua cổng app). Danh sách / chi tiết tổ chức vẫn hiện đủ. Không đổi hợp đồng, không
+migration. Test: `admin.db.test.ts` (tổng quan + phễu). `verify` xanh; `test:db` 20 file / 314 test.
+
 ---
 
 ## Ba số phải giữ trong tầm
