@@ -8,6 +8,7 @@ import { MEMBERSHIP_LOOKUP, type MembershipLookup } from '../auth/membership';
 import { SUPABASE_USERS, type SupabaseAccount, type SupabaseUsers } from '../auth/supabase-users';
 import { Endpoint } from '../common/endpoint';
 import { RequestId } from '../common/request-id';
+import { ENV, type Env } from '../config/env';
 import { BootstrapService } from './bootstrap.service';
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null);
@@ -43,15 +44,19 @@ export class MeController {
   private readonly users: SupabaseUsers;
   private readonly memberships: MembershipLookup;
   private readonly bootstrapper: BootstrapService;
+  private readonly admins: ReadonlySet<string>;
 
   constructor(
     @Inject(SUPABASE_USERS) users: SupabaseUsers,
     @Inject(MEMBERSHIP_LOOKUP) memberships: MembershipLookup,
     bootstrapper: BootstrapService,
+    @Inject(ENV) env: Env,
   ) {
     this.users = users;
     this.memberships = memberships;
     this.bootstrapper = bootstrapper;
+    // Cùng danh sách PermissionGuard dùng cho route `auth: 'admin'`.
+    this.admins = new Set(env.ADMIN_USER_IDS.map((id) => id.toLowerCase()));
   }
 
   @Endpoint(routes.me)
@@ -78,6 +83,6 @@ export class MeController {
       this.memberships.pendingLinks(user.id),
       this.memberships.recoveryEmail(user.id),
     ]);
-    return { user: meUserFrom(account, profileEmail), memberships, pendingLinks };
+    return { user: meUserFrom(account, profileEmail), memberships, pendingLinks, isAdmin: this.admins.has(user.id.toLowerCase()) };
   }
 }

@@ -90,9 +90,21 @@ describe('GET /v1/me', () => {
       user: { id: USER_ID, name: 'Cô Mai', phone: '+84912345678', email: null, phoneVerified: true },
       memberships: [],
       pendingLinks: 0,
+      isAdmin: false,
     });
     // Gọi Supabase Auth bằng chính token của người dùng, không bằng khoá quản trị.
     expect(users.tokens.at(-1)).toBe(token);
+  });
+
+  it('0.33.0: id nằm trong ADMIN_USER_IDS → isAdmin true', async () => {
+    const adminApp = await buildTestApp({ jwks: signer.jwks, supabaseUsers: users, env: testEnv({ ADMIN_USER_IDS: USER_ID.toUpperCase() }) });
+    try {
+      const token = await signer.sign();
+      const res = await request(adminApp.getHttpServer()).get('/v1/me').set('authorization', `Bearer ${token}`).expect(200);
+      expect(Me.parse(res.body).isAdmin).toBe(true);
+    } finally {
+      await adminApp.close();
+    }
   });
 
   it('phiên đã bị thu hồi ở Supabase → 401 dù JWT còn hạn', async () => {

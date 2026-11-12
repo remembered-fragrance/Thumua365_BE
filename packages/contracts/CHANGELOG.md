@@ -3,6 +3,14 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.33.0 — 12/11/2026 (app biết ai là quản trị viên)
+
+Không có migration. Chỉ thêm — deploy API trước rồi mới nâng app.
+
+- `Me` thêm `isAdmin?: boolean` (`GET /v1/me`, `POST /v1/me/bootstrap`): `true` khi id người dùng nằm trong
+  `ADMIN_USER_IDS` của API — cùng danh sách `PermissionGuard` dùng cho route `auth: 'admin'`. App dùng để đưa quản trị
+  viên thẳng vào trang quản trị; quyền vẫn do từng route quản trị tự kiểm. API cũ không gửi → coi là `false`.
+
 ## 0.32.0 — 12/11/2026 (trang quản trị đầy đủ)
 
 Không có migration. Chỉ thêm — deploy API trước hay nâng app trước đều được (app mới gọi API cũ thì các phần mới của màn
