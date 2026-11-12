@@ -23,6 +23,7 @@ import { planSummary } from '../auth/prisma-memberships';
 import { SUPABASE_ADMIN, type SupabaseAdmin } from '../auth/supabase-admin';
 import { activatePlan } from '../billing/plan-activation';
 import { ApiException } from '../common/api-exception';
+import { ENV, type Env } from '../config/env';
 import type { Tx } from '../db/database';
 import { PRIVILEGED_DATABASE, type PrivilegedDatabase, privileged } from '../db/privileged-database';
 import { DomainEvents } from '../events/domain-events';
@@ -48,11 +49,19 @@ export class AdminService {
   private readonly db: PrivilegedDatabase | null;
   private readonly auth: SupabaseAdmin;
   private readonly events: DomainEvents;
+  /** Tổ chức của tài khoản quản trị không tính vào phễu (0.33.1) — mở app để quản trị không phải hành vi của khách. */
+  private readonly admins: string[];
 
-  constructor(@Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null, @Inject(SUPABASE_ADMIN) auth: SupabaseAdmin, events: DomainEvents) {
+  constructor(
+    @Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null,
+    @Inject(SUPABASE_ADMIN) auth: SupabaseAdmin,
+    events: DomainEvents,
+    @Inject(ENV) env: Env,
+  ) {
     this.db = db;
     this.auth = auth;
     this.events = events;
+    this.admins = env.ADMIN_USER_IDS.map((id) => id.toLowerCase());
   }
 
   /** Gọi lại cùng mã giao dịch → `alreadyProcessed`, không cộng thêm kỳ nào. */
@@ -166,6 +175,8 @@ export class AdminService {
                min(created_at) as first_at, max(created_at) as last_at
         from analytics_events
         where created_at >= ${new Date(query.from)} and created_at < ${new Date(query.to)}
+          and (organization_id is null
+               or organization_id not in (select organization_id from memberships where user_id = any(${this.admins}::uuid[])))
         group by org_type, name
         order by min(created_at), name`;
       return {

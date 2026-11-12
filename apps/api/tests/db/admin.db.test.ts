@@ -7,6 +7,7 @@ import {
   AdminAccessLog,
   AdminFeatures,
   AdminFeedback,
+  AdminFunnel,
   AdminOrganizationDetail,
   AdminOrganizations,
   AdminOverview,
@@ -115,6 +116,10 @@ describe('tổng quan', () => {
     );
     await admin.query(`insert into feedback (organization_id, user_id, rating, platform) values ($1, $2, 5, 'web'), ($1, $2, 4, 'pwa')`, [vua, vuaOwner]);
 
+    // Tài khoản quản trị cũng có một tổ chức (để qua cổng của app) — không phải khách, không tính.
+    await createOrg('farmer', ADMIN_ID, 'Hộ Admin');
+    await admin.query(`insert into profiles (id, name, phone) values ($1, 'Admin', '+84868512408')`, [ADMIN_ID]);
+
     const o = AdminOverview.parse((await (await as(ADMIN_ID)).get('/v1/admin/overview').expect(200)).body);
     expect(o.organizations).toEqual({ total: 3, farmer: 1, trader: 1, enterprise: 1 });
     expect(o.newOrganizations).toEqual({ last7Days: 3, last30Days: 3 });
@@ -131,6 +136,22 @@ describe('tổng quan', () => {
     expect(o.feedback).toEqual({ count: 2, averageRating: 4.5 });
     // Chỉ số đếm — không ghi nhật ký.
     expect(await logActions()).toEqual([]);
+  });
+});
+
+describe('phễu', () => {
+  it('0.33.1: sự kiện của tổ chức quản trị không tính; sự kiện chưa đăng nhập vẫn tính', async () => {
+    const adminOrg = await createOrg('farmer', ADMIN_ID, 'Hộ Admin');
+    await admin.query(
+      `insert into analytics_events (organization_id, org_type, anon_id, name, props, platform)
+       values ($1, 'farmer', 'may-admin', 'app_opened', '{}', 'web'),
+              ($2, 'trader', 'may-vua', 'app_opened', '{}', 'web'),
+              (null, null, 'may-la', 'app_opened', '{}', 'web')`,
+      [adminOrg, vua],
+    );
+    const range = { from: '2026-01-01T00:00:00Z', to: new Date(Date.now() + 60_000).toISOString() };
+    const funnel = AdminFunnel.parse((await (await as(ADMIN_ID)).get('/v1/admin/funnel', range).expect(200)).body);
+    expect(funnel.rows.map((r) => `${r.orgType}:${r.name}:${r.events}`).sort()).toEqual(['null:app_opened:1', 'trader:app_opened:1']);
   });
 });
 

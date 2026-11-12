@@ -38,6 +38,7 @@ import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth-user';
 import { planSummary } from '../auth/prisma-memberships';
 import { ApiException } from '../common/api-exception';
+import { ENV, type Env } from '../config/env';
 import type { Tx } from '../db/database';
 import { PRIVILEGED_DATABASE, type PrivilegedDatabase, privileged } from '../db/privileged-database';
 import type { PromoCode, Subscription } from '../generated/prisma/client';
@@ -90,9 +91,12 @@ const promoInclude = { organization: { select: { id: true, name: true, type: tru
 @Injectable()
 export class AdminConsoleService {
   private readonly db: PrivilegedDatabase | null;
+  /** Tài khoản quản trị (`ADMIN_USER_IDS`) và tổ chức của họ không tính vào số liệu — chúng không phải khách. */
+  private readonly admins: string[];
 
-  constructor(@Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null) {
+  constructor(@Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null, @Inject(ENV) env: Env) {
     this.db = db;
+    this.admins = env.ADMIN_USER_IDS.map((id) => id.toLowerCase());
   }
 
   /** Chỉ số đếm, không lộ dữ liệu của ai → không ghi nhật ký. */
@@ -100,11 +104,15 @@ export class AdminConsoleService {
     return privileged(this.db).run(async (tx) => {
       const now = new Date();
 
+      const admins = this.admins;
       const orgs = await tx.$queryRaw<{ type: string; total: number; last7: number; last30: number }[]>`
         select type, count(*)::int as total,
                count(*) filter (where created_at >= now() - interval '7 days')::int as last7,
                count(*) filter (where created_at >= now() - interval '30 days')::int as last30
-        from organizations where deleted_at is null group by type`;
+        from organizations
+        where deleted_at is null
+          and id not in (select organization_id from memberships where user_id = any(${admins}::uuid[]))
+        group by type`;
       const organizations = { total: 0, farmer: 0, trader: 0, enterprise: 0 };
       const newOrganizations = { last7Days: 0, last30Days: 0 };
       for (const r of orgs) {
@@ -119,10 +127,14 @@ export class AdminConsoleService {
         select to_char(d, 'YYYY-MM-DD') as date, count(o.id)::int as count
         from generate_series((now() at time zone ${VN_TZ})::date - 29, (now() at time zone ${VN_TZ})::date, interval '1 day') d
         left join organizations o on o.deleted_at is null and (o.created_at at time zone ${VN_TZ})::date = d::date
+          and o.id not in (select organization_id from memberships where user_id = any(${admins}::uuid[]))
         group by d order by d`;
 
       // Bậc gói: vựa + doanh nghiệp chưa xoá. Không có hàng gói → coi là hết hạn (free).
-      const paying = await tx.organization.findMany({ where: { deletedAt: null, type: { not: 'farmer' } }, select: { id: true, type: true } });
+      const paying = await tx.organization.findMany({
+        where: { deletedAt: null, type: { not: 'farmer' }, memberships: { none: { userId: { in: admins } } } },
+        select: { id: true, type: true },
+      });
       const subs = await firstSubscriptions(tx, paying.map((o) => o.id));
       const plans = { trial: 0, premium: 0, grace: 0, free: 0 };
       const premiumByPlan = { thuong_lai: 0, vua: 0, enterprise: 0 };
@@ -148,7 +160,7 @@ export class AdminConsoleService {
       const pendingIntents = await tx.paymentIntent.count({ where: { status: 'pending', deletedAt: null } });
       const [fb] = await tx.$queryRaw<{ count: number; avg: number | null }[]>`
         select count(*)::int as count, round(avg(rating)::numeric, 2)::float8 as avg from feedback`;
-      const users = await tx.profile.count({ where: { deletedAt: null } });
+      const users = await tx.profile.count({ where: { deletedAt: null, id: { notIn: admins } } });
 
       return {
         generatedAt: now.toISOString(),
