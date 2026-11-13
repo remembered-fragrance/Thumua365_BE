@@ -16,6 +16,8 @@ import {
   AdminPromoDeleteQuery,
   AdminPromoParams,
   AdminPromoRow,
+  AdminUserDetail,
+  AdminUserParams,
   AdminUsers,
   AdminUsersQuery,
 } from './admin.js';
@@ -84,10 +86,21 @@ export const adminRoutes = {
   adminUsers: {
     method: 'GET',
     path: '/v1/admin/users',
-    summary: 'Tìm người dùng theo số điện thoại, tên đăng nhập hoặc tên, kèm tổ chức họ thuộc về. Ghi nhật ký quản trị',
+    summary:
+      'Mọi tài khoản, mới tạo trước, mỗi trang 50 (`cursor`); có `q` thì tìm theo số điện thoại, tên đăng nhập hoặc tên. Kèm tổ chức họ thuộc về. Ghi nhật ký quản trị',
     auth: 'admin',
     query: AdminUsersQuery,
     response: AdminUsers,
+  },
+  adminUser: {
+    method: 'GET',
+    path: '/v1/admin/users/:id',
+    summary:
+      'Chi tiết một tài khoản: tổ chức thuộc về kèm mức làm việc, và nhật ký gộp (tạo tài khoản, vào tổ chức, ngày làm việc, thao tác nhạy cảm, việc của quản trị viên). Ghi nhật ký quản trị',
+    auth: 'admin',
+    params: AdminUserParams,
+    response: AdminUserDetail,
+    errors: ['NOT_FOUND'],
   },
   adminFeedback: {
     method: 'GET',

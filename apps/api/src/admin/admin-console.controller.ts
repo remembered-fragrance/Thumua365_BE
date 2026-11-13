@@ -14,6 +14,8 @@ import {
   type AdminPromoDeleteQuery,
   type AdminPromoParams,
   type AdminPromoRow,
+  type AdminUserDetail,
+  type AdminUserParams,
   type AdminUsers,
   type AdminUsersQuery,
   routes,
@@ -81,6 +83,11 @@ export class AdminConsoleController {
   @Endpoint(routes.adminUsers)
   users(@CurrentUser() user: AuthUser, @ContractQuery() query: AdminUsersQuery): Promise<AdminUsers> {
     return this.console.users(user, query);
+  }
+
+  @Endpoint(routes.adminUser)
+  user(@CurrentUser() user: AuthUser, @ContractParams() params: AdminUserParams): Promise<AdminUserDetail> {
+    return this.console.user(user, params.id);
   }
 
   @Endpoint(routes.adminFeedback)

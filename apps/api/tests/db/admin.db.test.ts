@@ -13,6 +13,7 @@ import {
   AdminOverview,
   AdminPromoCodes,
   AdminPromoRow,
+  AdminUserDetail,
   AdminUsers,
   ErrorBody,
 } from '@mambo/contracts';
@@ -100,6 +101,7 @@ describe('chỉ quản trị viên', () => {
     await owner.patch(`/v1/admin/organizations/${vua}/features`, { feature: 'orders', enabled: false, approvedBy: 'Tôi' }).expect(403);
     await owner.get('/v1/admin/promo-codes').expect(403);
     await owner.get('/v1/admin/users', { q: 'Hùng' }).expect(403);
+    await owner.get(`/v1/admin/users/${vuaOwner}`).expect(403);
     await owner.get('/v1/admin/access-log').expect(403);
     expect(await logActions()).toEqual([]);
   });
@@ -301,6 +303,93 @@ describe('người dùng', () => {
 
     const { rows } = await admin.query(`select reason from admin_access_log where action = 'search-users' order by created_at`);
     expect(rows.map((r) => r.reason)).toEqual(['0907 000 111', 'TuHung', 'cô m']);
+  });
+
+  it('0.34.0: không có q → mọi tài khoản, mới tạo trước, từng trang 50 theo cursor; cursor hỏng → 422; ghi list-users', async () => {
+    // 60 tài khoản cùng một thời điểm (cùng micro giây) — cursor phải tách được bằng id.
+    await admin.query(
+      `insert into profiles (id, name, created_at) select gen_random_uuid(), 'Người ' || g, '2026-11-01T00:00:00Z' from generate_series(1, 60) g`,
+    );
+    const api = await as(ADMIN_ID);
+    const first = AdminUsers.parse((await api.get('/v1/admin/users').expect(200)).body);
+    expect(first.rows).toHaveLength(50);
+    // Hai hồ sơ của beforeEach tạo lúc now() → đứng đầu.
+    expect(first.rows.slice(0, 2).map((r) => r.id).sort()).toEqual([vuaOwner, farmer].sort());
+    expect(first.cursor).toBeTruthy();
+    const second = AdminUsers.parse((await api.get('/v1/admin/users', { cursor: first.cursor }).expect(200)).body);
+    expect(second.rows).toHaveLength(12);
+    expect(second.cursor).toBeNull();
+    const all = [...first.rows, ...second.rows].map((r) => r.id);
+    expect(new Set(all).size).toBe(62);
+
+    await api.get('/v1/admin/users', { cursor: 'rác' }).expect(422);
+    const { rows } = await admin.query(`select action, reason from admin_access_log where action = 'list-users'`);
+    expect(rows).toEqual([
+      { action: 'list-users', reason: null },
+      { action: 'list-users', reason: null },
+    ]);
+  });
+
+  it('0.34.0: chi tiết — tổ chức kèm mức làm việc, nhật ký gộp mới trước; không có → 404; ghi view-user', async () => {
+    await admin.query(`update profiles set created_at = '2026-11-01T00:00:00Z' where id = $1`, [vuaOwner]);
+    await admin.query(`update memberships set created_at = '2026-11-01T00:05:00Z' where user_id = $1`, [vuaOwner]);
+    const api = await as(ADMIN_ID);
+    // Anh Hùng: lập 2 phiếu + ghi 1 lần trả hôm 10/11, 1 phiếu đã xoá (không tính); xoá một phiếu (audit).
+    const tx1 = newId();
+    await admin.query(
+      `insert into transactions (id, organization_id, created_by, date, kind, supplier_name, lines, created_at, deleted_at) values
+         ($1, $2, $3, now(), 'purchase', 'Khách lẻ', '[]', '2026-11-10T02:00:00Z', null),
+         ($4, $2, $3, now(), 'purchase', 'Khách lẻ', '[]', '2026-11-10T03:00:00Z', null),
+         ($5, $2, $3, now(), 'purchase', 'Khách lẻ', '[]', '2026-11-10T04:00:00Z', now())`,
+      [tx1, vua, vuaOwner, newId(), newId()],
+    );
+    await admin.query(
+      `insert into payments (id, organization_id, transaction_id, created_by, date, amount, created_at)
+       values ($1, $2, $3, $4, now(), 500000, '2026-11-10T05:00:00Z')`,
+      [newId(), vua, tx1, vuaOwner],
+    );
+    await admin.query(
+      `insert into audit_log (organization_id, actor_user_id, action, entity, entity_id, before, created_at)
+       values ($1, $2, 'receipt.deleted', 'transaction', $3, '{"total": 1000}', '2026-11-11T01:00:00Z')`,
+      [vua, vuaOwner, newId()],
+    );
+    // Người khác (chủ khác) đổi quyền của anh Hùng ở vựa — dòng của chỗ anh Hùng trong tổ chức.
+    const { rows: ms } = await admin.query<{ id: string }>(`select id from memberships where user_id = $1`, [vuaOwner]);
+    await admin.query(
+      `insert into audit_log (organization_id, actor_user_id, action, entity, entity_id, after, created_at)
+       values ($1, $2, 'member.role_changed', 'membership', $3, '{"role": "manager"}', '2026-11-12T01:00:00Z')`,
+      [vua, farmer, ms[0]?.id],
+    );
+    await admin.query(
+      `insert into admin_access_log (user_id, action, operator, reason, created_at)
+       values ($1, 'reset-password', 'Linh (admin)', 'Khách gọi', '2026-11-12T02:00:00Z')`,
+      [vuaOwner],
+    );
+
+    const d = AdminUserDetail.parse((await api.get(`/v1/admin/users/${vuaOwner}`).expect(200)).body);
+    expect(d).toMatchObject({ id: vuaOwner, name: 'Anh Hùng', username: 'tuhung', phone: '+84905112233', timelineTruncated: false });
+    expect(d.memberships).toMatchObject([
+      { organization: { id: vua, name: 'Vựa Tư Hùng', type: 'trader' }, role: 'owner', status: 'active', receipts: 2, payments: 1 },
+    ]);
+    expect(d.memberships[0]?.lastActivityAt).toBe('2026-11-10T05:00:00.000Z');
+
+    expect(d.timeline.map((e) => [e.kind, e.action, e.actor])).toEqual([
+      ['admin', 'reset-password', 'Linh (admin)'],
+      ['organization', 'member.role_changed', 'Cô Mai'],
+      ['work', 'receipt.deleted', null],
+      ['work', 'work.day', null],
+      ['organization', 'membership.joined', null],
+      ['account', 'account.created', null],
+    ]);
+    expect(d.timeline[0]?.after).toEqual({ reason: 'Khách gọi' });
+    expect(d.timeline[3]).toMatchObject({ at: '2026-11-10T05:00:00.000Z', organization: { id: vua }, after: { receipts: 2, payments: 1 } });
+    expect(d.timeline[4]).toMatchObject({ organization: { id: vua }, after: { role: 'owner' } });
+    await api.get(`/v1/admin/users/${newId()}`).expect(404);
+    // Lần xem trước không hiện lại trong nhật ký của tài khoản.
+    const again = AdminUserDetail.parse((await api.get(`/v1/admin/users/${vuaOwner}`).expect(200)).body);
+    expect(again.timeline.filter((e) => e.kind === 'admin')).toHaveLength(1);
+    const { rows } = await admin.query(`select user_id from admin_access_log where action = 'view-user'`);
+    expect(rows.map((r) => r.user_id)).toEqual([vuaOwner, vuaOwner]);
   });
 });
 
