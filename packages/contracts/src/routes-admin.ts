@@ -8,6 +8,7 @@ import {
   AdminFeedbackQuery,
   AdminOrganizationDetail,
   AdminOrganizationParams,
+  AdminOrganizationRenameInput,
   AdminOrganizations,
   AdminOrganizationsQuery,
   AdminOverview,
@@ -16,8 +17,10 @@ import {
   AdminPromoDeleteQuery,
   AdminPromoParams,
   AdminPromoRow,
+  AdminRenameResult,
   AdminUserDetail,
   AdminUserParams,
+  AdminUserRenameInput,
   AdminUsers,
   AdminUsersQuery,
 } from './admin.js';
@@ -56,6 +59,17 @@ export const adminRoutes = {
     params: AdminOrganizationParams,
     body: AdminFeatureInput,
     response: AdminFeatures,
+    errors: ['NOT_FOUND'],
+  },
+  adminOrganizationRename: {
+    method: 'PATCH',
+    path: '/v1/admin/organizations/:id',
+    summary:
+      'Sửa tên tổ chức (0.34.0). Cần người duyệt. Ghi nhật ký quản trị và nhật ký của tổ chức (`organization.updated`, người làm = quản trị viên)',
+    auth: 'admin',
+    params: AdminOrganizationParams,
+    body: AdminOrganizationRenameInput,
+    response: AdminRenameResult,
     errors: ['NOT_FOUND'],
   },
   adminPromoCodes: {
@@ -100,6 +114,17 @@ export const adminRoutes = {
     auth: 'admin',
     params: AdminUserParams,
     response: AdminUserDetail,
+    errors: ['NOT_FOUND'],
+  },
+  adminUserRename: {
+    method: 'PATCH',
+    path: '/v1/admin/users/:id',
+    summary:
+      'Sửa tên hiển thị của một tài khoản (0.34.0) — cả hồ sơ lẫn Supabase Auth. Cần người duyệt. Ghi nhật ký quản trị (`rename-user`)',
+    auth: 'admin',
+    params: AdminUserParams,
+    body: AdminUserRenameInput,
+    response: AdminRenameResult,
     errors: ['NOT_FOUND'],
   },
   adminFeedback: {

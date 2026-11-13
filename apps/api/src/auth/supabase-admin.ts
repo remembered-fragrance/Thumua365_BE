@@ -25,6 +25,8 @@ export interface SupabaseAdmin {
   deleteUser(userId: string): Promise<void>;
   /** Quản trị viên đặt lại mật khẩu (BE6) — sau khi đã xác minh danh tính ngoài app. */
   setPassword(userId: string, password: string): Promise<void>;
+  /** Quản trị viên sửa tên hiển thị (0.34.0): `user_metadata.name` — `/v1/me` đọc tên từ đây. */
+  setName(userId: string, name: string): Promise<void>;
   /**
    * Mã đặt lại mật khẩu (0.16.0) — `hashed_token` của link "recovery". Supabase KHÔNG gửi thư (email
    * đăng nhập là email nội bộ); API tự gửi tới email khôi phục đã xác nhận. App đổi mã lấy phiên bằng
@@ -92,6 +94,17 @@ export class SupabaseAdminHttp implements SupabaseAdmin {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`Supabase Auth Admin trả ${res.status} khi đặt mật khẩu`);
+  }
+
+  async setName(userId: string, name: string): Promise<void> {
+    // Auth gộp `user_metadata` theo khoá — các khoá khác (recoveryEmail, số khai lúc đăng ký) giữ nguyên.
+    const res = await fetch(`${this.url}/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      headers: this.headers,
+      body: JSON.stringify({ user_metadata: { name } }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`Supabase Auth Admin trả ${res.status} khi sửa tên`);
   }
 
   async recoveryToken(loginEmail: string): Promise<string> {

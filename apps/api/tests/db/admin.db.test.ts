@@ -13,6 +13,7 @@ import {
   AdminOverview,
   AdminPromoCodes,
   AdminPromoRow,
+  AdminRenameResult,
   AdminUserDetail,
   AdminUsers,
   ErrorBody,
@@ -31,6 +32,7 @@ const PRIVILEGED_URL =
 const ADMIN_ID = '3f9b8c7d-6e5a-4b3c-9d2e-1f0a9b8c7d6e';
 
 let app: INestApplication;
+const fakeAuth = new FakeSupabaseAdmin();
 let signer: Awaited<ReturnType<typeof makeSigner>>;
 
 beforeAll(async () => {
@@ -39,7 +41,7 @@ beforeAll(async () => {
   app = await buildTestApp({
     env: testEnv({ DATABASE_URL: SERVICE_URL, PRIVILEGED_DATABASE_URL: PRIVILEGED_URL, ADMIN_USER_IDS: ADMIN_ID, RATE_LIMIT_PER_MINUTE: '10000' }),
     jwks: signer.jwks,
-    supabaseAdmin: new FakeSupabaseAdmin(),
+    supabaseAdmin: fakeAuth,
     db,
     privilegedDb: new PrivilegedDatabase(PRIVILEGED_URL),
     memberships: new PrismaMemberships(db),
@@ -102,6 +104,8 @@ describe('chỉ quản trị viên', () => {
     await owner.get('/v1/admin/promo-codes').expect(403);
     await owner.get('/v1/admin/users', { q: 'Hùng' }).expect(403);
     await owner.get(`/v1/admin/users/${vuaOwner}`).expect(403);
+    await owner.patch(`/v1/admin/users/${vuaOwner}`, { name: 'X', approvedBy: 'Tôi' }).expect(403);
+    await owner.patch(`/v1/admin/organizations/${vua}`, { name: 'X', approvedBy: 'Tôi' }).expect(403);
     await owner.get('/v1/admin/access-log').expect(403);
     expect(await logActions()).toEqual([]);
   });
@@ -390,6 +394,54 @@ describe('người dùng', () => {
     expect(again.timeline.filter((e) => e.kind === 'admin')).toHaveLength(1);
     const { rows } = await admin.query(`select user_id from admin_access_log where action = 'view-user'`);
     expect(rows.map((r) => r.user_id)).toEqual([vuaOwner, vuaOwner]);
+  });
+});
+
+describe('sửa tên (0.34.0)', () => {
+  it('tài khoản: hồ sơ + Supabase Auth đổi cùng nhau, cần người duyệt, ghi rename-user (cũ → mới · lý do); không có → 404', async () => {
+    const api = await as(ADMIN_ID);
+    await api.patch(`/v1/admin/users/${vuaOwner}`, { name: 'Anh Hùng Mới' }).expect(422);
+    await api.patch(`/v1/admin/users/${vuaOwner}`, { name: '  ', approvedBy: 'Linh' }).expect(422);
+    const r = AdminRenameResult.parse(
+      (await api.patch(`/v1/admin/users/${vuaOwner}`, { name: '  Anh Hùng Mới ', approvedBy: 'Linh', reason: 'Khách nhờ' }).expect(200)).body,
+    );
+    expect(r).toEqual({ id: vuaOwner, name: 'Anh Hùng Mới', previousName: 'Anh Hùng' });
+    expect(fakeAuth.names.get(vuaOwner)).toBe('Anh Hùng Mới');
+    const { rows } = await admin.query(`select name from profiles where id = $1`, [vuaOwner]);
+    expect(rows[0]?.name).toBe('Anh Hùng Mới');
+    const log = await admin.query(`select user_id, operator, reason from admin_access_log where action = 'rename-user'`);
+    expect(log.rows).toEqual([{ user_id: vuaOwner, operator: `Linh · qua ${ADMIN_ID}`, reason: '"Anh Hùng" → "Anh Hùng Mới" · Khách nhờ' }]);
+    // Hiện trong nhật ký của tài khoản, nhóm quản trị viên.
+    const d = AdminUserDetail.parse((await api.get(`/v1/admin/users/${vuaOwner}`).expect(200)).body);
+    expect(d.timeline[0]).toMatchObject({ kind: 'admin', action: 'rename-user', actor: `Linh · qua ${ADMIN_ID}` });
+
+    await api.patch(`/v1/admin/users/${newId()}`, { name: 'Ai đó', approvedBy: 'Linh' }).expect(404);
+  });
+
+  it('tài khoản: Supabase Auth hỏng → hồ sơ và nhật ký quản trị rollback', async () => {
+    const api = await as(ADMIN_ID);
+    fakeAuth.failNames = true;
+    try {
+      await api.patch(`/v1/admin/users/${farmer}`, { name: 'Cô Mai Mới', approvedBy: 'Linh' }).expect(500);
+    } finally {
+      fakeAuth.failNames = false;
+    }
+    const { rows } = await admin.query(`select name from profiles where id = $1`, [farmer]);
+    expect(rows[0]?.name).toBe('Cô Mai');
+    expect((await admin.query(`select 1 from admin_access_log where action = 'rename-user'`)).rows).toHaveLength(0);
+  });
+
+  it('tổ chức: đổi tên, ghi rename-organization và organization.updated vào nhật ký của tổ chức (người làm = quản trị viên)', async () => {
+    const api = await as(ADMIN_ID);
+    const r = AdminRenameResult.parse((await api.patch(`/v1/admin/organizations/${vua}`, { name: 'Vựa Tư Hùng 2', approvedBy: 'Linh' }).expect(200)).body);
+    expect(r).toEqual({ id: vua, name: 'Vựa Tư Hùng 2', previousName: 'Vựa Tư Hùng' });
+    expect((await admin.query(`select name from organizations where id = $1`, [vua])).rows[0]?.name).toBe('Vựa Tư Hùng 2');
+    const audit = await admin.query(`select actor_user_id, before, after from audit_log where organization_id = $1 and action = 'organization.updated'`, [vua]);
+    expect(audit.rows).toEqual([{ actor_user_id: ADMIN_ID, before: { name: 'Vựa Tư Hùng' }, after: { name: 'Vựa Tư Hùng 2' } }]);
+    const log = await admin.query(`select organization_id, reason from admin_access_log where action = 'rename-organization'`);
+    expect(log.rows).toEqual([{ organization_id: vua, reason: '"Vựa Tư Hùng" → "Vựa Tư Hùng 2"' }]);
+    await api.patch(`/v1/admin/organizations/${vua}`, { name: 'x'.repeat(121), approvedBy: 'Linh' }).expect(422);
+    await api.patch(`/v1/admin/organizations/${newId()}`, { name: 'Ai đó', approvedBy: 'Linh' }).expect(404);
   });
 });
 

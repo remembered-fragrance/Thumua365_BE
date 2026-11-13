@@ -17,6 +17,7 @@ import {
   type AdminFeedback,
   type AdminFeedbackQuery,
   type AdminOrganizationDetail,
+  type AdminOrganizationRenameInput,
   type AdminOrganizations,
   type AdminOrganizationsQuery,
   type AdminOverview,
@@ -24,8 +25,10 @@ import {
   type AdminPromoCreateInput,
   type AdminPromoDeleteQuery,
   type AdminPromoRow,
+  type AdminRenameResult,
   type AdminUserDetail,
   type AdminUserEvent,
+  type AdminUserRenameInput,
   type AdminUsers,
   type AdminUsersQuery,
   Feature,
@@ -38,8 +41,10 @@ import {
 } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
+import { recordAudit } from '../audit/audit';
 import type { AuthUser } from '../auth/auth-user';
 import { planSummary } from '../auth/prisma-memberships';
+import { SUPABASE_ADMIN, type SupabaseAdmin } from '../auth/supabase-admin';
 import { ApiException } from '../common/api-exception';
 import { ENV, type Env } from '../config/env';
 import type { Tx } from '../db/database';
@@ -50,6 +55,8 @@ import { paymentRows } from './payment-rows';
 
 type FeatureInput = z.output<typeof AdminFeatureInput>;
 type PromoInput = z.output<typeof AdminPromoCreateInput>;
+type UserRenameInput = z.output<typeof AdminUserRenameInput>;
+type OrganizationRenameInput = z.output<typeof AdminOrganizationRenameInput>;
 
 const DAY_MS = 86_400_000;
 const VN_TZ = 'Asia/Ho_Chi_Minh';
@@ -90,6 +97,10 @@ const parseUserCursor = (raw: string): { at: string; id: string } => {
   return { at, id };
 };
 
+/** Ghi chú nhật ký quản trị của một lần sửa tên: `"cũ" → "mới" · lý do`. */
+const renameNote = (from: string, to: string, reason: string | undefined): string =>
+  [`"${from}" → "${to}"`, reason].filter(Boolean).join(' · ');
+
 /** Ký tự đặc biệt của LIKE trong chữ người dùng gõ thành chữ thường. */
 const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
@@ -119,12 +130,18 @@ const promoInclude = { organization: { select: { id: true, name: true, type: tru
 
 @Injectable()
 export class AdminConsoleService {
+  private readonly auth: SupabaseAdmin;
   private readonly db: PrivilegedDatabase | null;
   /** Tài khoản quản trị (`ADMIN_USER_IDS`) và tổ chức của họ không tính vào số liệu — chúng không phải khách. */
   private readonly admins: string[];
 
-  constructor(@Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null, @Inject(ENV) env: Env) {
+  constructor(
+    @Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null,
+    @Inject(ENV) env: Env,
+    @Inject(SUPABASE_ADMIN) auth: SupabaseAdmin,
+  ) {
     this.db = db;
+    this.auth = auth;
     this.admins = env.ADMIN_USER_IDS.map((id) => id.toLowerCase());
   }
 
@@ -654,6 +671,62 @@ export class AdminConsoleService {
         timeline: events.slice(0, ADMIN_USER_TIMELINE_MAX),
         timelineTruncated: events.length > ADMIN_USER_TIMELINE_MAX,
       };
+    });
+  }
+
+  /**
+   * Sửa tên hiển thị (0.34.0): hồ sơ + nhật ký quản trị trong transaction, rồi `user_metadata.name` của Supabase Auth ngay
+   * trước commit — Auth hỏng thì hồ sơ và nhật ký rollback theo, hai nơi không lệch nhau.
+   */
+  renameUser(admin: AuthUser, id: string, input: UserRenameInput): Promise<AdminRenameResult> {
+    return privileged(this.db).run(async (tx) => {
+      const before = await tx.profile.findFirst({ where: { id, deletedAt: null }, select: { name: true } });
+      if (!before) throw new ApiException('NOT_FOUND', 'Không có tài khoản này');
+      await tx.profile.update({ where: { id }, data: { name: input.name }, select: { id: true } });
+      await tx.adminAccessLog.create({
+        data: {
+          organizationId: null,
+          userId: id,
+          action: 'rename-user',
+          operator: operatorOf(admin, input.approvedBy),
+          reason: renameNote(before.name, input.name, input.reason),
+        },
+        select: { id: true },
+      });
+      await this.auth.setName(id, input.name);
+      return { id, name: input.name, previousName: before.name };
+    });
+  }
+
+  /**
+   * Sửa tên tổ chức (0.34.0). Ngoài nhật ký quản trị còn ghi `organization.updated` vào nhật ký CỦA TỔ CHỨC (người làm = tài
+   * khoản quản trị) — chủ thấy ai đã đổi tên vựa mình, như khi chủ tự đổi.
+   */
+  renameOrganization(admin: AuthUser, id: string, input: OrganizationRenameInput): Promise<AdminRenameResult> {
+    return privileged(this.db).run(async (tx) => {
+      const before = await tx.organization.findFirst({ where: { id, deletedAt: null }, select: { name: true } });
+      if (!before) throw new ApiException('NOT_FOUND', 'Không có tổ chức này');
+      await tx.organization.update({ where: { id }, data: { name: input.name }, select: { id: true } });
+      await tx.adminAccessLog.create({
+        data: {
+          organizationId: id,
+          userId: null,
+          action: 'rename-organization',
+          operator: operatorOf(admin, input.approvedBy),
+          reason: renameNote(before.name, input.name, input.reason),
+        },
+        select: { id: true },
+      });
+      await recordAudit(tx, {
+        organizationId: id,
+        actorUserId: admin.id,
+        action: 'organization.updated',
+        entity: 'organization',
+        entityId: id,
+        before: { name: before.name },
+        after: { name: input.name },
+      });
+      return { id, name: input.name, previousName: before.name };
     });
   }
 

@@ -295,6 +295,19 @@ export const AdminUserDetail = z.object({
 });
 export type AdminUserDetail = z.infer<typeof AdminUserDetail>;
 
+// ─── Sửa tên (0.34.0) ────────────────────────────────────────────────────────
+
+/** Quản trị viên sửa tên hiển thị của một tài khoản — cùng giới hạn như người dùng tự sửa (`MeProfilePatch.name`). */
+export const AdminUserRenameInput = z.strictObject({ name: z.string().trim().min(1).max(80), ...Approval });
+export type AdminUserRenameInput = z.input<typeof AdminUserRenameInput>;
+
+/** Quản trị viên sửa tên tổ chức — cùng giới hạn như chủ tự đổi (`OrgPatch.name`). */
+export const AdminOrganizationRenameInput = z.strictObject({ name: z.string().trim().min(1).max(120), ...Approval });
+export type AdminOrganizationRenameInput = z.input<typeof AdminOrganizationRenameInput>;
+
+export const AdminRenameResult = z.object({ id: z.uuid(), name: z.string(), previousName: z.string() });
+export type AdminRenameResult = z.infer<typeof AdminRenameResult>;
+
 // ─── Phản hồi ────────────────────────────────────────────────────────────────
 
 export const ADMIN_FEEDBACK_MAX = 500;

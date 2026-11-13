@@ -1518,7 +1518,10 @@ migration. Test: `admin.db.test.ts` (tổng quan + phễu). `verify` xanh; `test
 giây>|<id>` — so cặp `(created_at, id)` nên không sót khi trùng giờ). Mới: `GET /v1/admin/users/:id` — tổ chức kèm số
 phiếu / lần trả người đó ghi và lần làm gần nhất; nhật ký gộp mới trước (tạo tài khoản, vào tổ chức, ngày làm việc theo
 giờ VN — chỉ đếm, không kèm tiền, `audit_log` người đó làm hoặc người khác làm với membership của họ, `admin_access_log`
-trừ `view-user`), tối đa 300 dòng. Ghi `list-users` / `view-user`. Không migration. Test: `admin.db.test.ts`.
+trừ `view-user`), tối đa 300 dòng. Ghi `list-users` / `view-user`. Thêm sửa tên: `PATCH /v1/admin/users/:id` (hồ sơ +
+`user_metadata.name` qua `SupabaseAdmin.setName`, gọi ngay trước commit để Auth hỏng thì rollback; ghi `rename-user`) và
+`PATCH /v1/admin/organizations/:id` (ghi `rename-organization` + `organization.updated` với người làm = quản trị viên).
+Không migration. Test: `admin.db.test.ts`.
 
 ## Ba số phải giữ trong tầm
 

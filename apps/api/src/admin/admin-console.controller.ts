@@ -6,6 +6,7 @@ import {
   type AdminFeedbackQuery,
   type AdminOrganizationDetail,
   type AdminOrganizationParams,
+  AdminOrganizationRenameInput,
   type AdminOrganizations,
   type AdminOrganizationsQuery,
   type AdminOverview,
@@ -14,8 +15,10 @@ import {
   type AdminPromoDeleteQuery,
   type AdminPromoParams,
   type AdminPromoRow,
+  type AdminRenameResult,
   type AdminUserDetail,
   type AdminUserParams,
+  AdminUserRenameInput,
   type AdminUsers,
   type AdminUsersQuery,
   routes,
@@ -61,6 +64,15 @@ export class AdminConsoleController {
     return this.console.setFeature(user, params.id, input);
   }
 
+  @Endpoint(routes.adminOrganizationRename)
+  renameOrganization(
+    @CurrentUser() user: AuthUser,
+    @ContractParams() params: AdminOrganizationParams,
+    @Body() input: z.output<typeof AdminOrganizationRenameInput>,
+  ): Promise<AdminRenameResult> {
+    return this.console.renameOrganization(user, params.id, input);
+  }
+
   @Endpoint(routes.adminPromoCodes)
   promoCodes(): Promise<AdminPromoCodes> {
     return this.console.promoCodes();
@@ -88,6 +100,15 @@ export class AdminConsoleController {
   @Endpoint(routes.adminUser)
   user(@CurrentUser() user: AuthUser, @ContractParams() params: AdminUserParams): Promise<AdminUserDetail> {
     return this.console.user(user, params.id);
+  }
+
+  @Endpoint(routes.adminUserRename)
+  renameUser(
+    @CurrentUser() user: AuthUser,
+    @ContractParams() params: AdminUserParams,
+    @Body() input: z.output<typeof AdminUserRenameInput>,
+  ): Promise<AdminRenameResult> {
+    return this.console.renameUser(user, params.id, input);
   }
 
   @Endpoint(routes.adminFeedback)

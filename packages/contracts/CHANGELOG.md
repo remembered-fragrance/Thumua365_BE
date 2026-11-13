@@ -18,7 +18,15 @@ chi tiết tài khoản → 404).
   `membership.joined`, `work.day` (một ngày làm việc ở một tổ chức, giờ Việt Nam, `after: { receipts, payments }`), tên việc
   của `audit_log` (việc người này làm, hoặc người khác làm với chỗ của họ trong tổ chức — có `actor`), việc của
   `admin_access_log` (trừ lần chỉ xem; `actor` = người duyệt). Không có / đã xoá → 404. Ghi nhật ký `view-user`.
-- `@mambo/sdk`: `api.admin.user(id)`; `api.admin.users()` không cần tham số.
+- `adminUserRename` — `PATCH /v1/admin/users/:id` `{ name (1–80), approvedBy, reason? }` → `AdminRenameResult { id, name,
+  previousName }`: sửa tên hiển thị ở hồ sơ **và** `user_metadata.name` của Supabase Auth (Auth hỏng → hồ sơ rollback, 500).
+  Ghi `rename-user` (ghi chú `"cũ" → "mới" · lý do`). Người dùng đang mở app thấy tên mới khi phiên làm mới (≤ 1 giờ) hoặc
+  đăng nhập lại. Không có → 404.
+- `adminOrganizationRename` — `PATCH /v1/admin/organizations/:id` `{ name (1–120), approvedBy, reason? }` →
+  `AdminRenameResult`. Ghi `rename-organization` và `organization.updated` vào nhật ký của tổ chức (người làm = tài khoản quản
+  trị) — chủ thấy trong màn Nhật ký. Không có → 404.
+- `@mambo/sdk`: `api.admin.user(id)`, `api.admin.renameUser(id, input)`, `api.admin.renameOrganization(id, input)`;
+  `api.admin.users()` không cần tham số.
 
 ## 0.33.1 — 12/11/2026 (số liệu quản trị không tính tài khoản quản trị)
 
