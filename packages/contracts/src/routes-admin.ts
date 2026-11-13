@@ -8,6 +8,7 @@ import {
   AdminFeedbackQuery,
   AdminOrganizationDetail,
   AdminOrganizationParams,
+  AdminOrganizationRenameInput,
   AdminOrganizations,
   AdminOrganizationsQuery,
   AdminOverview,
@@ -16,6 +17,10 @@ import {
   AdminPromoDeleteQuery,
   AdminPromoParams,
   AdminPromoRow,
+  AdminRenameResult,
+  AdminUserDetail,
+  AdminUserParams,
+  AdminUserRenameInput,
   AdminUsers,
   AdminUsersQuery,
 } from './admin.js';
@@ -56,6 +61,17 @@ export const adminRoutes = {
     response: AdminFeatures,
     errors: ['NOT_FOUND'],
   },
+  adminOrganizationRename: {
+    method: 'PATCH',
+    path: '/v1/admin/organizations/:id',
+    summary:
+      'Sửa tên tổ chức (0.34.0). Cần người duyệt. Ghi nhật ký quản trị và nhật ký của tổ chức (`organization.updated`, người làm = quản trị viên)',
+    auth: 'admin',
+    params: AdminOrganizationParams,
+    body: AdminOrganizationRenameInput,
+    response: AdminRenameResult,
+    errors: ['NOT_FOUND'],
+  },
   adminPromoCodes: {
     method: 'GET',
     path: '/v1/admin/promo-codes',
@@ -84,10 +100,32 @@ export const adminRoutes = {
   adminUsers: {
     method: 'GET',
     path: '/v1/admin/users',
-    summary: 'Tìm người dùng theo số điện thoại, tên đăng nhập hoặc tên, kèm tổ chức họ thuộc về. Ghi nhật ký quản trị',
+    summary:
+      'Mọi tài khoản, mới tạo trước, mỗi trang 50 (`cursor`); có `q` thì tìm theo số điện thoại, tên đăng nhập hoặc tên. Kèm tổ chức họ thuộc về. Ghi nhật ký quản trị',
     auth: 'admin',
     query: AdminUsersQuery,
     response: AdminUsers,
+  },
+  adminUser: {
+    method: 'GET',
+    path: '/v1/admin/users/:id',
+    summary:
+      'Chi tiết một tài khoản: tổ chức thuộc về kèm mức làm việc, và nhật ký gộp (tạo tài khoản, vào tổ chức, ngày làm việc, thao tác nhạy cảm, việc của quản trị viên). Ghi nhật ký quản trị',
+    auth: 'admin',
+    params: AdminUserParams,
+    response: AdminUserDetail,
+    errors: ['NOT_FOUND'],
+  },
+  adminUserRename: {
+    method: 'PATCH',
+    path: '/v1/admin/users/:id',
+    summary:
+      'Sửa tên hiển thị của một tài khoản (0.34.0) — cả hồ sơ lẫn Supabase Auth. Cần người duyệt. Ghi nhật ký quản trị (`rename-user`)',
+    auth: 'admin',
+    params: AdminUserParams,
+    body: AdminUserRenameInput,
+    response: AdminRenameResult,
+    errors: ['NOT_FOUND'],
   },
   adminFeedback: {
     method: 'GET',

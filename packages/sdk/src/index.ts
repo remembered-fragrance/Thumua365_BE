@@ -253,7 +253,11 @@ export const createClient = (options: ClientOptions) => {
       promoCodes: () => call('adminPromoCodes'),
       createPromo: (input: RouteBody<'adminPromoCreate'>) => send('adminPromoCreate', input),
       deletePromo: (code: string, query: RouteQueryInput<'adminPromoDelete'>) => call('adminPromoDelete', undefined, query, { code }),
-      users: (query: RouteQueryInput<'adminUsers'>) => call('adminUsers', undefined, query),
+      users: (query: RouteQueryInput<'adminUsers'> = {}) => call('adminUsers', undefined, query),
+      user: (id: string) => call('adminUser', undefined, undefined, { id }),
+      renameUser: (id: string, input: RouteBody<'adminUserRename'>) => call('adminUserRename', input, undefined, { id }),
+      renameOrganization: (id: string, input: RouteBody<'adminOrganizationRename'>) =>
+        call('adminOrganizationRename', input, undefined, { id }),
       feedback: (query: RouteQueryInput<'adminFeedback'>) => call('adminFeedback', undefined, query),
       accessLog: () => call('adminAccessLog'),
     },

@@ -1513,6 +1513,16 @@ migration. Test: `admin.db.test.ts` (tổng quan + phễu). `verify` xanh; `test
 
 ---
 
+## Danh sách mọi tài khoản + nhật ký từng tài khoản · `v0.34.0` · 13/11/2026
+`GET /v1/admin/users` bỏ trống `q` = mọi tài khoản, mới tạo trước, trang 50 theo `cursor` (`<created_at UTC đủ micro
+giây>|<id>` — so cặp `(created_at, id)` nên không sót khi trùng giờ). Mới: `GET /v1/admin/users/:id` — tổ chức kèm số
+phiếu / lần trả người đó ghi và lần làm gần nhất; nhật ký gộp mới trước (tạo tài khoản, vào tổ chức, ngày làm việc theo
+giờ VN — chỉ đếm, không kèm tiền, `audit_log` người đó làm hoặc người khác làm với membership của họ, `admin_access_log`
+trừ `view-user`), tối đa 300 dòng. Ghi `list-users` / `view-user`. Thêm sửa tên: `PATCH /v1/admin/users/:id` (hồ sơ +
+`user_metadata.name` qua `SupabaseAdmin.setName`, gọi ngay trước commit để Auth hỏng thì rollback; ghi `rename-user`) và
+`PATCH /v1/admin/organizations/:id` (ghi `rename-organization` + `organization.updated` với người làm = quản trị viên).
+Không migration. Test: `admin.db.test.ts`.
+
 ## Ba số phải giữ trong tầm
 
 | Chỉ số | Ngưỡng | Cuối BE0 |

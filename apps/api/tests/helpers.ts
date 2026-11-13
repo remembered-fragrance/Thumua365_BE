@@ -113,6 +113,15 @@ export class FakeSupabaseAdmin implements SupabaseAdmin {
     this.passwords.set(userId, password);
   }
 
+  /** Tên hiển thị quản trị viên đã sửa (0.34.0): id → tên. `failNames` giả Auth hỏng. */
+  readonly names = new Map<string, string>();
+  failNames = false;
+
+  async setName(userId: string, name: string): Promise<void> {
+    if (this.failNames) throw new Error('Auth hỏng');
+    this.names.set(userId, name);
+  }
+
   /** Email đăng nhập đã xin mã đặt lại mật khẩu, theo thứ tự. */
   readonly recoveries: string[] = [];
 

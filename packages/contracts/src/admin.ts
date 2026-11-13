@@ -197,11 +197,17 @@ export type AdminPromoDeleteQuery = z.output<typeof AdminPromoDeleteQuery>;
 
 // ─── Người dùng ──────────────────────────────────────────────────────────────
 
+/** Số dòng mỗi trang. */
 export const ADMIN_USERS_MAX = 50;
 
 export const AdminUsersQuery = z.strictObject({
-  /** Số điện thoại (gõ kiểu nào cũng được), tên đăng nhập, hoặc một phần tên. */
-  q: z.string().trim().min(2).max(100),
+  /**
+   * Số điện thoại (gõ kiểu nào cũng được), tên đăng nhập, hoặc một phần tên. 0.34.0: bỏ trống = mọi tài khoản,
+   * mới tạo trước.
+   */
+  q: z.string().trim().min(2).max(100).optional(),
+  /** `cursor` của trang trước (0.34.0). */
+  cursor: z.string().min(1).max(200).optional(),
 });
 export type AdminUsersQuery = z.output<typeof AdminUsersQuery>;
 
@@ -217,8 +223,90 @@ export const AdminUserRow = z.object({
 });
 export type AdminUserRow = z.infer<typeof AdminUserRow>;
 
-export const AdminUsers = z.object({ rows: z.array(AdminUserRow).max(ADMIN_USERS_MAX) });
+export const AdminUsers = z.object({
+  rows: z.array(AdminUserRow).max(ADMIN_USERS_MAX),
+  /** Trang sau (0.34.0): gửi lại ở `?cursor=`. `null` = hết; API cũ không gửi. */
+  cursor: z.string().nullable().optional(),
+});
 export type AdminUsers = z.infer<typeof AdminUsers>;
+
+export const AdminUserParams = z.strictObject({ id: z.uuid() });
+export type AdminUserParams = z.infer<typeof AdminUserParams>;
+
+export const ADMIN_USER_TIMELINE_MAX = 300;
+
+/**
+ * Nhóm của một dòng nhật ký — màn quản trị lọc theo nhóm.
+ * `account`: tạo tài khoản · `organization`: vào tổ chức, người, chi nhánh, kết nối, gói · `work`: phiếu, lần trả, địa điểm ·
+ * `admin`: quản trị viên đã làm gì với tài khoản này.
+ */
+export const AdminUserEventKind = z.enum(['account', 'organization', 'work', 'admin']);
+export type AdminUserEventKind = z.infer<typeof AdminUserEventKind>;
+
+/**
+ * Một dòng nhật ký của tài khoản. `action`:
+ * - `account.created` — tạo tài khoản;
+ * - `membership.joined` — vào tổ chức (`after.role`);
+ * - `work.day` — một ngày làm việc ở một tổ chức (`after.receipts` phiếu đã lập, `after.payments` lần trả đã ghi; giờ
+ *   Việt Nam; `at` = lần ghi cuối của ngày);
+ * - tên việc của `audit_log` (`receipt.deleted`, `member.role_changed`…) — việc người này làm, hoặc người khác làm với
+ *   chỗ của người này trong tổ chức (khi đó có `actor`);
+ * - việc của `admin_access_log` (`reset-password`…), `actor` = người duyệt.
+ * Để chuỗi, không enum: máy chủ thêm loại mới thì app cũ hiện tên thô.
+ */
+export const AdminUserEvent = z.object({
+  at: Time,
+  kind: AdminUserEventKind,
+  action: z.string(),
+  organization: OrgRef.nullable(),
+  /** Người làm khi KHÔNG phải chính tài khoản này. */
+  actor: z.string().nullable(),
+  before: z.unknown().nullable(),
+  after: z.unknown().nullable(),
+});
+export type AdminUserEvent = z.infer<typeof AdminUserEvent>;
+
+export const AdminUserMembership = z.object({
+  organization: OrgRef,
+  role: MemberRole,
+  status: MemberStatus,
+  branch: z.string().nullable(),
+  joinedAt: Time,
+  /** Phiếu người này đã lập (chưa xoá) ở tổ chức này. */
+  receipts: Count,
+  /** Lần trả người này đã ghi (chưa huỷ). */
+  payments: Count,
+  lastActivityAt: Time.nullable(),
+});
+export type AdminUserMembership = z.infer<typeof AdminUserMembership>;
+
+/** Chi tiết một tài khoản (0.34.0). `timeline` mới nhất trước, tối đa `ADMIN_USER_TIMELINE_MAX` dòng. */
+export const AdminUserDetail = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  username: z.string().nullable(),
+  phone: z.string().nullable(),
+  hasVerifiedRecoveryEmail: z.boolean(),
+  createdAt: Time,
+  memberships: z.array(AdminUserMembership),
+  timeline: z.array(AdminUserEvent).max(ADMIN_USER_TIMELINE_MAX),
+  /** Còn dòng cũ hơn không trả về. */
+  timelineTruncated: z.boolean(),
+});
+export type AdminUserDetail = z.infer<typeof AdminUserDetail>;
+
+// ─── Sửa tên (0.34.0) ────────────────────────────────────────────────────────
+
+/** Quản trị viên sửa tên hiển thị của một tài khoản — cùng giới hạn như người dùng tự sửa (`MeProfilePatch.name`). */
+export const AdminUserRenameInput = z.strictObject({ name: z.string().trim().min(1).max(80), ...Approval });
+export type AdminUserRenameInput = z.input<typeof AdminUserRenameInput>;
+
+/** Quản trị viên sửa tên tổ chức — cùng giới hạn như chủ tự đổi (`OrgPatch.name`). */
+export const AdminOrganizationRenameInput = z.strictObject({ name: z.string().trim().min(1).max(120), ...Approval });
+export type AdminOrganizationRenameInput = z.input<typeof AdminOrganizationRenameInput>;
+
+export const AdminRenameResult = z.object({ id: z.uuid(), name: z.string(), previousName: z.string() });
+export type AdminRenameResult = z.infer<typeof AdminRenameResult>;
 
 // ─── Phản hồi ────────────────────────────────────────────────────────────────
 

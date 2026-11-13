@@ -3,6 +3,31 @@
 Mỗi thay đổi hợp đồng một dòng. Trong `/v1` chỉ được **thêm**; bỏ hoặc đổi nghĩa là
 thay đổi phá vỡ — thêm trường mới, đánh dấu cái cũ `deprecated` ít nhất một bản phát hành.
 
+## 0.34.0 — 13/11/2026 (danh sách mọi tài khoản + nhật ký từng tài khoản)
+
+Không có migration. Chỉ thêm — **deploy API trước** rồi mới nâng app (app mới gọi API cũ: danh sách không có `q` → 422,
+chi tiết tài khoản → 404).
+
+- `adminUsers` — `GET /v1/admin/users`: `q` thành **không bắt buộc** — bỏ trống là mọi tài khoản (chưa xoá), mới tạo
+  trước; thêm `?cursor=` và `AdminUsers.cursor` (`string | null`, tuỳ chọn — API cũ không gửi): mỗi trang
+  `ADMIN_USERS_MAX` = 50. Có `q` vẫn ghi nhật ký `search-users`, không có ghi `list-users`. `cursor` hỏng → 422.
+- `adminUser` — `GET /v1/admin/users/:id` → `AdminUserDetail`: hồ sơ (như `AdminUserRow`), `memberships` kèm chi nhánh,
+  ngày vào, số phiếu đã lập / lần trả đã ghi (chưa xoá) và lần làm gần nhất; `timeline` mới nhất trước, tối đa
+  `ADMIN_USER_TIMELINE_MAX` = 300 dòng (`timelineTruncated`). Mỗi dòng `AdminUserEvent { at, kind, action, organization,
+  actor, before, after }` — `kind` `account | organization | work | admin`; `action` `account.created`,
+  `membership.joined`, `work.day` (một ngày làm việc ở một tổ chức, giờ Việt Nam, `after: { receipts, payments }`), tên việc
+  của `audit_log` (việc người này làm, hoặc người khác làm với chỗ của họ trong tổ chức — có `actor`), việc của
+  `admin_access_log` (trừ lần chỉ xem; `actor` = người duyệt). Không có / đã xoá → 404. Ghi nhật ký `view-user`.
+- `adminUserRename` — `PATCH /v1/admin/users/:id` `{ name (1–80), approvedBy, reason? }` → `AdminRenameResult { id, name,
+  previousName }`: sửa tên hiển thị ở hồ sơ **và** `user_metadata.name` của Supabase Auth (Auth hỏng → hồ sơ rollback, 500).
+  Ghi `rename-user` (ghi chú `"cũ" → "mới" · lý do`). Người dùng đang mở app thấy tên mới khi phiên làm mới (≤ 1 giờ) hoặc
+  đăng nhập lại. Không có → 404.
+- `adminOrganizationRename` — `PATCH /v1/admin/organizations/:id` `{ name (1–120), approvedBy, reason? }` →
+  `AdminRenameResult`. Ghi `rename-organization` và `organization.updated` vào nhật ký của tổ chức (người làm = tài khoản quản
+  trị) — chủ thấy trong màn Nhật ký. Không có → 404.
+- `@mambo/sdk`: `api.admin.user(id)`, `api.admin.renameUser(id, input)`, `api.admin.renameOrganization(id, input)`;
+  `api.admin.users()` không cần tham số.
+
 ## 0.33.1 — 12/11/2026 (số liệu quản trị không tính tài khoản quản trị)
 
 Không đổi hợp đồng, không migration.

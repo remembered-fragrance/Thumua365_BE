@@ -9,6 +9,7 @@ import {
   ADMIN_FEEDBACK_MAX,
   ADMIN_ORGANIZATION_PAYMENTS,
   ADMIN_ORGANIZATIONS_MAX,
+  ADMIN_USER_TIMELINE_MAX,
   ADMIN_USERS_MAX,
   type AdminAccessLog,
   type AdminFeatureInput,
@@ -16,6 +17,7 @@ import {
   type AdminFeedback,
   type AdminFeedbackQuery,
   type AdminOrganizationDetail,
+  type AdminOrganizationRenameInput,
   type AdminOrganizations,
   type AdminOrganizationsQuery,
   type AdminOverview,
@@ -23,6 +25,10 @@ import {
   type AdminPromoCreateInput,
   type AdminPromoDeleteQuery,
   type AdminPromoRow,
+  type AdminRenameResult,
+  type AdminUserDetail,
+  type AdminUserEvent,
+  type AdminUserRenameInput,
   type AdminUsers,
   type AdminUsersQuery,
   Feature,
@@ -35,8 +41,10 @@ import {
 } from '@mambo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
+import { recordAudit } from '../audit/audit';
 import type { AuthUser } from '../auth/auth-user';
 import { planSummary } from '../auth/prisma-memberships';
+import { SUPABASE_ADMIN, type SupabaseAdmin } from '../auth/supabase-admin';
 import { ApiException } from '../common/api-exception';
 import { ENV, type Env } from '../config/env';
 import type { Tx } from '../db/database';
@@ -47,6 +55,8 @@ import { paymentRows } from './payment-rows';
 
 type FeatureInput = z.output<typeof AdminFeatureInput>;
 type PromoInput = z.output<typeof AdminPromoCreateInput>;
+type UserRenameInput = z.output<typeof AdminUserRenameInput>;
+type OrganizationRenameInput = z.output<typeof AdminOrganizationRenameInput>;
 
 const DAY_MS = 86_400_000;
 const VN_TZ = 'Asia/Ho_Chi_Minh';
@@ -60,6 +70,36 @@ const phonePattern = (q: string): string | null => {
   if (digits.length < 3) return null;
   return `%${digits.replace(/^(84|0)/, '')}%`;
 };
+
+/** Cột tổ chức đi kèm một dòng truy vấn — `null` khi dòng không gắn tổ chức (hoặc tổ chức đã xoá hẳn). */
+interface OrgRow {
+  org_id: string | null;
+  org_name: string | null;
+  org_type: string | null;
+}
+
+const orgRef = (r: OrgRow): { id: string; name: string; type: OrgType } | null =>
+  r.org_id && r.org_name && r.org_type ? { id: r.org_id, name: r.org_name, type: OrgType.parse(r.org_type) } : null;
+
+/** Việc trong sổ (phiếu, lần trả, địa điểm) — nhóm `work`; việc khác của `audit_log` là nhóm `organization`. */
+const WORK_ACTION = /^(receipt|payment|place)\./;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `cursor` = `<created_at UTC đủ micro giây>|<id>` của dòng cuối trang trước. */
+const parseUserCursor = (raw: string): { at: string; id: string } => {
+  const cut = raw.lastIndexOf('|');
+  const at = raw.slice(0, cut);
+  const id = raw.slice(cut + 1);
+  if (cut <= 0 || !UUID.test(id) || Number.isNaN(Date.parse(at))) {
+    throw new ApiException('VALIDATION_FAILED', 'Trang không hợp lệ — tải lại danh sách', { fields: { cursor: 'Không hợp lệ' } });
+  }
+  return { at, id };
+};
+
+/** Ghi chú nhật ký quản trị của một lần sửa tên: `"cũ" → "mới" · lý do`. */
+const renameNote = (from: string, to: string, reason: string | undefined): string =>
+  [`"${from}" → "${to}"`, reason].filter(Boolean).join(' · ');
 
 /** Ký tự đặc biệt của LIKE trong chữ người dùng gõ thành chữ thường. */
 const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -90,12 +130,18 @@ const promoInclude = { organization: { select: { id: true, name: true, type: tru
 
 @Injectable()
 export class AdminConsoleService {
+  private readonly auth: SupabaseAdmin;
   private readonly db: PrivilegedDatabase | null;
   /** Tài khoản quản trị (`ADMIN_USER_IDS`) và tổ chức của họ không tính vào số liệu — chúng không phải khách. */
   private readonly admins: string[];
 
-  constructor(@Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null, @Inject(ENV) env: Env) {
+  constructor(
+    @Inject(PRIVILEGED_DATABASE) db: PrivilegedDatabase | null,
+    @Inject(ENV) env: Env,
+    @Inject(SUPABASE_ADMIN) auth: SupabaseAdmin,
+  ) {
     this.db = db;
+    this.auth = auth;
     this.admins = env.ADMIN_USER_IDS.map((id) => id.toLowerCase());
   }
 
@@ -413,26 +459,33 @@ export class AdminConsoleService {
   }
 
   users(admin: AuthUser, query: AdminUsersQuery): Promise<AdminUsers> {
-    const like = likePattern(query.q);
-    const phone = phonePattern(query.q);
+    const q = query.q ?? null;
+    const like = q ? likePattern(q) : null;
+    const phone = q ? phonePattern(q) : null;
+    const after = query.cursor ? parseUserCursor(query.cursor) : null;
     return privileged(this.db).run(async (tx) => {
-      const people = await tx.$queryRaw<
-        { id: string; name: string; username: string | null; phone: string | null; verified: boolean; created_at: Date }[]
+      const found = await tx.$queryRaw<
+        { id: string; name: string; username: string | null; phone: string | null; verified: boolean; created_at: Date; created_key: string }[]
       >`
         select p.id, p.name, p.username::text as username, p.phone,
-               (p.recovery_email is not null and p.recovery_email_verified_at is not null) as verified, p.created_at
+               (p.recovery_email is not null and p.recovery_email_verified_at is not null) as verified, p.created_at,
+               to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as created_key
         from profiles p
         where p.deleted_at is null
-          and (p.name ilike ${like} or p.username::text ilike ${like} or p.phone like ${phone})
-        order by p.created_at desc
-        limit ${ADMIN_USERS_MAX}`;
+          and (${q}::text is null or p.name ilike ${like} or p.username::text ilike ${like} or p.phone like ${phone})
+          and (${after?.at ?? null}::timestamptz is null
+               or (p.created_at, p.id) < (${after?.at ?? null}::timestamptz, ${after?.id ?? null}::uuid))
+        order by p.created_at desc, p.id desc
+        limit ${ADMIN_USERS_MAX + 1}`;
+      const people = found.slice(0, ADMIN_USERS_MAX);
+      const last = people.at(-1);
       const memberships = await tx.membership.findMany({
         where: { userId: { in: people.map((p) => p.id) }, organization: { deletedAt: null } },
         select: { userId: true, role: true, status: true, organization: { select: { id: true, name: true, type: true } } },
         orderBy: { createdAt: 'asc' },
       });
       await tx.adminAccessLog.create({
-        data: { organizationId: null, userId: null, action: 'search-users', operator: admin.id, reason: query.q },
+        data: { organizationId: null, userId: null, action: q ? 'search-users' : 'list-users', operator: admin.id, reason: q },
         select: { id: true },
       });
       return {
@@ -451,7 +504,229 @@ export class AdminConsoleService {
               status: MemberStatus.parse(m.status),
             })),
         })),
+        cursor: found.length > ADMIN_USERS_MAX && last ? `${last.created_key}|${last.id}` : null,
       };
+    });
+  }
+
+  /**
+   * Một tài khoản và nhật ký gộp của nó, mới nhất trước. Nguồn: hồ sơ (tạo tài khoản), `memberships` (vào tổ chức),
+   * phiếu + lần trả người này đã ghi gộp theo ngày (giờ Việt Nam — số lượng, không kèm tiền), `audit_log` (việc người này
+   * làm, và việc người khác làm với chỗ của người này trong tổ chức), `admin_access_log` (trừ các lần chỉ xem).
+   */
+  user(admin: AuthUser, id: string): Promise<AdminUserDetail> {
+    const take = ADMIN_USER_TIMELINE_MAX + 1;
+    return privileged(this.db).run(async (tx) => {
+      const [person] = await tx.$queryRaw<
+        { id: string; name: string; username: string | null; phone: string | null; verified: boolean; created_at: Date }[]
+      >`
+        select p.id, p.name, p.username::text as username, p.phone,
+               (p.recovery_email is not null and p.recovery_email_verified_at is not null) as verified, p.created_at
+        from profiles p
+        where p.id = ${id}::uuid and p.deleted_at is null`;
+      if (!person) throw new ApiException('NOT_FOUND', 'Không có tài khoản này');
+
+      const memberships = await tx.$queryRaw<
+        (OrgRow & {
+          role: string;
+          status: string;
+          branch: string | null;
+          created_at: Date;
+          receipts: number;
+          payments: number;
+          last_activity: Date | null;
+        })[]
+      >`
+        select o.id as org_id, o.name as org_name, o.type as org_type, m.role, m.status, b.name as branch, m.created_at,
+               (select count(*)::int from transactions t
+                 where t.organization_id = o.id and t.created_by = m.user_id and t.deleted_at is null) as receipts,
+               (select count(*)::int from payments pa
+                 where pa.organization_id = o.id and pa.created_by = m.user_id and pa.deleted_at is null) as payments,
+               greatest(
+                 (select max(t.created_at) from transactions t
+                   where t.organization_id = o.id and t.created_by = m.user_id and t.deleted_at is null),
+                 (select max(pa.created_at) from payments pa
+                   where pa.organization_id = o.id and pa.created_by = m.user_id and pa.deleted_at is null)
+               ) as last_activity
+        from memberships m
+        join organizations o on o.id = m.organization_id and o.deleted_at is null
+        left join branches b on b.id = m.branch_id
+        where m.user_id = ${id}::uuid
+        order by (m.status = 'active') desc, m.created_at`;
+
+      const workDays = await tx.$queryRaw<(OrgRow & { receipts: number; payments: number; last_at: Date })[]>`
+        select o.id as org_id, o.name as org_name, o.type as org_type,
+               sum(w.receipts)::int as receipts, sum(w.payments)::int as payments, max(w.last_at) as last_at
+        from (
+          select organization_id, (created_at at time zone ${VN_TZ})::date as d, count(*) as receipts, 0::bigint as payments,
+                 max(created_at) as last_at
+          from transactions where created_by = ${id}::uuid and deleted_at is null group by 1, 2
+          union all
+          select organization_id, (created_at at time zone ${VN_TZ})::date, 0::bigint, count(*), max(created_at)
+          from payments where created_by = ${id}::uuid and deleted_at is null group by 1, 2
+        ) w
+        left join organizations o on o.id = w.organization_id
+        group by o.id, o.name, o.type, w.organization_id, w.d
+        order by max(w.last_at) desc
+        limit ${take}`;
+
+      const audits = await tx.$queryRaw<
+        (OrgRow & { created_at: Date; action: string; before: unknown; after: unknown; actor_user_id: string | null; actor_name: string | null })[]
+      >`
+        select a.created_at, a.action, a.before, a.after, a.actor_user_id, ap.name as actor_name,
+               o.id as org_id, o.name as org_name, o.type as org_type
+        from audit_log a
+        left join organizations o on o.id = a.organization_id
+        left join profiles ap on ap.id = a.actor_user_id
+        where a.actor_user_id = ${id}::uuid
+           or (a.entity = 'membership' and a.entity_id in (select m.id::text from memberships m where m.user_id = ${id}::uuid))
+        order by a.created_at desc
+        limit ${take}`;
+
+      const adminActs = await tx.$queryRaw<(OrgRow & { created_at: Date; action: string; operator: string; reason: string | null })[]>`
+        select l.created_at, l.action, l.operator, l.reason, o.id as org_id, o.name as org_name, o.type as org_type
+        from admin_access_log l
+        left join organizations o on o.id = l.organization_id
+        where l.user_id = ${id}::uuid and l.action <> 'view-user'
+        order by l.created_at desc
+        limit ${take}`;
+
+      await tx.adminAccessLog.create({
+        data: { organizationId: null, userId: id, action: 'view-user', operator: admin.id, reason: null },
+        select: { id: true },
+      });
+
+      const events: AdminUserEvent[] = [
+        {
+          at: person.created_at.toISOString(),
+          kind: 'account' as const,
+          action: 'account.created',
+          organization: null,
+          actor: null,
+          before: null,
+          after: null,
+        },
+        ...memberships.map((m): AdminUserEvent => ({
+          at: m.created_at.toISOString(),
+          kind: 'organization',
+          action: 'membership.joined',
+          organization: orgRef(m),
+          actor: null,
+          before: null,
+          after: { role: m.role },
+        })),
+        ...workDays.map((w): AdminUserEvent => ({
+          at: w.last_at.toISOString(),
+          kind: 'work',
+          action: 'work.day',
+          organization: orgRef(w),
+          actor: null,
+          before: null,
+          after: { receipts: w.receipts, payments: w.payments },
+        })),
+        ...audits.map((a): AdminUserEvent => ({
+          at: a.created_at.toISOString(),
+          kind: WORK_ACTION.test(a.action) ? 'work' : 'organization',
+          action: a.action,
+          organization: orgRef(a),
+          actor: a.actor_user_id === id ? null : (a.actor_name ?? 'Máy chủ'),
+          before: a.before ?? null,
+          after: a.after ?? null,
+        })),
+        ...adminActs.map((l): AdminUserEvent => ({
+          at: l.created_at.toISOString(),
+          kind: 'admin',
+          action: l.action,
+          organization: orgRef(l),
+          actor: l.operator,
+          before: null,
+          after: l.reason ? { reason: l.reason } : null,
+        })),
+      ].sort((x, y) => y.at.localeCompare(x.at));
+
+      return {
+        id: person.id,
+        name: person.name,
+        username: person.username,
+        phone: person.phone,
+        hasVerifiedRecoveryEmail: person.verified,
+        createdAt: person.created_at.toISOString(),
+        memberships: memberships.flatMap((m) => {
+          const organization = orgRef(m);
+          return organization
+            ? [
+                {
+                  organization,
+                  role: MemberRole.parse(m.role),
+                  status: MemberStatus.parse(m.status),
+                  branch: m.branch,
+                  joinedAt: m.created_at.toISOString(),
+                  receipts: m.receipts,
+                  payments: m.payments,
+                  lastActivityAt: m.last_activity?.toISOString() ?? null,
+                },
+              ]
+            : [];
+        }),
+        timeline: events.slice(0, ADMIN_USER_TIMELINE_MAX),
+        timelineTruncated: events.length > ADMIN_USER_TIMELINE_MAX,
+      };
+    });
+  }
+
+  /**
+   * Sửa tên hiển thị (0.34.0): hồ sơ + nhật ký quản trị trong transaction, rồi `user_metadata.name` của Supabase Auth ngay
+   * trước commit — Auth hỏng thì hồ sơ và nhật ký rollback theo, hai nơi không lệch nhau.
+   */
+  renameUser(admin: AuthUser, id: string, input: UserRenameInput): Promise<AdminRenameResult> {
+    return privileged(this.db).run(async (tx) => {
+      const before = await tx.profile.findFirst({ where: { id, deletedAt: null }, select: { name: true } });
+      if (!before) throw new ApiException('NOT_FOUND', 'Không có tài khoản này');
+      await tx.profile.update({ where: { id }, data: { name: input.name }, select: { id: true } });
+      await tx.adminAccessLog.create({
+        data: {
+          organizationId: null,
+          userId: id,
+          action: 'rename-user',
+          operator: operatorOf(admin, input.approvedBy),
+          reason: renameNote(before.name, input.name, input.reason),
+        },
+        select: { id: true },
+      });
+      await this.auth.setName(id, input.name);
+      return { id, name: input.name, previousName: before.name };
+    });
+  }
+
+  /**
+   * Sửa tên tổ chức (0.34.0). Ngoài nhật ký quản trị còn ghi `organization.updated` vào nhật ký CỦA TỔ CHỨC (người làm = tài
+   * khoản quản trị) — chủ thấy ai đã đổi tên vựa mình, như khi chủ tự đổi.
+   */
+  renameOrganization(admin: AuthUser, id: string, input: OrganizationRenameInput): Promise<AdminRenameResult> {
+    return privileged(this.db).run(async (tx) => {
+      const before = await tx.organization.findFirst({ where: { id, deletedAt: null }, select: { name: true } });
+      if (!before) throw new ApiException('NOT_FOUND', 'Không có tổ chức này');
+      await tx.organization.update({ where: { id }, data: { name: input.name }, select: { id: true } });
+      await tx.adminAccessLog.create({
+        data: {
+          organizationId: id,
+          userId: null,
+          action: 'rename-organization',
+          operator: operatorOf(admin, input.approvedBy),
+          reason: renameNote(before.name, input.name, input.reason),
+        },
+        select: { id: true },
+      });
+      await recordAudit(tx, {
+        organizationId: id,
+        actorUserId: admin.id,
+        action: 'organization.updated',
+        entity: 'organization',
+        entityId: id,
+        before: { name: before.name },
+        after: { name: input.name },
+      });
+      return { id, name: input.name, previousName: before.name };
     });
   }
 

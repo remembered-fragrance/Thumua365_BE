@@ -13,6 +13,8 @@ import {
   AdminOverview,
   AdminPromoCodes,
   AdminPromoRow,
+  AdminRenameResult,
+  AdminUserDetail,
   AdminUsers,
   ErrorBody,
 } from '@mambo/contracts';
@@ -30,6 +32,7 @@ const PRIVILEGED_URL =
 const ADMIN_ID = '3f9b8c7d-6e5a-4b3c-9d2e-1f0a9b8c7d6e';
 
 let app: INestApplication;
+const fakeAuth = new FakeSupabaseAdmin();
 let signer: Awaited<ReturnType<typeof makeSigner>>;
 
 beforeAll(async () => {
@@ -38,7 +41,7 @@ beforeAll(async () => {
   app = await buildTestApp({
     env: testEnv({ DATABASE_URL: SERVICE_URL, PRIVILEGED_DATABASE_URL: PRIVILEGED_URL, ADMIN_USER_IDS: ADMIN_ID, RATE_LIMIT_PER_MINUTE: '10000' }),
     jwks: signer.jwks,
-    supabaseAdmin: new FakeSupabaseAdmin(),
+    supabaseAdmin: fakeAuth,
     db,
     privilegedDb: new PrivilegedDatabase(PRIVILEGED_URL),
     memberships: new PrismaMemberships(db),
@@ -100,6 +103,9 @@ describe('chỉ quản trị viên', () => {
     await owner.patch(`/v1/admin/organizations/${vua}/features`, { feature: 'orders', enabled: false, approvedBy: 'Tôi' }).expect(403);
     await owner.get('/v1/admin/promo-codes').expect(403);
     await owner.get('/v1/admin/users', { q: 'Hùng' }).expect(403);
+    await owner.get(`/v1/admin/users/${vuaOwner}`).expect(403);
+    await owner.patch(`/v1/admin/users/${vuaOwner}`, { name: 'X', approvedBy: 'Tôi' }).expect(403);
+    await owner.patch(`/v1/admin/organizations/${vua}`, { name: 'X', approvedBy: 'Tôi' }).expect(403);
     await owner.get('/v1/admin/access-log').expect(403);
     expect(await logActions()).toEqual([]);
   });
@@ -301,6 +307,141 @@ describe('người dùng', () => {
 
     const { rows } = await admin.query(`select reason from admin_access_log where action = 'search-users' order by created_at`);
     expect(rows.map((r) => r.reason)).toEqual(['0907 000 111', 'TuHung', 'cô m']);
+  });
+
+  it('0.34.0: không có q → mọi tài khoản, mới tạo trước, từng trang 50 theo cursor; cursor hỏng → 422; ghi list-users', async () => {
+    // 60 tài khoản cùng một thời điểm (cùng micro giây) — cursor phải tách được bằng id.
+    await admin.query(
+      `insert into profiles (id, name, created_at) select gen_random_uuid(), 'Người ' || g, '2026-11-01T00:00:00Z' from generate_series(1, 60) g`,
+    );
+    const api = await as(ADMIN_ID);
+    const first = AdminUsers.parse((await api.get('/v1/admin/users').expect(200)).body);
+    expect(first.rows).toHaveLength(50);
+    // Hai hồ sơ của beforeEach tạo lúc now() → đứng đầu.
+    expect(first.rows.slice(0, 2).map((r) => r.id).sort()).toEqual([vuaOwner, farmer].sort());
+    expect(first.cursor).toBeTruthy();
+    const second = AdminUsers.parse((await api.get('/v1/admin/users', { cursor: first.cursor }).expect(200)).body);
+    expect(second.rows).toHaveLength(12);
+    expect(second.cursor).toBeNull();
+    const all = [...first.rows, ...second.rows].map((r) => r.id);
+    expect(new Set(all).size).toBe(62);
+
+    await api.get('/v1/admin/users', { cursor: 'rác' }).expect(422);
+    const { rows } = await admin.query(`select action, reason from admin_access_log where action = 'list-users'`);
+    expect(rows).toEqual([
+      { action: 'list-users', reason: null },
+      { action: 'list-users', reason: null },
+    ]);
+  });
+
+  it('0.34.0: chi tiết — tổ chức kèm mức làm việc, nhật ký gộp mới trước; không có → 404; ghi view-user', async () => {
+    await admin.query(`update profiles set created_at = '2026-11-01T00:00:00Z' where id = $1`, [vuaOwner]);
+    await admin.query(`update memberships set created_at = '2026-11-01T00:05:00Z' where user_id = $1`, [vuaOwner]);
+    const api = await as(ADMIN_ID);
+    // Anh Hùng: lập 2 phiếu + ghi 1 lần trả hôm 10/11, 1 phiếu đã xoá (không tính); xoá một phiếu (audit).
+    const tx1 = newId();
+    await admin.query(
+      `insert into transactions (id, organization_id, created_by, date, kind, supplier_name, lines, created_at, deleted_at) values
+         ($1, $2, $3, now(), 'purchase', 'Khách lẻ', '[]', '2026-11-10T02:00:00Z', null),
+         ($4, $2, $3, now(), 'purchase', 'Khách lẻ', '[]', '2026-11-10T03:00:00Z', null),
+         ($5, $2, $3, now(), 'purchase', 'Khách lẻ', '[]', '2026-11-10T04:00:00Z', now())`,
+      [tx1, vua, vuaOwner, newId(), newId()],
+    );
+    await admin.query(
+      `insert into payments (id, organization_id, transaction_id, created_by, date, amount, created_at)
+       values ($1, $2, $3, $4, now(), 500000, '2026-11-10T05:00:00Z')`,
+      [newId(), vua, tx1, vuaOwner],
+    );
+    await admin.query(
+      `insert into audit_log (organization_id, actor_user_id, action, entity, entity_id, before, created_at)
+       values ($1, $2, 'receipt.deleted', 'transaction', $3, '{"total": 1000}', '2026-11-11T01:00:00Z')`,
+      [vua, vuaOwner, newId()],
+    );
+    // Người khác (chủ khác) đổi quyền của anh Hùng ở vựa — dòng của chỗ anh Hùng trong tổ chức.
+    const { rows: ms } = await admin.query<{ id: string }>(`select id from memberships where user_id = $1`, [vuaOwner]);
+    await admin.query(
+      `insert into audit_log (organization_id, actor_user_id, action, entity, entity_id, after, created_at)
+       values ($1, $2, 'member.role_changed', 'membership', $3, '{"role": "manager"}', '2026-11-12T01:00:00Z')`,
+      [vua, farmer, ms[0]?.id],
+    );
+    await admin.query(
+      `insert into admin_access_log (user_id, action, operator, reason, created_at)
+       values ($1, 'reset-password', 'Linh (admin)', 'Khách gọi', '2026-11-12T02:00:00Z')`,
+      [vuaOwner],
+    );
+
+    const d = AdminUserDetail.parse((await api.get(`/v1/admin/users/${vuaOwner}`).expect(200)).body);
+    expect(d).toMatchObject({ id: vuaOwner, name: 'Anh Hùng', username: 'tuhung', phone: '+84905112233', timelineTruncated: false });
+    expect(d.memberships).toMatchObject([
+      { organization: { id: vua, name: 'Vựa Tư Hùng', type: 'trader' }, role: 'owner', status: 'active', receipts: 2, payments: 1 },
+    ]);
+    expect(d.memberships[0]?.lastActivityAt).toBe('2026-11-10T05:00:00.000Z');
+
+    expect(d.timeline.map((e) => [e.kind, e.action, e.actor])).toEqual([
+      ['admin', 'reset-password', 'Linh (admin)'],
+      ['organization', 'member.role_changed', 'Cô Mai'],
+      ['work', 'receipt.deleted', null],
+      ['work', 'work.day', null],
+      ['organization', 'membership.joined', null],
+      ['account', 'account.created', null],
+    ]);
+    expect(d.timeline[0]?.after).toEqual({ reason: 'Khách gọi' });
+    expect(d.timeline[3]).toMatchObject({ at: '2026-11-10T05:00:00.000Z', organization: { id: vua }, after: { receipts: 2, payments: 1 } });
+    expect(d.timeline[4]).toMatchObject({ organization: { id: vua }, after: { role: 'owner' } });
+    await api.get(`/v1/admin/users/${newId()}`).expect(404);
+    // Lần xem trước không hiện lại trong nhật ký của tài khoản.
+    const again = AdminUserDetail.parse((await api.get(`/v1/admin/users/${vuaOwner}`).expect(200)).body);
+    expect(again.timeline.filter((e) => e.kind === 'admin')).toHaveLength(1);
+    const { rows } = await admin.query(`select user_id from admin_access_log where action = 'view-user'`);
+    expect(rows.map((r) => r.user_id)).toEqual([vuaOwner, vuaOwner]);
+  });
+});
+
+describe('sửa tên (0.34.0)', () => {
+  it('tài khoản: hồ sơ + Supabase Auth đổi cùng nhau, cần người duyệt, ghi rename-user (cũ → mới · lý do); không có → 404', async () => {
+    const api = await as(ADMIN_ID);
+    await api.patch(`/v1/admin/users/${vuaOwner}`, { name: 'Anh Hùng Mới' }).expect(422);
+    await api.patch(`/v1/admin/users/${vuaOwner}`, { name: '  ', approvedBy: 'Linh' }).expect(422);
+    const r = AdminRenameResult.parse(
+      (await api.patch(`/v1/admin/users/${vuaOwner}`, { name: '  Anh Hùng Mới ', approvedBy: 'Linh', reason: 'Khách nhờ' }).expect(200)).body,
+    );
+    expect(r).toEqual({ id: vuaOwner, name: 'Anh Hùng Mới', previousName: 'Anh Hùng' });
+    expect(fakeAuth.names.get(vuaOwner)).toBe('Anh Hùng Mới');
+    const { rows } = await admin.query(`select name from profiles where id = $1`, [vuaOwner]);
+    expect(rows[0]?.name).toBe('Anh Hùng Mới');
+    const log = await admin.query(`select user_id, operator, reason from admin_access_log where action = 'rename-user'`);
+    expect(log.rows).toEqual([{ user_id: vuaOwner, operator: `Linh · qua ${ADMIN_ID}`, reason: '"Anh Hùng" → "Anh Hùng Mới" · Khách nhờ' }]);
+    // Hiện trong nhật ký của tài khoản, nhóm quản trị viên.
+    const d = AdminUserDetail.parse((await api.get(`/v1/admin/users/${vuaOwner}`).expect(200)).body);
+    expect(d.timeline[0]).toMatchObject({ kind: 'admin', action: 'rename-user', actor: `Linh · qua ${ADMIN_ID}` });
+
+    await api.patch(`/v1/admin/users/${newId()}`, { name: 'Ai đó', approvedBy: 'Linh' }).expect(404);
+  });
+
+  it('tài khoản: Supabase Auth hỏng → hồ sơ và nhật ký quản trị rollback', async () => {
+    const api = await as(ADMIN_ID);
+    fakeAuth.failNames = true;
+    try {
+      await api.patch(`/v1/admin/users/${farmer}`, { name: 'Cô Mai Mới', approvedBy: 'Linh' }).expect(500);
+    } finally {
+      fakeAuth.failNames = false;
+    }
+    const { rows } = await admin.query(`select name from profiles where id = $1`, [farmer]);
+    expect(rows[0]?.name).toBe('Cô Mai');
+    expect((await admin.query(`select 1 from admin_access_log where action = 'rename-user'`)).rows).toHaveLength(0);
+  });
+
+  it('tổ chức: đổi tên, ghi rename-organization và organization.updated vào nhật ký của tổ chức (người làm = quản trị viên)', async () => {
+    const api = await as(ADMIN_ID);
+    const r = AdminRenameResult.parse((await api.patch(`/v1/admin/organizations/${vua}`, { name: 'Vựa Tư Hùng 2', approvedBy: 'Linh' }).expect(200)).body);
+    expect(r).toEqual({ id: vua, name: 'Vựa Tư Hùng 2', previousName: 'Vựa Tư Hùng' });
+    expect((await admin.query(`select name from organizations where id = $1`, [vua])).rows[0]?.name).toBe('Vựa Tư Hùng 2');
+    const audit = await admin.query(`select actor_user_id, before, after from audit_log where organization_id = $1 and action = 'organization.updated'`, [vua]);
+    expect(audit.rows).toEqual([{ actor_user_id: ADMIN_ID, before: { name: 'Vựa Tư Hùng' }, after: { name: 'Vựa Tư Hùng 2' } }]);
+    const log = await admin.query(`select organization_id, reason from admin_access_log where action = 'rename-organization'`);
+    expect(log.rows).toEqual([{ organization_id: vua, reason: '"Vựa Tư Hùng" → "Vựa Tư Hùng 2"' }]);
+    await api.patch(`/v1/admin/organizations/${vua}`, { name: 'x'.repeat(121), approvedBy: 'Linh' }).expect(422);
+    await api.patch(`/v1/admin/organizations/${newId()}`, { name: 'Ai đó', approvedBy: 'Linh' }).expect(404);
   });
 });
 
